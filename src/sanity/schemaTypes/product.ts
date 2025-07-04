@@ -1,5 +1,5 @@
 import { defineType, defineField } from "sanity";
-
+import { VariantSelectorInput } from "../components/varaint-selector-input";
 
 export const product = defineType({
   name: "product",
@@ -204,7 +204,6 @@ export const product = defineType({
               hasColorOptions: "hasColorOptions",
             },
             prepare({ size, color, price, inventory, isActive }) {
-            
               const nameParts = [size, color].filter(Boolean);
               const variantName =
                 nameParts.length > 0 ? nameParts.join(" - ") : "Variant";
@@ -213,7 +212,7 @@ export const product = defineType({
                 ? `${price.toLocaleString()} UGX`
                 : "No price";
               const status = !isActive ? " (Inactive)" : "";
-              const stockWarning = inventory <= 5 ? " ⚠️" : "";
+              const stockWarning = inventory <= 5 ? " (Low Stock)" : "";
 
               return {
                 title: `${variantName}${status}`,
@@ -328,7 +327,6 @@ export const product = defineType({
               const parent = context.parent as { type?: string };
               const discountType = parent?.type;
 
-              // If no discount or discount type is "none", the value is optional
               if (!discountType || discountType === "none") {
                 return true;
               }
@@ -384,6 +382,27 @@ export const product = defineType({
           type: "datetime",
           description: "When this discount expires",
           hidden: ({ parent }) => parent?.type === "none",
+        }),
+        defineField({
+          name: "applyToAllVariants",
+          title: "Apply to All Variants",
+          type: "boolean",
+          description: "Apply this discount to all variants of this product",
+          initialValue: true,
+          hidden: ({ parent }) => parent?.type === "none",
+        }),
+        defineField({
+          name: "applicableVariants",
+          title: "Apply to Specific Variants",
+          type: "array",
+          of: [{ type: "string" }],
+          hidden: ({ parent }) =>
+            parent?.type === "none" || parent?.applyToAllVariants === true,
+          description:
+            "Select the specific variants this discount should apply to.",
+          components: {
+            input: VariantSelectorInput,
+          },
         }),
       ],
     }),
