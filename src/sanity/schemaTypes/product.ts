@@ -1,5 +1,6 @@
 import { defineType, defineField } from "sanity";
 
+
 export const product = defineType({
   name: "product",
   title: "Product",
@@ -353,33 +354,7 @@ export const product = defineType({
               return true;
             }),
         }),
-        defineField({
-          name: "applyToAllVariants",
-          title: "Apply to All Variants",
-          type: "boolean",
-          description: "Apply this discount to all product variants?",
-          initialValue: true,
-          hidden: ({ parent }) => parent?.type === "none",
-        }),
-        defineField({
-          name: "specificVariants",
-          title: "Select Specific Variants",
-          type: "array",
-          description: "Choose which variants this discount applies to",
-          of: [
-            {
-              type: "string",
-              options: {
-                list: [
-                  // This would need to be populated dynamically based on the product's variants
-                  // For now, we'll use a simple string input
-                ],
-              },
-            },
-          ],
-          hidden: ({ parent }) =>
-            parent?.type === "none" || parent?.applyToAllVariants !== false,
-        }),
+
         defineField({
           name: "title",
           title: "Discount Campaign Name",
