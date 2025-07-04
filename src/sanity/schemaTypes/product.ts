@@ -204,7 +204,7 @@ export const product = defineType({
               hasColorOptions: "hasColorOptions",
             },
             prepare({ size, color, price, inventory, isActive }) {
-              // Build variant name from available options
+            
               const nameParts = [size, color].filter(Boolean);
               const variantName =
                 nameParts.length > 0 ? nameParts.join(" - ") : "Variant";
