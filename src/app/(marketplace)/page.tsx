@@ -1,12 +1,11 @@
-import OfferBanner from "@/components/offer-banner";
-import { ProductList } from "@/components/product-list";
+import AboutCompany from "@/components/about-company";
 import Products from "@/components/products";
-import { Product } from "@/types";
 
-export default function Marketplace() {
+export default async function Marketplace() {
   return (
     <>
-      <OfferBanner />
+      <AboutCompany />
+      {/* <OfferBanner /> */}
       <Products />
     </>
   );

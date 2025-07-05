@@ -27,20 +27,15 @@ import { LightDarkToggle } from "./light-dark-toggle";
 
 const navItems = [
   {
-    name: "Popular",
+    name: "Featured",
     link: "/",
   },
   {
-    name: "On sale",
-    link: "/on-sale",
+    name: "New Arrivals",
+    link: "/new-arrivals",
   },
   {
-    name: "New Products",
-    link: "/on-sale",
-  },
-
-  {
-    name: "Categories",
+    name: "Special Offers",
     link: "/on-sale",
   },
 ];
@@ -55,8 +50,13 @@ const Navbar = () => {
       <header className="px-5 h-16 py-3 border-b border-gray-700 bg-black shadow-sm">
         <nav className="flex justify-between items-center h-full">
           <div className="flex space-x-10">
-            <Link className="bg-[#202022] p-2 rounded-lg" href="/">
-              <Image src="/logo.svg" alt="logo" width={120} height={30} />
+            <Link className="p-2 rounded-lg" href="/">
+              <Image
+                src="/kapcdam-store-logo.svg"
+                alt="logo"
+                width={150}
+                height={30}
+              />
             </Link>
             <div className="flex space-x-8">
               {navItems.map((navItem: any, idx: number) => (
@@ -69,7 +69,7 @@ const Navbar = () => {
                     className={cn(
                       "hidden sm:block text-white relative",
                       pathname === navItem.link &&
-                        "font-semibold underline text-lime-400 decoration-lime-400 underline-offset-[25px]"
+                        "font-semibold underline  decoration-white underline-offset-[25px]"
                     )}
                   >
                     {navItem.name}
