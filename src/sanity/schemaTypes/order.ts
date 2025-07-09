@@ -4,6 +4,7 @@ export const order = defineType({
   name: "order",
   title: "Order",
   type: "document",
+  readOnly: true,
   description:
     "Financial container for customer orders including products and courses",
   fields: [
@@ -13,7 +14,6 @@ export const order = defineType({
       type: "string",
       description: "Unique order identifier (e.g., KAPC-2025-001)",
       validation: (rule) => rule.required().error("Order number is required"),
-      readOnly: true,
     }),
 
     defineField({
