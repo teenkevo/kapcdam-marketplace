@@ -199,9 +199,8 @@ export const order = defineType({
     defineField({
       name: "shippingAddress",
       title: "Shipping Address",
-      type: "reference",
+      type: "address",
       description: "Customer delivery address",
-      to: [{ type: "address" }],
       validation: (rule) =>
         rule.required().error("Shipping address is required"),
       readOnly: true,
