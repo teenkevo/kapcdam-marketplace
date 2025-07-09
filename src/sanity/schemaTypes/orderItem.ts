@@ -4,6 +4,7 @@ export const orderItem = defineType({
   name: "orderItem",
   title: "Order Item",
   type: "document",
+  readOnly: true,
   description: "Individual items within an order (products or courses)",
   fields: [
     defineField({
