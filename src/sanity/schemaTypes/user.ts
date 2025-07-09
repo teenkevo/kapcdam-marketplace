@@ -4,6 +4,7 @@ export const user = defineType({
   name: "user",
   title: "Customer User",
   type: "document",
+  readOnly:true,
   description:
     "Customer users for KAPCDAM e-commerce platform. Authentication handled by Clerk.",
   fields: [
@@ -13,7 +14,6 @@ export const user = defineType({
       type: "string",
       description: "Unique identifier from Clerk authentication",
       validation: (rule) => rule.required().error("Clerk User ID is required"),
-      readOnly: true,
     }),
 
     defineField({
@@ -104,17 +104,14 @@ export const user = defineType({
       firstName: "firstName",
       lastName: "lastName",
       email: "email",
-      addressCount: "addresses",
     },
-    prepare({ firstName, lastName, email, addressCount }) {
+    prepare({ firstName, lastName, email}) {
       const name = [firstName, lastName].filter(Boolean).join(" ") || "No name";
-      const addressInfo = addressCount
-        ? ` • ${addressCount.length} address${addressCount.length === 1 ? "" : "es"}`
-        : "";
+
 
       return {
         title: name,
-        subtitle: `${email || "No email"}${addressInfo}`,
+        subtitle: `${email || "No email"}`,
       };
     },
   },

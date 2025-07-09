@@ -1,4 +1,5 @@
 import { defineType, defineField } from "sanity";
+import { SizeInput } from "../components/size-selector";
 
 export const product = defineType({
   name: "product",
@@ -11,8 +12,7 @@ export const product = defineType({
       name: "title",
       title: "Product Name",
       type: "string",
-      description:
-        'Name of the product (e.g., "Handmade Lavender Soap", "Traditional Bitengi Dress")',
+      description: 'Name of the product (e.g., "Handmade Lavender Soap")',
       validation: (rule) =>
         rule
           .required()
@@ -69,57 +69,52 @@ export const product = defineType({
       type: "reference",
       description: "Select the category this product belongs to",
       to: [{ type: "product_category" }],
+      options: {
+        filter: "defined(parentId)",
+      },
       validation: (rule) =>
         rule.required().error("Product category is required"),
     }),
-
     defineField({
-      name: "hasVariants",
-      title: "Has Variants",
-      type: "boolean",
-      description:
-        "Does this product have different variants (size, color, etc.)?",
-      initialValue: false,
-    }),
-
-    defineField({
-      name: "variantOptions",
-      title: "Variant Options",
+      name: "size",
+      title: "Size",
       type: "object",
-      description: "Configure what types of variants this product has",
-      hidden: ({ document }) => !document?.hasVariants,
       fields: [
         defineField({
-          name: "hasSizeOptions",
-          title: "Has Size Options",
-          type: "boolean",
-          description: "Does this product come in different sizes?",
-          initialValue: false,
-        }),
-        defineField({
-          name: "sizeLabel",
-          title: "Size Label",
+          name: "value",
+          title: "Size Value",
           type: "string",
-          description:
-            "Custom label for size (e.g., 'Size', 'Volume', 'Weight')",
-          hidden: ({ parent }) => !parent?.hasSizeOptions,
-          initialValue: "Size",
+          description: "Product size (e.g., Large, 250ml, XL)",
+          components: {
+            input: SizeInput,
+          },
         }),
         defineField({
-          name: "hasColorOptions",
-          title: "Has Color Options",
+          name: "includeInTitle",
+          title: "Include in Title",
           type: "boolean",
-          description: "Does this product come in different colors?",
-          initialValue: false,
+          description: "Should size be included in the product title?",
+          initialValue: true,
+        }),
+      ],
+    }),
+    defineField({
+      name: "color",
+      title: "Color",
+      type: "object",
+      fields: [
+        defineField({
+          name: "value",
+          title: "Color Value",
+          type: "string",
+          description: "Product color (e.g., Lavender, Red, Natural)",
         }),
         defineField({
-          name: "colorLabel",
-          title: "Color Label",
-          type: "string",
-          description:
-            "Custom label for color (e.g., 'Color', 'Scent', 'Flavor')",
-          hidden: ({ parent }) => !parent?.hasColorOptions,
-          initialValue: "Color",
+          name: "includeInTitle",
+          title: "Include in Title",
+          type: "boolean",
+          description: "Should color be included in the product title?",
+          initialValue: true,
         }),
       ],
     }),
@@ -129,15 +124,8 @@ export const product = defineType({
       title: "Price (UGX)",
       type: "number",
       description: "Product price in Ugandan Shillings",
-      hidden: ({ document }) => Boolean(document?.hasVariants),
       validation: (rule) =>
-        rule.custom((value, context) => {
-          const hasVariants = context.document?.hasVariants;
-          if (!hasVariants && (!value || value < 100)) {
-            return "Price must be at least 100 UGX";
-          }
-          return true;
-        }),
+        rule.required().min(100).error("Price must be at least 100 UGX"),
     }),
 
     defineField({
@@ -145,7 +133,6 @@ export const product = defineType({
       title: "Compare At Price (UGX)",
       type: "number",
       description: "Original price before discount (optional)",
-      hidden: ({ document }) => Boolean(document?.hasVariants),
       validation: (rule) => rule.min(100),
     }),
 
@@ -154,24 +141,9 @@ export const product = defineType({
       title: "Stock Quantity",
       type: "number",
       description: "Number of units in stock",
-      hidden: ({ document }) => Boolean(document?.hasVariants),
       validation: (rule) =>
-        rule.custom((value, context) => {
-          const hasVariants = context.document?.hasVariants;
-          if (!hasVariants && (value === undefined || value < 0)) {
-            return "Stock quantity cannot be negative";
-          }
-          return true;
-        }),
+        rule.required().min(0).error("Stock quantity cannot be negative"),
       initialValue: 0,
-    }),
-
-    defineField({
-      name: "sku",
-      title: "SKU",
-      type: "string",
-      description: "Stock Keeping Unit identifier",
-      hidden: ({ document }) => Boolean(document?.hasVariants),
     }),
 
     defineField({
@@ -269,35 +241,30 @@ export const product = defineType({
     select: {
       title: "title",
       price: "price",
-      hasVariants: "hasVariants",
       categoryName: "category.name",
       isActive: "isActive",
       inStock: "inStock",
       inventory: "inventory",
       image: "images.0",
+      size: "size.value",
+      color: "color.value"
     },
     prepare({
       title,
       price,
-      hasVariants,
       categoryName,
       isActive,
       inStock,
       inventory,
       image,
+      size,
+      color,
     }) {
-      let priceDisplay = "";
-      let variantInfo = "";
-      let stockInfo = "";
+      const priceDisplay = price ? `${price.toLocaleString()} UGX` : "No price";
 
-      if (hasVariants) {
-        priceDisplay = "See variants for pricing";
-        variantInfo = " • Has variants";
-      } else {
-        priceDisplay = price ? `${price.toLocaleString()} UGX` : "No price";
-        if (typeof inventory === "number" && inventory <= 5) {
-          stockInfo = ` (Low Stock: ${inventory})`;
-        }
+      let stockInfo = "";
+      if (typeof inventory === "number" && inventory <= 5) {
+        stockInfo = ` (Low Stock: ${inventory})`;
       }
 
       const categoryInfo = categoryName ? ` • ${categoryName}` : "";
@@ -307,9 +274,12 @@ export const product = defineType({
       else if (!inStock) status = " (Out of Stock)";
       else status = stockInfo;
 
+     const clr = color ? `${color} ` : "";
+     const sz = size ? `${size}` : "";
+
       return {
-        title: `${title}${status}`,
-        subtitle: `${priceDisplay}${variantInfo}${categoryInfo}`,
+        title: `${clr}${title} ${sz}${status}`,
+        subtitle: `${priceDisplay}${categoryInfo}`,
         media: image,
       };
     },

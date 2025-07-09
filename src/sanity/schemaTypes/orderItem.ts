@@ -4,6 +4,7 @@ export const orderItem = defineType({
   name: "orderItem",
   title: "Order Item",
   type: "document",
+  readOnly: true,
   description: "Individual items within an order (products or courses)",
   fields: [
     defineField({
@@ -98,48 +99,50 @@ export const orderItem = defineType({
     }),
 
     defineField({
-      name: "productVariant",
-      title: "Product Variant",
-      type: "reference",
-      description: "Reference to the specific product variant ordered",
-      to: [{ type: "productVariant" }],
-      hidden: ({ document }) => document?.type !== "product",
-      validation: (rule) =>
-        rule.custom((value, context) => {
-          const itemType = context.document?.type;
-          if (itemType === "product" && !value) {
-            return "Product variant reference is required when item type is product";
-          }
-          return true;
-        }),
-    }),
-
-    defineField({
-      name: "variantSnapshot",
-      title: "Variant Snapshot",
+      name: "productSnapshot",
+      title: "Product Snapshot",
       type: "object",
-      description: "Snapshot of variant data at time of order",
+      description: "Snapshot of product data at time of order",
       hidden: ({ document }) => document?.type !== "product",
+      readOnly: true,
       fields: [
         defineField({
-          name: "size",
-          title: "Variant Size",
-          type: "string",
-          description: "Variant size at time of order",
-        }),
-        defineField({
-          name: "color",
-          title: "Variant Color",
-          type: "string",
-          description: "Variant color at time of order",
-        }),
-
-        defineField({
           name: "name",
-          title: "Variant Name",
+          title: "Product Name",
           type: "string",
-          description: "Variant name at time of order",
-          readOnly: true,
+          description: "Product name at time of order",
+        }),
+        defineField({
+          name: "price",
+          title: "product Price",
+          type: "string",
+          description: "Price at time of order",
+        }),
+        defineField({
+          name: "specifications",
+          title: "Specifications",
+          description: "Product specifications at time of order",
+          type: "array",
+          of: [
+            {
+              type: "object",
+              options: {
+                columns: 2,
+              },
+              fields: [
+                defineField({
+                  name: "name",
+                  title: "Name",
+                  type: "string",
+                }),
+                defineField({
+                  name: "value",
+                  title: "Value",
+                  type: "string",
+                }),
+              ],
+            },
+          ],
         }),
       ],
     }),
@@ -261,8 +264,6 @@ export const orderItem = defineType({
       productTitle: "product.title",
       courseTitle: "course.title",
       fulfillmentStatus: "fulfillmentStatus",
-      variantSize: "productVariant.size",
-      variantColor: "productVariant.color",
       orderNumber: "order.orderNumber",
     },
     prepare({
@@ -272,8 +273,6 @@ export const orderItem = defineType({
       lineTotal,
       productTitle,
       courseTitle,
-      variantSize,
-      variantColor,
       orderNumber,
     }) {
       const itemName = type === "product" ? productTitle : courseTitle;
@@ -285,23 +284,17 @@ export const orderItem = defineType({
         ? `${lineTotal.toLocaleString()} UGX`
         : "No total";
 
-      const variantInfo = [];
-      if (variantSize) variantInfo.push(variantSize);
-      if (variantColor) variantInfo.push(variantColor);
-      const variants =
-        variantInfo.length > 0 ? ` • ${variantInfo.join(", ")}` : "";
       const quantityInfo = quantity ? ` (${quantity}x)` : "";
 
       const orderInfo = orderNumber ? ` • ${orderNumber}` : "";
 
       return {
-        title: `${itemName || "Unknown Item"}${quantityInfo}${variants}`,
+        title: `${itemName || "Unknown Item"}${quantityInfo}$`,
         subtitle: `${priceFormatted} → ${totalFormatted}${orderInfo}`,
         media: null,
       };
     },
   },
-
   orderings: [
     {
       title: "Recent Items",

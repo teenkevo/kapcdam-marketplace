@@ -1,56 +1,36 @@
-
 import React from "react";
 import { Stack, Select, Text, Box, Spinner } from "@sanity/ui";
 import { StringInputProps, useFormValue } from "sanity";
 import { set, unset } from "sanity";
 import useSWR from "swr";
 import { useClient } from "sanity";
+import { getSizeOptions } from "../lib/helpers";
 
-const getSizeOptions = (sizeMapType: string): string[] => {
-  const sizeMapTypes = {
-    clothing_sizes: ["XS", "S", "M", "L", "XL", "XXL"],
-    general_sizes: ["Small", "Medium", "Large"],
-    liquid_volumes: [
-      "10ml",
-      "50ml",
-      "100ml",
-      "250ml",
-      "500ml",
-      "1L",
-      "2L",
-      "5L",
-      "10L",
-    ],
-    solid_weights: ["10g", "50g", "100g", "200g", "500g", "1kg", "2kg"],
-    none: [],
-  };
-  return sizeMapTypes[sizeMapType as keyof typeof sizeMapTypes] || [];
-};
 
 type CategoryData = {
   categoryName?: string;
   sizeMapType?: string;
 };
 
-export function CategoryBasedSizeInput(props: StringInputProps) {
+export function SizeInput(props: StringInputProps) {
   const { onChange, value } = props;
 
   const client = useClient({ apiVersion: "2025-07-05" });
 
-  const productRef = useFormValue(["product", "_ref"]) as string | undefined;
+  const categoryRef = useFormValue(["category", "_ref"]) as string | undefined;
 
-  const fetcher = (query: string, params: { productId: string }) =>
+  const fetcher = (query: string, params: { categoryId: string }) =>
     client.fetch<CategoryData>(query, params);
 
   const query = `
-    *[_type == "product" && _id == $productId][0] {
-      "categoryName": category->name,
-      "sizeMapType": coalesce(category->sizeMapType, category->parentId->sizeMapType, 'none')
+    *[_type == "product_category" && _id == $categoryId][0] {
+      "categoryName": name,
+      "sizeMapType": coalesce(sizeMapType, parentId->sizeMapType, 'none')
     }
   `;
 
   const { data, error, isLoading } = useSWR(
-    productRef ? [query, { productId: productRef }] : null,
+    categoryRef ? [query, { categoryId: categoryRef }] : null,
     ([query, params]) => fetcher(query, params)
   );
 
@@ -75,13 +55,13 @@ export function CategoryBasedSizeInput(props: StringInputProps) {
     );
   }
 
-  if (!productRef) {
+  if (!categoryRef) {
     return (
       <Stack space={2}>
         <Text muted size={1}>
           Size
         </Text>
-        <Text size={2}>Please select a product first.</Text>
+        <Text size={2}>Please select a category first.</Text>
       </Stack>
     );
   }
@@ -112,9 +92,7 @@ export function CategoryBasedSizeInput(props: StringInputProps) {
 
   return (
     <Stack space={2}>
-      <Text muted size={1}>
-        Size
-      </Text>
+
       <Select
         value={value || ""}
         onChange={handleChange}
@@ -126,9 +104,7 @@ export function CategoryBasedSizeInput(props: StringInputProps) {
           </option>
         ))}
       </Select>
-      <Text muted size={1}>
-        Using sizes from the &quot;{data?.categoryName}&quot; category.
-      </Text>
+
     </Stack>
   );
 }

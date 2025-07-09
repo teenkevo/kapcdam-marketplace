@@ -32,7 +32,7 @@ export const address = defineType({
 
     defineField({
       name: "phone",
-      title: "Contact Phone for this Address",
+      title: "Contact Phone",
       type: "string",
       description: "Phone number for delivery contact at this address",
       validation: (rule) =>
@@ -42,71 +42,20 @@ export const address = defineType({
     }),
 
     defineField({
-      name: "additionalDetails",
-      title: "Additional Delivery Instructions",
-      type: "text",
-      description:
-        'Extra details for delivery (e.g., "Blue gate", "Security code: 1234", "Ask for John")',
-      rows: 3,
-    }),
-    defineField({
-      name: "searchedLocation",
-      title: "Searched Location",
-      type: "string",
-      description:
-        'What the customer searched for in Google Maps (e.g., "Shell Bukoto", "Garden City Mall")',
-      validation: (rule) =>
-        rule.required().error("Searched location is required"),
-      readOnly: true,
-    }),
-
-    defineField({
-      name: "formattedAddress",
+      name: "address",
       title: "Complete Address",
       type: "text",
-      description: "Full formatted address from Google Maps API",
+      description: "Full street address",
       validation: (rule) => rule.required().error("Address is required"),
-      readOnly: true,
       rows: 2,
     }),
 
     defineField({
-      name: "coordinates",
-      title: "GPS Coordinates",
-      type: "object",
-      description: "Precise GPS coordinates for delivery navigation",
-      validation: (rule) =>
-        rule.required().error("GPS coordinates are required"),
-      fields: [
-        defineField({
-          name: "lat",
-          title: "Latitude",
-          type: "number",
-          validation: (rule) => rule.required().min(-90).max(90),
-        }),
-        defineField({
-          name: "lng",
-          title: "Longitude",
-          type: "number",
-          validation: (rule) => rule.required().min(-180).max(180),
-        }),
-      ],
-    }),
-
-    defineField({
-      name: "placeId",
-      title: "Google Place ID",
-      type: "string",
-      description: "Unique Google Places API identifier for this location",
-      readOnly: true,
-    }),
-
-    defineField({
-      name: "country",
-      title: "Country",
-      type: "string",
-      description: "Country for shipping calculations",
-      readOnly: true,
+      name: "landmark",
+      title: "Nearest Landmark",
+      type: "text",
+      description: "Apartment, suite, nearest landmark, etc",
+      rows: 1,
     }),
 
     defineField({
@@ -114,22 +63,41 @@ export const address = defineType({
       title: "City/Area",
       type: "string",
       description: "City or locality for delivery zones",
-      readOnly: true,
+    }),
+
+    defineField({
+      name: "country",
+      title: "Country",
+      type: "string",
+      description: "Country for shipping calculations",
+      initialValue: "Uganda",
+    }),
+
+    defineField({
+      name: "deliveryInstructions",
+      title: "Delivery Instructions",
+      type: "text",
+      description:
+        'Extra delivery details (e.g., "Blue gate", "Security code: 1234")',
+      rows: 2,
     }),
   ],
+
   preview: {
     select: {
       label: "label",
-      searchedLocation: "searchedLocation",
-      formattedAddress: "formattedAddress",
+      address: "address",
+      locality: "locality",
       isDefault: "isDefault",
     },
-    prepare({ label, searchedLocation, formattedAddress, isDefault }) {
-      const title = `${label?.toUpperCase() || "Address"} - ${searchedLocation || "No location"}`;
-      const subtitle = formattedAddress || "No address";
+    prepare({ label, address, locality, isDefault }) {
+      const labelText = label?.toUpperCase() || "ADDRESS";
+      const defaultText = isDefault ? " (Default)" : "";
+      const locationText = locality ? ` • ${locality}` : "";
+
       return {
-        title: isDefault ? `${title} (Default)` : title,
-        subtitle,
+        title: `${labelText}${defaultText}`,
+        subtitle: `${address || "No address"}${locationText}`,
       };
     },
   },

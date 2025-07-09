@@ -5,7 +5,7 @@ export const category = defineType({
   title: "Product Category",
   type: "document",
   description:
-    "Product categories for KAPCDAM e-commerce. Organize products into main categories like (Handcrafted, Essential) and subcategories",
+    "Product categories for KAPCDAM e-commerce.",
   fields: [
     defineField({
       name: "name",
@@ -71,25 +71,23 @@ export const category = defineType({
             title: "None (No sizes needed)",
             value: "none",
           },
+         
           {
-            title: "Clothing Sizes (XS, S, M, L, XL, XXL)",
-            value: "clothing_sizes",
-          },
-          {
-            title: "General Sizes (Small, Medium, Large)",
+            title: "General Sizes (Small, Medium, Large,Extra Large, XXL)",
             value: "general_sizes",
           },
           {
-            title: "Liquid Volumes (10ml - 10L)",
-            value: "liquid_volumes",
+            title: "Volumes (10ml - 10L)",
+            value: "volumes",
           },
           {
-            title: "Solid Weights (10g - 2kg)",
-            value: "solid_weights",
+            title: "Weights (10g - 2kg)",
+            value: "weights",
           },
         ],
         layout: "dropdown",
       },
+      initialValue: "none",
     }),
 
     defineField({
@@ -119,25 +117,12 @@ export const category = defineType({
       isActive: "isActive",
       icon: "icon",
     },
-    prepare({ name, parentName, sizeMapType, isActive }) {
-      const hierarchy = parentName ? `${parentName} → ${name}` : name;
-
-      let sizeInfo = "";
-      if (!parentName) {
-        sizeInfo = " • Parent category";
-      } else if (!sizeMapType) {
-        sizeInfo = " • No size options selected";
-      } else if (sizeMapType === "none") {
-        sizeInfo = " • No sizes needed";
-      } else {
-        sizeInfo = ` • ${sizeMapType.replace("_", " ")}`;
-      }
-
-      const statusIcon = isActive ? "" : " (Inactive)";
+    prepare({ name, parentName }) {
+      const subtitle = parentName ? `in ${parentName}` : "";
 
       return {
-        title: `${hierarchy}${statusIcon}`,
-        subtitle: `${sizeInfo}`,
+        title: `${name}`,
+        subtitle,
       };
     },
   },
@@ -167,25 +152,3 @@ export const category = defineType({
   ],
 });
 
-// Helper function to get size options based on size type (for child categories only)
-export const getSizeOptions = (sizeMapType: string): string[] => {
-  const sizeMapTypes = {
-    clothing_sizes: ["XS", "S", "M", "L", "XL", "XXL"],
-    general_sizes: ["Small", "Medium", "Large"],
-    liquid_volumes: [
-      "10ml",
-      "50ml",
-      "100ml",
-      "250ml",
-      "500ml",
-      "1L",
-      "2L",
-      "5L",
-      "10L",
-    ],
-    solid_weights: ["10g", "50g", "100g", "200g", "500g", "1kg", "2kg"],
-    none: [],
-  };
-
-  return sizeMapTypes[sizeMapType as keyof typeof sizeMapTypes] || [];
-};

@@ -4,14 +4,14 @@ export const cart = defineType({
   name: "cart",
   title: "Shopping Cart",
   type: "document",
-  description:
-    "Customer shopping cart - one cart per user, immediate cleanup after orders",
+  description: "Customer shopping cart",
+  readOnly: true,
   fields: [
     defineField({
       name: "user",
       title: "User",
       type: "reference",
-      description: "Reference to user document (unique per active cart)",
+      description: "Reference to user document ",
       to: [{ type: "user" }],
       validation: (rule) => rule.required().error("User reference is required"),
     }),
@@ -20,6 +20,7 @@ export const cart = defineType({
       name: "cartItems",
       title: "Cart Items",
       type: "array",
+
       description: "Items in the shopping cart",
       of: [
         {
@@ -36,7 +37,7 @@ export const cart = defineType({
                   { title: "Product", value: "product" },
                   { title: "Course", value: "course" },
                 ],
-                layout: "radio",
+                layout: "dropdown",
               },
               validation: (rule) =>
                 rule.required().error("Item type is required"),
@@ -73,17 +74,6 @@ export const cart = defineType({
               hidden: ({ parent }) => parent?.type !== "product",
               validation: (rule) =>
                 rule.required().error("Product reference is required"),
-            }),
-
-            defineField({
-              name: "productVariant",
-              title: "Product Variant",
-              type: "reference",
-              description: "Reference to the specific product variant",
-              to: [{ type: "productVariant" }],
-              hidden: ({ parent }) => parent?.type !== "product",
-              validation: (rule) =>
-                rule.required().error("Product variant reference is required"),
             }),
 
             defineField({
@@ -130,8 +120,6 @@ export const cart = defineType({
               currentPrice: "currentPrice",
               productTitle: "product.title",
               courseTitle: "course.title",
-              selectedSize: "selectedSize",
-              selectedColor: "selectedColor",
             },
             prepare({
               type,
@@ -139,8 +127,6 @@ export const cart = defineType({
               currentPrice,
               productTitle,
               courseTitle,
-              selectedSize,
-              selectedColor,
             }) {
               const itemName = type === "product" ? productTitle : courseTitle;
               const itemType = type === "product" ? "(Product)" : "(Course)";
@@ -150,15 +136,9 @@ export const cart = defineType({
                 : "No price";
               const quantityInfo = quantity ? ` (${quantity}x)` : "";
 
-              const variantInfo = [];
-              if (selectedSize) variantInfo.push(selectedSize);
-              if (selectedColor) variantInfo.push(selectedColor);
-              const variants =
-                variantInfo.length > 0 ? ` • ${variantInfo.join(", ")}` : "";
-
               return {
                 title: `${itemType} ${itemName || "Unknown Item"}${quantityInfo}`,
-                subtitle: `${priceFormatted}${variants}`,
+                subtitle: `${priceFormatted}`,
               };
             },
           },
@@ -242,26 +222,21 @@ export const cart = defineType({
       userName: "user.firstName",
       itemCount: "itemCount",
       subtotal: "subtotal",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
       isActive: "isActive",
-      convertedToOrder: "convertedToOrder",
-      cartItems: "cartItems",
     },
-    prepare({ userEmail, userName, itemCount, subtotal, updatedAt }) {
+    prepare({ userEmail, userName, itemCount, subtotal, isActive }) {
       const totalFormatted = subtotal
         ? `${subtotal.toLocaleString()} UGX`
         : "0 UGX";
       const itemsText = itemCount === 1 ? "item" : "items";
       const itemCountText = itemCount ? `${itemCount} ${itemsText}` : "Empty";
-
-      const date = updatedAt ? new Date(updatedAt).toLocaleDateString() : "";
-
       const userDisplay = userName || userEmail || "Unknown User";
 
+      const status = !isActive ? " (Inactive)" : "";
+
       return {
-        title: `${userDisplay}`,
-        subtitle: `${itemCountText} • ${totalFormatted} • ${date}`,
+        title: `${userDisplay}${status}`,
+        subtitle: `${itemCountText} • ${totalFormatted}`,
         media: null,
       };
     },
