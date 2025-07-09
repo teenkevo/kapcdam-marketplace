@@ -246,6 +246,8 @@ export const product = defineType({
       inStock: "inStock",
       inventory: "inventory",
       image: "images.0",
+      size: "size.value",
+      color: "color.value"
     },
     prepare({
       title,
@@ -255,6 +257,8 @@ export const product = defineType({
       inStock,
       inventory,
       image,
+      size,
+      color,
     }) {
       const priceDisplay = price ? `${price.toLocaleString()} UGX` : "No price";
 
@@ -270,8 +274,11 @@ export const product = defineType({
       else if (!inStock) status = " (Out of Stock)";
       else status = stockInfo;
 
+     const clr = color ? `${color} ` : "";
+     const sz = size ? `${size}` : "";
+
       return {
-        title: `${title}${status}`,
+        title: `${clr}${title} ${sz}${status}`,
         subtitle: `${priceDisplay}${categoryInfo}`,
         media: image,
       };

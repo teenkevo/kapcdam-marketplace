@@ -4,27 +4,8 @@ import { StringInputProps, useFormValue } from "sanity";
 import { set, unset } from "sanity";
 import useSWR from "swr";
 import { useClient } from "sanity";
+import { getSizeOptions } from "../lib/helpers";
 
-const getSizeOptions = (sizeMapType: string): string[] => {
-  const sizeMapTypes = {
-    clothing_sizes: ["XS", "S", "M", "L", "XL", "XXL"],
-    general_sizes: ["Small", "Medium", "Large"],
-    liquid_volumes: [
-      "10ml",
-      "50ml",
-      "100ml",
-      "250ml",
-      "500ml",
-      "1L",
-      "2L",
-      "5L",
-      "10L",
-    ],
-    solid_weights: ["10g", "50g", "100g", "200g", "500g", "1kg", "2kg"],
-    none: [],
-  };
-  return sizeMapTypes[sizeMapType as keyof typeof sizeMapTypes] || [];
-};
 
 type CategoryData = {
   categoryName?: string;
@@ -111,9 +92,7 @@ export function SizeInput(props: StringInputProps) {
 
   return (
     <Stack space={2}>
-      <Text muted size={1}>
-        Size
-      </Text>
+
       <Select
         value={value || ""}
         onChange={handleChange}
@@ -125,9 +104,7 @@ export function SizeInput(props: StringInputProps) {
           </option>
         ))}
       </Select>
-      <Text muted size={1}>
-        Using sizes from the &quot;{data?.categoryName}&quot; category.
-      </Text>
+
     </Stack>
   );
 }
