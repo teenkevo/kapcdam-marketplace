@@ -4,7 +4,7 @@ export const order = defineType({
   name: "order",
   title: "Order",
   type: "document",
-  readOnly: true,
+
   description:
     "Financial container for customer orders including products and courses",
   fields: [
@@ -14,6 +14,7 @@ export const order = defineType({
       type: "string",
       description: "Unique order identifier (e.g., KAPC-2025-001)",
       validation: (rule) => rule.required().error("Order number is required"),
+      readOnly: true,
     }),
 
     defineField({
@@ -23,6 +24,7 @@ export const order = defineType({
       description: "When the order was placed",
       validation: (rule) => rule.required().error("Order date is required"),
       initialValue: () => new Date().toISOString(),
+      readOnly: true,
     }),
 
     defineField({
@@ -33,23 +35,7 @@ export const order = defineType({
       to: [{ type: "user" }],
       validation: (rule) =>
         rule.required().error("Customer reference is required"),
-    }),
-
-    defineField({
-      name: "customerEmail",
-      title: "Customer Email",
-      type: "email",
-      description: "Customer's email address",
-      validation: (rule) => rule.required().error("Customer email is required"),
-    }),
-
-    defineField({
-      name: "customerPhone",
-      title: "Customer Phone",
-      type: "string",
-      description: "Customer's phone number",
-      validation: (rule) =>
-        rule.required().error("Customer phone number is required"),
+      readOnly: true,
     }),
 
     defineField({
@@ -98,6 +84,7 @@ export const order = defineType({
       validation: (rule) =>
         rule.min(0).error("Order-level discount cannot be negative"),
       initialValue: 0,
+      readOnly: true,
     }),
 
     defineField({
@@ -107,6 +94,7 @@ export const order = defineType({
       description: "Final amount to pay",
       validation: (rule) =>
         rule.required().min(0).error("Total amount must be a positive number"),
+      readOnly: true,
     }),
 
     defineField({
@@ -152,6 +140,7 @@ export const order = defineType({
         layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Payment method is required"),
+      readOnly: true,
     }),
 
     defineField({
@@ -159,6 +148,7 @@ export const order = defineType({
       title: "Transaction ID",
       type: "string",
       description: "Payment gateway transaction reference",
+      readOnly: true,
     }),
 
     defineField({
@@ -167,6 +157,7 @@ export const order = defineType({
       type: "datetime",
       description: "When payment was completed",
       hidden: ({ document }) => document?.paymentStatus !== "paid",
+      readOnly: true,
     }),
 
     defineField({
@@ -208,55 +199,12 @@ export const order = defineType({
     defineField({
       name: "shippingAddress",
       title: "Shipping Address",
-      type: "object",
+      type: "reference",
       description: "Customer delivery address",
-      fields: [
-        defineField({
-          name: "street",
-          title: "Street Address",
-          type: "string",
-          validation: (rule) =>
-            rule.required().error("Street address is required"),
-        }),
-        defineField({
-          name: "city",
-          title: "City",
-          type: "string",
-          validation: (rule) => rule.required().error("City is required"),
-          initialValue: "Kampala",
-        }),
-        defineField({
-          name: "district",
-          title: "District",
-          type: "string",
-          description: "District/area (e.g., Makindye, Nakawa)",
-          validation: (rule) => rule.required().error("District is required"),
-        }),
-        defineField({
-          name: "landmark",
-          title: "Landmark",
-          type: "string",
-          description: "Nearby landmark for easy location",
-        }),
-        defineField({
-          name: "country",
-          title: "Country",
-          type: "string",
-          validation: (rule) => rule.required().error("Country is required"),
-          initialValue: "Uganda",
-          readOnly: true,
-        }),
-        defineField({
-          name: "phone",
-          title: "Contact Phone",
-          type: "string",
-          description: "Phone number for delivery contact",
-          validation: (rule) =>
-            rule.required().error("Contact phone is required"),
-        }),
-      ],
+      to: [{ type: "address" }],
       validation: (rule) =>
         rule.required().error("Shipping address is required"),
+      readOnly: true,
     }),
 
     defineField({
@@ -269,10 +217,11 @@ export const order = defineType({
           { title: "Pickup", value: "pickup" },
           { title: "Local Delivery", value: "local_delivery" },
         ],
-        layout: "radio",
+        layout: "dropdown",
       },
       validation: (rule) =>
         rule.required().error("Delivery method is required"),
+      readOnly: true,
     }),
 
     defineField({
