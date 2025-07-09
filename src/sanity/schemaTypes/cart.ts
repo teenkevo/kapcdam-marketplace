@@ -5,6 +5,7 @@ export const cart = defineType({
   title: "Shopping Cart",
   type: "document",
   description: "Customer shopping cart",
+  readOnly: true,
   fields: [
     defineField({
       name: "user",
@@ -13,14 +14,13 @@ export const cart = defineType({
       description: "Reference to user document ",
       to: [{ type: "user" }],
       validation: (rule) => rule.required().error("User reference is required"),
-      readOnly: true,
     }),
 
     defineField({
       name: "cartItems",
       title: "Cart Items",
       type: "array",
-      readOnly: true,
+
       description: "Items in the shopping cart",
       of: [
         {
