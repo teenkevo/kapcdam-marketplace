@@ -1,5 +1,5 @@
 import { defineType, defineField } from "sanity";
-import { CategoryBasedSizeInput } from "../components/size-selector";
+import { SizeInput } from "../components/size-selector";
 
 export const productVariant = defineType({
   name: "productVariant",
@@ -32,7 +32,7 @@ export const productVariant = defineType({
       type: "string",
       description: "Size for this variant (options based on product category)",
       components: {
-        input: CategoryBasedSizeInput,
+        input:SizeInput,
       },
     }),
 

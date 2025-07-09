@@ -4,7 +4,8 @@ export const category = defineType({
   name: "product_category",
   title: "Product Category",
   type: "document",
-  description: "Product categories for KAPCDAM e-commerce.",
+  description:
+    "Product categories for KAPCDAM e-commerce.",
   fields: [
     defineField({
       name: "name",
@@ -119,25 +120,12 @@ export const category = defineType({
       isActive: "isActive",
       icon: "icon",
     },
-    prepare({ name, parentName, sizeMapType, isActive }) {
-      const hierarchy = parentName ? `${parentName} → ${name}` : name;
-
-      let sizeInfo = "";
-      if (!parentName) {
-        sizeInfo = " • Parent category";
-      } else if (!sizeMapType) {
-        sizeInfo = " • No size options selected";
-      } else if (sizeMapType === "none") {
-        sizeInfo = " • No sizes needed";
-      } else {
-        sizeInfo = ` • ${sizeMapType.replace("_", " ")}`;
-      }
-
-      const statusIcon = isActive ? "" : " (Inactive)";
+    prepare({ name, parentName }) {
+      const subtitle = parentName ? `in ${parentName}` : "";
 
       return {
-        title: `${hierarchy}${statusIcon}`,
-        subtitle: `${sizeInfo}`,
+        title: `${name}`,
+        subtitle,
       };
     },
   },

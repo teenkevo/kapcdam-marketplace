@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Stack, Select, Text, Box, Spinner } from "@sanity/ui";
 import { StringInputProps, useFormValue } from "sanity";
@@ -32,25 +31,25 @@ type CategoryData = {
   sizeMapType?: string;
 };
 
-export function CategoryBasedSizeInput(props: StringInputProps) {
+export function SizeInput(props: StringInputProps) {
   const { onChange, value } = props;
 
   const client = useClient({ apiVersion: "2025-07-05" });
 
-  const productRef = useFormValue(["product", "_ref"]) as string | undefined;
+  const categoryRef = useFormValue(["category", "_ref"]) as string | undefined;
 
-  const fetcher = (query: string, params: { productId: string }) =>
+  const fetcher = (query: string, params: { categoryId: string }) =>
     client.fetch<CategoryData>(query, params);
 
   const query = `
-    *[_type == "product" && _id == $productId][0] {
-      "categoryName": category->name,
-      "sizeMapType": coalesce(category->sizeMapType, category->parentId->sizeMapType, 'none')
+    *[_type == "product_category" && _id == $categoryId][0] {
+      "categoryName": name,
+      "sizeMapType": coalesce(sizeMapType, parentId->sizeMapType, 'none')
     }
   `;
 
   const { data, error, isLoading } = useSWR(
-    productRef ? [query, { productId: productRef }] : null,
+    categoryRef ? [query, { categoryId: categoryRef }] : null,
     ([query, params]) => fetcher(query, params)
   );
 
@@ -75,13 +74,13 @@ export function CategoryBasedSizeInput(props: StringInputProps) {
     );
   }
 
-  if (!productRef) {
+  if (!categoryRef) {
     return (
       <Stack space={2}>
         <Text muted size={1}>
           Size
         </Text>
-        <Text size={2}>Please select a product first.</Text>
+        <Text size={2}>Please select a category first.</Text>
       </Stack>
     );
   }
