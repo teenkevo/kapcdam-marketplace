@@ -254,7 +254,6 @@ export const order = defineType({
       customerEmail,
       customerName,
       total,
-
       orderDate,
     }) {
       const totalFormatted = total
