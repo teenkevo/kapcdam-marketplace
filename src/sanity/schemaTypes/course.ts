@@ -4,15 +4,13 @@ export const course = defineType({
   name: "course",
   title: "Course",
   type: "document",
-  description:
-    "KAPCDAM courses including dressmaking, soap making, candle making, and other in-person training programs",
+  description: "KAPCDAM courses and training programs",
   fields: [
     defineField({
       name: "title",
       title: "Course Name",
       type: "string",
-      description:
-        'Course name (e.g., "Dressmaking Basics", "Soap Making for Beginners")',
+      description: "Course name",
       validation: (rule) =>
         rule
           .required()
@@ -32,26 +30,41 @@ export const course = defineType({
       validation: (rule) => rule.required().error("URL slug is required"),
     }),
     defineField({
-      name: "description",
-      title: "Course Description",
-      type: "blockContent",
-      description: "Full course description with rich text formatting",
-      validation: (rule) =>
-        rule.required().error("Course description is required"),
+      name: "startDate",
+      title: "Course start date",
+      type: "datetime",
+      description: "When this course begins",
+      validation: (rule) => rule.required().error("Course date is required"),
     }),
-
     defineField({
-      name: "shortDescription",
-      title: "Short Description",
-      type: "text",
-      description: "Brief summary for course cards and listings",
-      rows: 3,
+      name: "endDate",
+      title: "Course end date",
+      type: "datetime",
+      description: "Dte when this course is expected to end",
       validation: (rule) =>
         rule
           .required()
-          .min(10)
-          .max(200)
-          .error("Short description is required (10-200 characters)"),
+          .error("Campaign end date is required")
+          .custom((endDate, context) => {
+            const startDate = context.document?.startDate as string;
+
+            if (!startDate || !endDate) {
+              return true;
+            }
+
+            if (new Date(endDate) <= new Date(startDate)) {
+              return "End date must be after the start date";
+            }
+            return true;
+          }),
+    }),
+    defineField({
+      name: "description",
+      title: "Course Description",
+      type: "blockContent",
+      description: "Full course description.",
+      validation: (rule) =>
+        rule.required().error("Course description is required"),
     }),
 
     defineField({
@@ -66,14 +79,6 @@ export const course = defineType({
           options: {
             hotspot: true,
           },
-          fields: [
-            {
-              name: "alt",
-              type: "string",
-              title: "Alternative Text",
-              description: "Describe this image for accessibility",
-            },
-          ],
         },
       ],
       validation: (rule) =>
@@ -81,7 +86,7 @@ export const course = defineType({
           .required()
           .min(1)
           .max(8)
-          .error("At least 1 image required (max 8)"),
+          .error("At least 1 image required (max 5)"),
     }),
     defineField({
       name: "previewVideo",
@@ -89,21 +94,7 @@ export const course = defineType({
       type: "url",
       description: "Optional YouTube or video URL for course preview",
     }),
-    defineField({
-      name: "duration",
-      title: "Course Duration",
-      type: "string",
-      description: 'Course length (e.g., "30 days", "2 weeks", "3 months")',
-      validation: (rule) =>
-        rule.required().error("Course duration is required"),
-    }),
-    defineField({
-      name: "totalHours",
-      title: "Total Hours",
-      type: "string",
-      description: 'Estimated total hours (e.g., "40 hours", "60 hours")',
-      validation: (rule) => rule.required().error("Total hours is required"),
-    }),
+
     defineField({
       name: "skillLevel",
       title: "Skill Level",
@@ -115,7 +106,7 @@ export const course = defineType({
           { title: "Intermediate", value: "intermediate" },
           { title: "Advanced", value: "advanced" },
         ],
-        layout: "radio",
+        layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Skill level is required"),
     }),
@@ -124,19 +115,16 @@ export const course = defineType({
       name: "price",
       title: "Course Price (UGX)",
       type: "number",
-      description: "Course price in Ugandan Shillings",
+      description: "Price of the course",
       validation: (rule) =>
-        rule
-          .required()
-          .min(10000)
-          .error("Course price must be at least 10,000 UGX"),
+        rule.required().min(0).error("Course should have a price"),
     }),
     defineField({
       name: "compareAtPrice",
       title: "Compare At Price (UGX)",
       type: "number",
       description: "Original price before discount (optional)",
-      validation: (rule) => rule.min(10000),
+      validation: (rule) => rule.min(0),
     }),
     defineField({
       name: "discount",
@@ -145,26 +133,16 @@ export const course = defineType({
       description: "Active discount campaign for this course",
       fields: [
         defineField({
-          name: "type",
-          title: "Discount Type",
-          type: "string",
-          options: {
-            list: [
-              { title: "Percentage", value: "percentage" },
-              { title: "Fixed Amount", value: "fixed_amount" },
-            ],
-            layout: "radio",
-          },
-          validation: (rule) =>
-            rule.required().error("Discount type is required"),
-        }),
-        defineField({
           name: "value",
           title: "Discount Value",
           type: "number",
-          description: "Discount amount (percentage or UGX amount)",
+          description: "Discount percentage %",
           validation: (rule) =>
-            rule.required().min(1).error("Discount value must be at least 1"),
+            rule
+              .required()
+              .min(1)
+              .max(100)
+              .error("Discount value must be between 1% and 100%"),
         }),
         defineField({
           name: "isActive",
@@ -187,8 +165,24 @@ export const course = defineType({
           type: "datetime",
           description: "When this discount campaign ends",
           validation: (rule) =>
-            rule.required().error("Campaign end date is required"),
+            rule
+              .required()
+              .error("Campaign end date is required")
+              .custom((endDate, context) => {
+                const startDate = context.document?.startDate as string;
+
+                if (!startDate || !endDate) {
+                  return true;
+                }
+
+                if (new Date(endDate) <= new Date(startDate)) {
+                  return "End date must be after the start date";
+                }
+
+                return true;
+              }),
         }),
+
         defineField({
           name: "title",
           title: "Campaign Name",
@@ -262,9 +256,39 @@ export const course = defineType({
             defineField({
               name: "estimatedDuration",
               title: "Estimated Duration",
-              type: "string",
-              description:
-                'How long this module takes (e.g., "3 hours", "2 days")',
+              type: "object",
+              description: "How long this module takes",
+              options: {
+                columns: 2,
+              },
+              fields: [
+                defineField({
+                  name: "value",
+                  title: "Duration",
+                  type: "number",
+                  validation: (rule) =>
+                    rule
+                      .required()
+                      .min(1)
+                      .max(999)
+                      .error("Duration must be between 1 and 999"),
+                }),
+                defineField({
+                  name: "unit",
+                  title: "Unit",
+                  type: "string",
+                  options: {
+                    list: [
+                      { title: "Hours", value: "hours" },
+                      { title: "Minutes", value: "minutes" },
+                    ],
+                    layout: "dropdown",
+                  },
+                  validation: (rule) =>
+                    rule.required().error("Duration unit is required"),
+                  initialValue: "hours",
+                }),
+              ],
               validation: (rule) =>
                 rule.required().error("Estimated duration is required"),
             }),
@@ -274,18 +298,28 @@ export const course = defineType({
               type: "array",
               of: [{ type: "string" }],
               description: "Specific topics covered in this module",
+              validation: (rule) =>
+                rule.min(1).error("Estimated duration is required"),
             }),
           ],
           preview: {
             select: {
               title: "moduleTitle",
               description: "moduleDescription",
-              duration: "estimatedDuration",
+              durationValue: "estimatedDuration.value",
+              durationUnit: "estimatedDuration.unit",
             },
-            prepare({ title, duration }) {
+            prepare({ title, durationValue, durationUnit }) {
+              let durationText = "";
+
+              if (durationValue && durationUnit) {
+                const unit = durationUnit === "hours" ? "hrs" : "mins";
+                durationText = `${durationValue} ${unit}`;
+              }
+
               return {
                 title: title || "Untitled Module",
-                subtitle: `${duration || "Duration TBD"}`,
+                subtitle: durationText,
               };
             },
           },
@@ -314,7 +348,8 @@ export const course = defineType({
     defineField({
       name: "createdBy",
       title: "Created By",
-      type: "string",
+      type: "reference",
+      to: [{ type: "team" }],
       description: "KAPCDAM staff member who created this course",
       validation: (rule) =>
         rule.required().error("Created by field is required"),
