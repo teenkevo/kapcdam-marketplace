@@ -4,8 +4,7 @@ export const category = defineType({
   name: "product_category",
   title: "Product Category",
   type: "document",
-  description:
-    "Product categories for KAPCDAM e-commerce. Organize products into main categories like (Handcrafted, Essential) and subcategories",
+  description: "Product categories for KAPCDAM e-commerce.",
   fields: [
     defineField({
       name: "name",
@@ -90,6 +89,7 @@ export const category = defineType({
         ],
         layout: "dropdown",
       },
+      initialValue: "none",
     }),
 
     defineField({
