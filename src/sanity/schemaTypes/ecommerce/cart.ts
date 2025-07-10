@@ -65,15 +65,22 @@ export const cart = defineType({
                   .error("Current price must be a positive number"),
             }),
 
+          
             defineField({
-              name: "product",
-              title: "Product",
+              name: "variant",
+              title: "Product Variant",
               type: "reference",
-              description: "Reference to the product",
-              to: [{ type: "product" }],
+              description: "Reference to the specific product variant",
+              to: [{ type: "productVariant" }], 
               hidden: ({ parent }) => parent?.type !== "product",
               validation: (rule) =>
-                rule.required().error("Product reference is required"),
+                rule.custom((value, context) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  if ((context.parent as any)?.type === "product" && !value) {
+                    return "Product Variant reference is required";
+                  }
+                  return true;
+                }),
             }),
 
             defineField({
@@ -84,7 +91,13 @@ export const cart = defineType({
               to: [{ type: "course" }],
               hidden: ({ parent }) => parent?.type !== "course",
               validation: (rule) =>
-                rule.required().error("Course reference is required"),
+                rule.custom((value, context) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  if ((context.parent as any)?.type === "course" && !value) {
+                    return "Course reference is required";
+                  }
+                  return true;
+                }),
             }),
 
             defineField({
@@ -118,17 +131,17 @@ export const cart = defineType({
               type: "type",
               quantity: "quantity",
               currentPrice: "currentPrice",
-              productTitle: "product.title",
+              variantTitle: "variant.title", 
               courseTitle: "course.title",
             },
             prepare({
               type,
               quantity,
               currentPrice,
-              productTitle,
+              variantTitle, 
               courseTitle,
             }) {
-              const itemName = type === "product" ? productTitle : courseTitle;
+              const itemName = type === "product" ? variantTitle : courseTitle;
               const itemType = type === "product" ? "(Product)" : "(Course)";
 
               const priceFormatted = currentPrice

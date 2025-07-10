@@ -15,16 +15,18 @@ export const structure: StructureResolver = (S) =>
     .items([
       // Content Management
       S.documentTypeListItem("post").title("Blog Posts").icon(DocumentIcon),
-      S.documentTypeListItem("category").title("Blog Categories").icon(TagIcon),
+      S.documentTypeListItem("blogCategory")
+        .title("Blog Categories")
+        .icon(TagIcon),
       S.documentTypeListItem("author").title("Authors").icon(UserIcon),
 
       S.divider(),
-
-      // E-commerce Management
-      S.documentTypeListItem("product_category")
-        .title("Product Categories")
-        .icon(TagIcon),
+      S.documentTypeListItem("attributeDefinition").title(
+        "Attribute Definations"
+      ),
+      S.documentTypeListItem("category").title("Product Categories"),
       S.documentTypeListItem("product").title("Products").icon(PackageIcon),
+      S.documentTypeListItem("productVariant").title("Products Variant"),
       S.documentTypeListItem("course").title("Courses").icon(BookIcon),
       S.documentTypeListItem("team").title("Team Members").icon(UsersIcon),
 
@@ -36,8 +38,5 @@ export const structure: StructureResolver = (S) =>
         .title("Order Items")
         .icon(CreditCardIcon),
       S.documentTypeListItem("user").title("Customer Accounts").icon(UserIcon),
-      S.documentTypeListItem("cart")
-        .title("Shopping Carts")
-      
-
+      S.documentTypeListItem("cart").title("Shopping Carts"),
     ]);

@@ -82,64 +82,60 @@ export const orderItem = defineType({
     }),
 
     defineField({
-      name: "product",
-      title: "Product",
+      name: "variant",
+      title: "Product Variant",
       type: "reference",
-      description: "Reference to the product",
-      to: [{ type: "product" }],
+      description: "Reference to the specific product variant purchased",
+      to: [{ type: "productVariant" }], 
       hidden: ({ document }) => document?.type !== "product",
       validation: (rule) =>
         rule.custom((value, context) => {
           const itemType = context.document?.type;
           if (itemType === "product" && !value) {
-            return "Product reference is required when item type is product";
+            return "Product Variant reference is required when item type is product";
           }
           return true;
         }),
     }),
 
+
     defineField({
-      name: "productSnapshot",
-      title: "Product Snapshot",
+      name: "variantSnapshot",
+      title: "Variant Snapshot",
       type: "object",
-      description: "Snapshot of product data at time of order",
+      description: "Snapshot of variant data at time of order",
       hidden: ({ document }) => document?.type !== "product",
       readOnly: true,
       fields: [
         defineField({
-          name: "name",
-          title: "Product Name",
+          name: "title",
+          title: "Variant Title",
           type: "string",
-          description: "Product name at time of order",
+          description: "Variant title at time of order",
+        }),
+        defineField({
+          name: "sku",
+          title: "SKU",
+          type: "string",
+          description: "Variant SKU at time of order",
         }),
         defineField({
           name: "price",
-          title: "product Price",
+          title: "Price",
           type: "string",
           description: "Price at time of order",
         }),
         defineField({
-          name: "specifications",
-          title: "Specifications",
-          description: "Product specifications at time of order",
+          name: "attributeValues",
+          title: "Attribute Values",
+          description: "Variant attributes at time of order",
           type: "array",
           of: [
             {
               type: "object",
-              options: {
-                columns: 2,
-              },
               fields: [
-                defineField({
-                  name: "name",
-                  title: "Name",
-                  type: "string",
-                }),
-                defineField({
-                  name: "value",
-                  title: "Value",
-                  type: "string",
-                }),
+                defineField({ name: "name", title: "Name", type: "string" }),
+                defineField({ name: "value", title: "Value", type: "string" }),
               ],
             },
           ],
@@ -151,14 +147,13 @@ export const orderItem = defineType({
       name: "course",
       title: "Course",
       type: "reference",
-      description: "Reference to the course",
       to: [{ type: "course" }],
       hidden: ({ document }) => document?.type !== "course",
       validation: (rule) =>
         rule.custom((value, context) => {
           const itemType = context.document?.type;
           if (itemType === "course" && !value) {
-            return "Course reference is required when item type is course";
+            return "Course reference is required";
           }
           return true;
         }),
@@ -168,7 +163,6 @@ export const orderItem = defineType({
       name: "preferredStartDate",
       title: "Preferred Start Date",
       type: "datetime",
-      description: "When customer wants to start the course",
       hidden: ({ document }) => document?.type !== "course",
     }),
 
@@ -176,33 +170,12 @@ export const orderItem = defineType({
       name: "courseSnapshot",
       title: "Course Snapshot",
       type: "object",
-      description: "Snapshot of course data at time of order",
       hidden: ({ document }) => document?.type !== "course",
       fields: [
-        defineField({
-          name: "title",
-          title: "Course Title",
-          type: "string",
-          description: "Course name at time of order",
-        }),
-        defineField({
-          name: "description",
-          title: "Course Description",
-          type: "text",
-          description: "Course description at time of order",
-        }),
-        defineField({
-          name: "duration",
-          title: "Duration",
-          type: "string",
-          description: "Course duration at time of order",
-        }),
-        defineField({
-          name: "skillLevel",
-          title: "Skill Level",
-          type: "string",
-          description: "Course skill level at time of order",
-        }),
+        defineField({ name: "title", type: "string" }),
+        defineField({ name: "description", type: "text" }),
+        defineField({ name: "duration", type: "string" }),
+        defineField({ name: "skillLevel", type: "string" }),
       ],
     }),
 
@@ -210,7 +183,6 @@ export const orderItem = defineType({
       name: "fulfillmentStatus",
       title: "Fulfillment Status",
       type: "string",
-      description: "Status of this specific item",
       options: {
         list: [
           { title: "Pending", value: "pending" },
@@ -223,8 +195,7 @@ export const orderItem = defineType({
         ],
         layout: "dropdown",
       },
-      validation: (rule) =>
-        rule.required().error("Fulfillment status is required"),
+      validation: (rule) => rule.required(),
       initialValue: "pending",
     }),
 
@@ -232,7 +203,6 @@ export const orderItem = defineType({
       name: "fulfillmentNotes",
       title: "Fulfillment Notes",
       type: "text",
-      description: "Notes about fulfilling this specific item",
       rows: 2,
     }),
 
@@ -240,9 +210,7 @@ export const orderItem = defineType({
       name: "addedAt",
       title: "Added At",
       type: "datetime",
-      description: "When this item was added to the order",
-      validation: (rule) =>
-        rule.required().error("Added at timestamp is required"),
+      validation: (rule) => rule.required(),
       initialValue: () => new Date().toISOString(),
     }),
 
@@ -250,7 +218,6 @@ export const orderItem = defineType({
       name: "isActive",
       title: "Item Active",
       type: "boolean",
-      description: "Is this item active/visible?",
       initialValue: true,
     }),
   ],
@@ -261,9 +228,8 @@ export const orderItem = defineType({
       quantity: "quantity",
       finalPrice: "finalPrice",
       lineTotal: "lineTotal",
-      productTitle: "product.title",
+      variantTitle: "variant.title", 
       courseTitle: "course.title",
-      fulfillmentStatus: "fulfillmentStatus",
       orderNumber: "order.orderNumber",
     },
     prepare({
@@ -271,27 +237,23 @@ export const orderItem = defineType({
       quantity,
       finalPrice,
       lineTotal,
-      productTitle,
+      variantTitle, 
       courseTitle,
       orderNumber,
     }) {
-      const itemName = type === "product" ? productTitle : courseTitle;
-
+      const itemName = type === "product" ? variantTitle : courseTitle;
       const priceFormatted = finalPrice
         ? `${finalPrice.toLocaleString()} UGX`
         : "No price";
       const totalFormatted = lineTotal
         ? `${lineTotal.toLocaleString()} UGX`
         : "No total";
-
       const quantityInfo = quantity ? ` (${quantity}x)` : "";
-
       const orderInfo = orderNumber ? ` • ${orderNumber}` : "";
 
       return {
-        title: `${itemName || "Unknown Item"}${quantityInfo}$`,
+        title: `${itemName || "Unknown Item"}${quantityInfo}`,
         subtitle: `${priceFormatted} → ${totalFormatted}${orderInfo}`,
-        media: null,
       };
     },
   },
@@ -305,16 +267,6 @@ export const orderItem = defineType({
       title: "Line Total: High to Low",
       name: "lineTotalDesc",
       by: [{ field: "lineTotal", direction: "desc" }],
-    },
-    {
-      title: "Fulfillment Status",
-      name: "fulfillmentStatus",
-      by: [{ field: "fulfillmentStatus", direction: "asc" }],
-    },
-    {
-      title: "Item Type",
-      name: "itemType",
-      by: [{ field: "type", direction: "asc" }],
     },
   ],
 });
