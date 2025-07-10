@@ -30,7 +30,7 @@ export const productVariant = defineType({
         .join(";");
 
       const client = getClient({ apiVersion: "2024-05-01" });
-      
+
       // We need to exclude both the draft and the published version of this document.
       const publishedId = doc._id.replace("drafts.", "");
       const draftId = `drafts.${publishedId}`;
@@ -159,6 +159,7 @@ export const productVariant = defineType({
           return true;
         }),
     }),
+
     defineField({
       name: "sku",
       title: "SKU",
@@ -182,6 +183,72 @@ export const productVariant = defineType({
         "Set this as the main variant to display on the product page.",
       initialValue: false,
     }),
+    defineField({
+      name: "discount",
+      title: "Product Discount",
+      hidden: ({ document }) => document?.hasVariants === true,
+      type: "object",
+      description: "Active discount campaign for this course",
+      fields: [
+        defineField({
+          name: "value",
+          title: "Discount Value",
+          type: "number",
+          description: "Discount percentage %",
+          validation: (rule) =>
+            rule
+              .required()
+              .min(1)
+              .max(100)
+              .error("Discount value must be between 1% and 100%"),
+        }),
+        defineField({
+          name: "isActive",
+          title: "Discount Active",
+          type: "boolean",
+          description: "Is this discount currently active?",
+          initialValue: false,
+        }),
+        defineField({
+          name: "startDate",
+          title: "Campaign Start Date",
+          type: "datetime",
+          description: "When this discount campaign begins",
+          validation: (rule) =>
+            rule.required().error("Campaign start date is required"),
+        }),
+        defineField({
+          name: "endDate",
+          title: "Campaign End Date",
+          type: "datetime",
+          description: "When this discount campaign ends",
+          validation: (rule) =>
+            rule
+              .required()
+              .error("Campaign end date is required")
+              .custom((endDate, context) => {
+                const startDate = context.document?.startDate as string;
+
+                if (!startDate || !endDate) {
+                  return true;
+                }
+
+                if (new Date(endDate) <= new Date(startDate)) {
+                  return "End date must be after the start date";
+                }
+
+                return true;
+              }),
+        }),
+
+        defineField({
+          name: "title",
+          title: "Campaign Name",
+          type: "string",
+          description: "Name of the discount campaign",
+        }),
+      ],
+    }),
   ],
   preview: {
     select: {
@@ -189,7 +256,7 @@ export const productVariant = defineType({
       sku: "sku",
       media: "images.0",
     },
-    prepare({ title,sku, media }) {
+    prepare({ title, sku, media }) {
       return {
         title,
         subtitle: `SKU: ${sku || "N/A"}`,

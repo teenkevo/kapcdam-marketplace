@@ -46,7 +46,6 @@ export const discountCodes = defineType({
       rows: 3,
     }),
 
-    // === DISCOUNT CONFIGURATION ===
     defineField({
       name: "type",
       title: "Discount Type",
@@ -83,7 +82,6 @@ export const discountCodes = defineType({
           }),
     }),
 
-    // === USAGE LIMITS ===
     defineField({
       name: "maxUses",
       title: "Maximum Total Uses",
@@ -128,7 +126,6 @@ export const discountCodes = defineType({
       initialValue: 0,
     }),
 
-    // === VALIDITY PERIOD ===
     defineField({
       name: "startDate",
       title: "Start Date",

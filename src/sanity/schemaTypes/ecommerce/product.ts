@@ -205,6 +205,76 @@ export const product = defineType({
     }),
 
     defineField({
+      name: "discount",
+      group: "inventory",
+      title: "Product Discount",
+      hidden: ({ document }) => document?.hasVariants === true,
+      type: "object",
+      description: "Active discount campaign for this course",
+      fields: [
+        defineField({
+          name: "value",
+          title: "Discount Value",
+          type: "number",
+          description: "Discount percentage %",
+          validation: (rule) =>
+            rule
+              .required()
+              .min(1)
+              .max(100)
+              .error("Discount value must be between 1% and 100%"),
+        }),
+        defineField({
+          name: "isActive",
+          title: "Discount Active",
+          type: "boolean",
+          description: "Is this discount currently active?",
+          initialValue: false,
+        }),
+        defineField({
+          name: "startDate",
+          title: "Campaign Start Date",
+          type: "datetime",
+          description: "When this discount campaign begins",
+          validation: (rule) =>
+            rule.required().error("Campaign start date is required"),
+        }),
+        defineField({
+          name: "endDate",
+          title: "Campaign End Date",
+          type: "datetime",
+          description: "When this discount campaign ends",
+          validation: (rule) =>
+            rule
+              .required()
+              .error("Campaign end date is required")
+              .custom((endDate, context) => {
+                const startDate = context.document?.startDate as string;
+
+                if (!startDate || !endDate) {
+                  return true;
+                }
+
+                if (new Date(endDate) <= new Date(startDate)) {
+                  return "End date must be after the start date";
+                }
+
+                return true;
+              }),
+        }),
+
+        defineField({
+          name: "title",
+          title: "Campaign Name",
+          type: "string",
+          description: "Name of the discount campaign",
+          validation: (rule) =>
+            rule.required().error("Campaign name is required"),
+        }),
+      ],
+    }),
+
+    defineField({
       name: "totalStock",
       title: "Stock Quantity",
       type: "number",

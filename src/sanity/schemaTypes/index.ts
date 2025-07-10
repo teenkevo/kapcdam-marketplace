@@ -6,16 +6,16 @@ import { postType } from "./postType";
 import { authorType } from "./authorType";
 import { user } from "./user";
 import { address } from "./address";
-import { category } from "./commerce/product-category";
-import { product } from "./commerce/product";
+import { category } from "./ecommerce/product-category";
+import { product } from "./ecommerce/product";
 
-import { cart } from "./cart";
-import { order } from "./order";
-import { orderItem } from "./orderItem";
+import { cart } from "./ecommerce/cart";
+import { order } from "./ecommerce/order";
+import { orderItem } from "./ecommerce/orderItem";
 import { course } from "./course";
 import { team } from "./team";
-import { attributeDefinition } from "./commerce/attribute-defination";
-import { productVariant } from "./commerce/variant";
+import { attributeDefinition } from "./ecommerce/attribute-defination";
+import { productVariant } from "./ecommerce/variant";
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
