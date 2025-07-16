@@ -1,7 +1,6 @@
 import type { StructureResolver } from "sanity/structure";
 import {
   DocumentIcon,
-  TagIcon,
   UserIcon,
   PackageIcon,
   BookIcon,
@@ -15,9 +14,7 @@ export const structure: StructureResolver = (S) =>
     .items([
       // Content Management
       S.documentTypeListItem("post").title("Blog Posts").icon(DocumentIcon),
-      S.documentTypeListItem("blogCategory")
-        .title("Blog Categories")
-        .icon(TagIcon),
+
       S.documentTypeListItem("author").title("Authors").icon(UserIcon),
 
       S.divider(),
