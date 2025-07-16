@@ -34,62 +34,27 @@ export const attributeDefinition = defineType({
     }),
 
     defineField({
-      name: "dataType",
-      title: "Data Type",
-      type: "string",
-      options: {
-        list: [
-          { title: "Text", value: "text" },
-          { title: "Number", value: "number" },
-          { title: "Select (Dropdown)", value: "select" },
-          { title: "Yes/No", value: "boolean" },
-        ],
-      },
-      initialValue: "string",
-      validation: (Rule) => Rule.required(),
-    }),
-
-    defineField({
       name: "allowedValues",
       title: "Allowed Values",
       type: "array",
       of: [{ type: "string" }],
-      description: "Predefined options for select type",
-      hidden: ({ parent }) => parent?.dataType !== "select",
-    }),
-
-    defineField({
-      name: "unit",
-      title: "Unit",
-      type: "string",
-      description: 'Unit of measurement (e.g., "cm", "kg", "inches")',
-      hidden: ({ parent }) => parent?.dataType !== "number",
-    }),
-
-    defineField({
-      name: "displayOrder",
-      title: "Display Order",
-      type: "number",
-      description: "Order in forms and UI (lower numbers first)",
-      initialValue: 0,
+      description: "Predefined options for this attribute",
+      validation: (Rule) => Rule.required().min(1),
     }),
   ],
 
   preview: {
     select: {
       title: "name",
-      subtitle: "dataType",
+      subtitle: "code.current",
     },
   },
 
   orderings: [
     {
-      title: "Display Order",
-      name: "displayOrder",
-      by: [
-        { field: "displayOrder", direction: "asc" },
-        { field: "name", direction: "asc" },
-      ],
+      title: "Name",
+      name: "name",
+      by: [{ field: "name", direction: "asc" }],
     },
   ],
 });

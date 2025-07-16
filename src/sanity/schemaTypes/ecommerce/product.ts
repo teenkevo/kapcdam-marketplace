@@ -1,23 +1,20 @@
 import { defineType, defineField } from "sanity";
-import { AttributeValueInput } from "@/sanity/components/attribute-value-input";
+import { ProductFormComponent } from "@/sanity/components/product-form-component";
+import { PriceInput } from "@/sanity/components/price-input";
 
 export const product = defineType({
   name: "product",
   title: "Product",
   type: "document",
-  groups: [
-    { name: "details", title: "Details", default: true },
-    { name: "attributes", title: "Attributes" },
-    { name: "inventory", title: "Inventory & Pricing" },
-    { name: "media", title: "Media" },
-  ],
+  components: {
+    input: ProductFormComponent,
+  },
+
   fields: [
-    // Details Group
     defineField({
       name: "title",
       title: "Title",
       type: "string",
-      group: "details",
       validation: (Rule) => Rule.required(),
     }),
 
@@ -25,11 +22,7 @@ export const product = defineType({
       name: "slug",
       title: "Slug",
       type: "slug",
-      group: "details",
-      options: {
-        source: "title",
-        maxLength: 96,
-      },
+      readOnly: true,
       validation: (Rule) => Rule.required(),
     }),
 
@@ -37,7 +30,6 @@ export const product = defineType({
       name: "category",
       title: "Category",
       type: "reference",
-      group: "details",
       to: [{ type: "category" }],
       description: "Select a child category for this product.",
       options: {
@@ -47,19 +39,9 @@ export const product = defineType({
     }),
 
     defineField({
-      name: "highlights",
-      title: "Highlights",
-      type: "array",
-      group: "details",
-      of: [{ type: "string" }],
-      description: "Key product features or selling points.",
-    }),
-
-    defineField({
       name: "detailedDescription",
       title: "Detailed Description",
       type: "blockContent",
-      group: "details",
       description: "Rich text product description.",
     }),
 
@@ -67,125 +49,42 @@ export const product = defineType({
       name: "hasVariants",
       title: "Has Variants",
       type: "boolean",
-      group: "details",
       description:
         "Enable this if the product comes in different versions like size or color.",
       initialValue: false,
     }),
 
     defineField({
-      name: "status",
-      title: "Status",
-      type: "string",
-      group: "details",
-      options: {
-        list: [
-          { title: "Draft", value: "draft" },
-          { title: "Active", value: "active" },
-          { title: "Archived", value: "archived" },
-        ],
-      },
-      initialValue: "draft",
-      validation: (Rule) => Rule.required(),
-    }),
-
-    defineField({
-      name: "variantDefiningAttributes",
-      title: "Variant-Defining Attributes",
-      group: "attributes",
+      name: "variants",
+      title: "Product Variants",
       type: "array",
-      description:
-        "Select attributes that create variants (e.g., Color, Size).",
+      description: "Define different variations of this product.",
       hidden: ({ document }) => !document?.hasVariants,
-      of: [
-        {
-          type: "reference",
-          to: [{ type: "attributeDefinition" }],
-          options: {
-            filter: ({ document }) => {
-              // @ts-expect-error sanity doesn't provide the correct type for document
-              const categoryId = document.category?._ref;
-              if (!categoryId) {
-                return { filter: "false" };
-              }
+      of: [{ type: "productVariant" }],
+      validation: (Rule) =>
+        Rule.custom((variants) => {
+          if (!variants || !Array.isArray(variants)) return true;
 
-              return {
-                filter: `_id in *[_type=="category" && _id==$categoryId][0].categoryAttributes[].attributeRef._ref`,
-                params: { categoryId },
-              };
-            },
-          },
-        },
-      ],
-      validation: (Rule) => Rule.max(3),
-    }),
+          const defaultVariants = variants.filter(
+            // @ts-expect-error sanity error expected
+            (variant) => variant?.isDefault === true
+          );
 
-    defineField({
-      name: "specifications",
-      title: "Specifications",
-      group: "attributes",
-      type: "array",
-      description:
-        "Attributes that describe the product but do not create variants (e.g., Material, Weight).",
-      of: [
-        {
-          type: "object",
-          fields: [
-            defineField({
-              name: "attributeRef",
-              title: "Attribute",
-              type: "reference",
-              to: [{ type: "attributeDefinition" }],
-              options: {
-                filter: ({ document }) => {
-                  // @ts-expect-error sanity doesn't provide the correct type for document
-                  const categoryId = document.category?._ref;
-                  const variantAttrIds = (
-                    (document.variantDefiningAttributes as {
-                      _ref: string;
-                    }[]) || []
-                  )
-                    .map((ref) => ref._ref)
-                    .filter(Boolean);
+          if (defaultVariants.length > 1) {
+            return "You can only set one variant as the default.";
+          }
 
-                  if (!categoryId) {
-                    return { filter: "false" };
-                  }
-
-                  // Filter for attributes in the category that are NOT already used for variants
-                  return {
-                    filter: `_id in *[_type=="category" && _id==$categoryId][0].categoryAttributes[].attributeRef._ref && !(_id in $variantAttrIds)`,
-                    params: { categoryId, variantAttrIds },
-                  };
-                },
-              },
-              validation: (Rule) => Rule.required(),
-            }),
-            defineField({
-              name: "value",
-              title: "Value",
-              type: "string",
-              components: {
-                input: AttributeValueInput,
-              },
-              validation: (Rule) => Rule.required(),
-            }),
-          ],
-          preview: {
-            select: {
-              title: "attributeRef.name",
-              subtitle: "value",
-            },
-          },
-        },
-      ],
+          return true;
+        }),
     }),
 
     defineField({
       name: "price",
       title: "Price",
       type: "string",
-      group: "inventory",
+      components: {
+        input: PriceInput,
+      },
       description: "The price for the product if it has no variants.",
       hidden: ({ document }) => document?.hasVariants === true,
       validation: (Rule) =>
@@ -193,11 +92,10 @@ export const product = defineType({
           if (typeof price === "undefined") {
             return true;
           }
-          // Regex to check for a valid positive number
           if (!/^\d*\.?\d*$/.test(price)) {
             return "Price must be a valid number.";
           }
-          if (parseInt(price) < 0) {
+          if (parseFloat(price) < 0) {
             return "Price cannot be negative.";
           }
           return true;
@@ -205,91 +103,18 @@ export const product = defineType({
     }),
 
     defineField({
-      name: "discount",
-      group: "inventory",
-      title: "Product Discount",
-      hidden: ({ document }) => document?.hasVariants === true,
-      type: "object",
-      description: "Active discount campaign for this course",
-      fields: [
-        defineField({
-          name: "value",
-          title: "Discount Value",
-          type: "number",
-          description: "Discount percentage %",
-          validation: (rule) =>
-            rule
-              .required()
-              .min(1)
-              .max(100)
-              .error("Discount value must be between 1% and 100%"),
-        }),
-        defineField({
-          name: "isActive",
-          title: "Discount Active",
-          type: "boolean",
-          description: "Is this discount currently active?",
-          initialValue: false,
-        }),
-        defineField({
-          name: "startDate",
-          title: "Campaign Start Date",
-          type: "datetime",
-          description: "When this discount campaign begins",
-          validation: (rule) =>
-            rule.required().error("Campaign start date is required"),
-        }),
-        defineField({
-          name: "endDate",
-          title: "Campaign End Date",
-          type: "datetime",
-          description: "When this discount campaign ends",
-          validation: (rule) =>
-            rule
-              .required()
-              .error("Campaign end date is required")
-              .custom((endDate, context) => {
-                const startDate = context.document?.startDate as string;
-
-                if (!startDate || !endDate) {
-                  return true;
-                }
-
-                if (new Date(endDate) <= new Date(startDate)) {
-                  return "End date must be after the start date";
-                }
-
-                return true;
-              }),
-        }),
-
-        defineField({
-          name: "title",
-          title: "Campaign Name",
-          type: "string",
-          description: "Name of the discount campaign",
-          validation: (rule) =>
-            rule.required().error("Campaign name is required"),
-        }),
-      ],
-    }),
-
-    defineField({
       name: "totalStock",
       title: "Stock Quantity",
       type: "number",
-      group: "inventory",
       description: "Total available stock for this product.",
       hidden: ({ document }) => document?.hasVariants === true,
       validation: (Rule) => Rule.min(0).integer(),
     }),
 
-    // Media Group
     defineField({
       name: "images",
       title: "Product Images",
       type: "array",
-      group: "media",
       of: [
         {
           type: "image",
@@ -298,20 +123,27 @@ export const product = defineType({
           },
           fields: [
             defineField({
-              name: "alt",
-              title: "Alt Text",
-              type: "string",
-              description: "Important for accessibility and SEO.",
-              validation: (Rule) => Rule.required(),
-            }),
-            defineField({
-              name: "isDefualt",
+              name: "isDefault",
               title: "Is default image?",
               type: "boolean",
               description: "Check if this is the default image",
-              validation: (Rule) => Rule.required(),
             }),
           ],
+          preview: {
+            select: {
+              asset: "asset",
+              isDefault: "isDefault",
+              filename: "asset.originalFilename",
+            },
+            prepare(selection) {
+              const { isDefault, asset, filename } = selection;
+              return {
+                title: filename,
+                subtitle: isDefault ? "Default Image" : "",
+                media: asset,
+              };
+            },
+          },
         },
       ],
       validation: (Rule) =>
@@ -327,6 +159,126 @@ export const product = defineType({
           }
           return true;
         }),
+    }),
+
+    defineField({
+      name: "status",
+      title: "Product Status",
+      description: "Is this product availble for purchase",
+      type: "string",
+      options: {
+        list: [
+          { title: "Draft", value: "draft" },
+          { title: "Active", value: "active" },
+          { title: "Archived", value: "archived" },
+        ],
+      },
+      initialValue: "active",
+      validation: (Rule) => Rule.required(),
+    }),
+
+    defineField({
+      name: "discount",
+      title: "Product Discount",
+      hidden: ({ document }) => document?.hasVariants === true,
+      type: "object",
+      description: "Active discount campaign for this product",
+      fields: [
+        defineField({
+          name: "value",
+          title: "Discount percentage (%)",
+          type: "number",
+          description: "Input a value between 1 - 100",
+          validation: (rule) =>
+            rule
+              .min(1)
+              .max(100)
+              .error("Discount value must be between 1% and 100%"),
+        }),
+
+        defineField({
+          name: "isActive",
+          title: "Discount Active",
+          type: "boolean",
+          description: "Is this discount currently active?",
+          initialValue: false,
+        }),
+
+        defineField({
+          name: "startDate",
+          title: "Campaign Start Date",
+          type: "datetime",
+          description: "When this discount campaign begins",
+          validation: (rule) =>
+            rule.custom((startDate, context) => {
+              const parent = context.parent as {
+                value?: number;
+                isActive?: boolean;
+              };
+              if (
+                parent.value !== undefined &&
+                parent.isActive === true &&
+                !startDate
+              ) {
+                return "Start date is required when a discount value is set and active.";
+              }
+              return true;
+            }),
+        }),
+
+        defineField({
+          name: "endDate",
+          title: "Campaign End Date",
+          type: "datetime",
+          description: "When this discount campaign ends",
+          validation: (rule) =>
+            rule.custom((endDate, context) => {
+              const parent = context.parent as {
+                value?: number;
+                isActive?: boolean;
+                startDate?: string;
+              };
+              const startDate = parent.startDate;
+
+              if (
+                parent.value !== undefined &&
+                parent.isActive === true &&
+                !endDate
+              ) {
+                return "End date is required when a discount value is set and active.";
+              }
+
+              if (startDate && endDate) {
+                if (new Date(endDate) <= new Date(startDate)) {
+                  return "End date must be after the start date";
+                }
+              }
+              return true;
+            }),
+        }),
+
+        defineField({
+          name: "title",
+          title: "Campaign Name",
+          type: "string",
+          description: "Name of the discount campaign",
+          validation: (rule) =>
+            rule.custom((title, context) => {
+              const parent = context.parent as {
+                value?: number;
+                isActive?: boolean;
+              };
+              if (
+                parent.value !== undefined &&
+                parent.isActive === true &&
+                !title
+              ) {
+                return "Campaign name is required when a discount value is set and active.";
+              }
+              return true;
+            }),
+        }),
+      ],
     }),
   ],
 
