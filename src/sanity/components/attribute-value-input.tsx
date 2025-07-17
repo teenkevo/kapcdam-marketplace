@@ -101,7 +101,7 @@ export function AttributeValueInput(props: StringInputProps) {
 
   return (
     <Select value={value || ""} onChange={handleSelectChange}>
-      <option value="">Select a value</option>
+      <option disabled value=""></option>
       {options.map((option) => (
         <option key={option} value={option}>
           {option}
