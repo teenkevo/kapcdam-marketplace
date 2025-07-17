@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ObjectInputProps, useFormValue, set, setIfMissing } from "sanity";
+import { ObjectInputProps, useFormValue, set } from "sanity";
 
 const slugify = (text: string) => {
   if (!text) return "";
@@ -27,21 +27,6 @@ export function ProductFormComponent(props: ObjectInputProps) {
 
   const title = useFormValue(["title"]) as string | undefined;
   const variants = useFormValue(["variants"]) as any[] | undefined;
-  const slug = useFormValue(["slug"]) as { current?: string } | undefined;
-
-  useEffect(() => {
-    if (!title) return;
-
-    // Generate slug if missing
-    if (!slug?.current) {
-      const slugValue = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-
-      onChange(setIfMissing({ current: slugValue }, ["slug"]));
-    }
-  }, [title, slug, onChange]);
 
   useEffect(() => {
     if (!title || !variants || !Array.isArray(variants)) return;

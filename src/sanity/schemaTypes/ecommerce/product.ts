@@ -1,6 +1,7 @@
 import { defineType, defineField } from "sanity";
 import { ProductFormComponent } from "@/sanity/components/product-form-component";
 import { PriceInput } from "@/sanity/components/price-input";
+import { customSlug } from "@/sanity/lib/helpers";
 
 export const product = defineType({
   name: "product",
@@ -9,7 +10,6 @@ export const product = defineType({
   components: {
     input: ProductFormComponent,
   },
-
   fields: [
     defineField({
       name: "title",
@@ -22,7 +22,12 @@ export const product = defineType({
       name: "slug",
       title: "Slug",
       type: "slug",
-      readOnly: true,
+      // readOnly: true,
+      options: {
+        source: "title",
+        maxLength: 96,
+        slugify: customSlug,
+      },
       validation: (Rule) => Rule.required(),
     }),
 
