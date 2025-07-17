@@ -67,14 +67,22 @@ export const product = defineType({
       hidden: ({ document }) => !document?.hasVariants,
       of: [{ type: "productVariant" }],
       validation: (Rule) =>
-        Rule.custom((variants) => {
-          if (!variants || !Array.isArray(variants)) return true;
+        Rule.custom((variants, context) => {
+          const hasVariants = context.document?.hasVariants;
+          if (!hasVariants) return true;
 
-          const defaultVariants = variants.filter(
-            // @ts-expect-error sanity error expected
-            (variant) => variant?.isDefault === true
-          );
+          if (!variants || !Array.isArray(variants) || variants.length === 0) {
+            return "At least one product variant is required if 'Has Variants' is enabled.";
+          }
 
+          const defaultVariants = variants.filter((variant) => {
+            const variantData = variant as { isDefault?: boolean };
+            return variantData.isDefault === true;
+          });
+
+          if (defaultVariants.length === 0) {
+            return "At least one default variant is required.";
+          }
           if (defaultVariants.length > 1) {
             return "You can only set one variant as the default.";
           }
