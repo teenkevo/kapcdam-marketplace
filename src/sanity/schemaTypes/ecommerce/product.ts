@@ -65,11 +65,18 @@ export const product = defineType({
       type: "array",
       description: "Define different variations of this product.",
       hidden: ({ document }) => !document?.hasVariants,
+      readOnly: ({ document }) => !document?.category,
       of: [{ type: "productVariant" }],
       validation: (Rule) =>
         Rule.custom((variants, context) => {
           const hasVariants = context.document?.hasVariants;
+          const category = context.document?.category;
+
           if (!hasVariants) return true;
+
+          if (!category) {
+            return "You must select a category before adding variants.";
+          }
 
           if (!variants || !Array.isArray(variants) || variants.length === 0) {
             return "At least one product variant is required if 'Has Variants' is enabled.";
