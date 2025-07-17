@@ -3106,7 +3106,7 @@
           },
           "optional": true
         },
-        "locality": {
+        "city": {
           "type": "objectAttribute",
           "value": {
             "type": "string"

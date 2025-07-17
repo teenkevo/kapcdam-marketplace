@@ -9,8 +9,6 @@ import { SignInButton } from "@clerk/nextjs";
 export default async function Marketplace() {
   const products = await trpc.products.getMany({});
 
-  // console.log(orderResult.redirect_url);
-
   return (
     <>
       <div>

@@ -21,12 +21,5 @@ export async function getPesapalToken(): Promise<string> {
   }
 
   const data = await response.json();
-  console.log("Token errro: >>>>", data);
-  console.log(
-    "Token keys errro: >>>>",
-    data,
-    process.env.PESAPAL_CONSUMER_KEY,
-    process.env.PESAPAL_CONSUMER_SECRET
-  );
   return data.token;
 }

@@ -505,7 +505,7 @@ export type Address = {
   phone?: string;
   address?: string;
   landmark?: string;
-  locality?: string;
+  city?: string;
   country?: string;
   deliveryInstructions?: string;
 };
