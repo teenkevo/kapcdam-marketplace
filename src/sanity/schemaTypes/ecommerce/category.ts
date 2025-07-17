@@ -24,21 +24,17 @@ export const category = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
-      name: "level",
-      title: "Category level",
-      type: "string",
-      description: "Is this category a sub or main category",
-      options: {
-        list: ["main", "sub"],
-      },
-      initialValue: "sub",
-      validation: (Rule) => Rule.required(),
+      name: "hasParent",
+      title: "Has a parent",
+      type: "boolean",
+      description: "Does this category have a parent",
+      initialValue: false,
     }),
     defineField({
       name: "parent",
       title: "Parent Category",
       type: "reference",
-      hidden: ({ document }) => document?.level == "main",
+      hidden: ({ document }) => document?.hasParent == false,
       to: [{ type: "category" }],
       description:
         "Leave empty for a top-level category (e.g., 'HandCrafted'). Select a parent for a sub-category (e.g., 'Clothing').",

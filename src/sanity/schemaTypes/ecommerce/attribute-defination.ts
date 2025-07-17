@@ -9,10 +9,18 @@ export const attributeDefinition = defineType({
       name: "name",
       title: "Name",
       type: "string",
-      description: 'Display name (e.g., "Color", "Size", "Material")',
+      description: 'Name (e.g., "Color Phones", "Size Shoes", "Size Clothing", "Material Clothing")',
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: "label",
+      title: "Display Label",
+      type: "string",
+      description: 'Display label (e.g., "Color", "Size", "Material")',
       validation: (Rule) => Rule.required(),
     }),
 
+    //TODO:Add a unique idenitfier -> slug + identifier
     defineField({
       name: "code",
       title: "Code",

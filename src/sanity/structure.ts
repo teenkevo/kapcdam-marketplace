@@ -23,7 +23,6 @@ export const structure: StructureResolver = (S) =>
       ),
       S.documentTypeListItem("category").title("Product Categories"),
       S.documentTypeListItem("product").title("Products").icon(PackageIcon),
-      S.documentTypeListItem("productVariant").title("Products Variant"),
       S.documentTypeListItem("course").title("Courses").icon(BookIcon),
       S.documentTypeListItem("team").title("Team Members").icon(UsersIcon),
 
