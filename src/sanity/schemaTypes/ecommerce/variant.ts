@@ -125,16 +125,18 @@ export const productVariant = defineType({
     select: {
       sku: "sku",
       attributes: "attributes",
+      price: "price",
     },
-    prepare({ sku, attributes }) {
+    prepare({ sku, attributes, price }) {
       const attrValues = attributes
         ?.map((attr: { value: string }) => attr?.value)
         .filter(Boolean)
         .join(" / ");
+      const priceDisplay = price ? `UGX ${price}` : "No price set";
 
       return {
         title: sku || "Variant",
-        subtitle: attrValues || "No attributes",
+        subtitle: `${attrValues} - ${priceDisplay}` || "No attributes",
       };
     },
   },
