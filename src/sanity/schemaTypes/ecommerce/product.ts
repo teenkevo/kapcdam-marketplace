@@ -73,13 +73,24 @@ export const product = defineType({
           const category = context.document?.category;
 
           if (!hasVariants) return true;
-
           if (!category) {
             return "You must select a category before adding variants.";
           }
-
           if (!variants || !Array.isArray(variants) || variants.length === 0) {
             return "At least one product variant is required if 'Has Variants' is enabled.";
+          }
+
+          // Enforce SKU uniqueness
+          const seenSkus = new Set();
+          for (const variant of variants) {
+            const sku = (variant as any)?.sku;
+            if (!sku) {
+              return "Each variant must have a SKU.";
+            }
+            if (seenSkus.has(sku)) {
+              return `Duplicate SKU detected: "${sku}". Each variant SKU must be unique.`;
+            }
+            seenSkus.add(sku);
           }
 
           const defaultVariants = variants.filter((variant) => {
