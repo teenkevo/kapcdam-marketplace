@@ -4,7 +4,7 @@ export const user = defineType({
   name: "user",
   title: "Customer User",
   type: "document",
-  readOnly:true,
+  readOnly: true,
   description:
     "Customer users for KAPCDAM e-commerce platform. Authentication handled by Clerk.",
   fields: [
@@ -66,8 +66,6 @@ export const user = defineType({
       type: "array",
       description:
         "Customer delivery addresses. At least one address required with exactly one default.",
-      validation: (rule) =>
-        rule.required().min(1).error("At least one address is required"),
       of: [
         defineArrayMember({
           type: "address",
@@ -105,9 +103,8 @@ export const user = defineType({
       lastName: "lastName",
       email: "email",
     },
-    prepare({ firstName, lastName, email}) {
+    prepare({ firstName, lastName, email }) {
       const name = [firstName, lastName].filter(Boolean).join(" ") || "No name";
-
 
       return {
         title: name,

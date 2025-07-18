@@ -82,17 +82,17 @@ export const orderItem = defineType({
     }),
 
     defineField({
-      name: "variant",
-      title: "Product Variant",
+      name: "product",
+      title: "Product",
       type: "reference",
-      description: "Reference to the specific product variant purchased",
-      to: [{ type: "productVariant" }], 
+      description: "Reference to the specific productpurchased",
+      to: [{ type: "product" }], 
       hidden: ({ document }) => document?.type !== "product",
       validation: (rule) =>
         rule.custom((value, context) => {
           const itemType = context.document?.type;
           if (itemType === "product" && !value) {
-            return "Product Variant reference is required when item type is product";
+            return "Product reference is required when item type is product";
           }
           return true;
         }),

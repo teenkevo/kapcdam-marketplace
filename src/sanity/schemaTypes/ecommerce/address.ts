@@ -59,7 +59,7 @@ export const address = defineType({
     }),
 
     defineField({
-      name: "locality",
+      name: "city",
       title: "City/Area",
       type: "string",
       description: "City or locality for delivery zones",
@@ -87,7 +87,7 @@ export const address = defineType({
     select: {
       label: "label",
       address: "address",
-      locality: "locality",
+      locality: "city",
       isDefault: "isDefault",
     },
     prepare({ label, address, locality, isDefault }) {

@@ -1,4 +1,5 @@
 import { defineType, defineField } from "sanity";
+import { UniqueAttributesInput } from "../../components/variant-defining-attributes-selector";
 
 export const category = defineType({
   name: "category",
@@ -22,11 +23,18 @@ export const category = defineType({
       },
       validation: (Rule) => Rule.required(),
     }),
-
+    defineField({
+      name: "hasParent",
+      title: "Has a parent",
+      type: "boolean",
+      description: "Does this category have a parent",
+      initialValue: false,
+    }),
     defineField({
       name: "parent",
       title: "Parent Category",
       type: "reference",
+      hidden: ({ document }) => document?.hasParent == false,
       to: [{ type: "category" }],
       description:
         "Leave empty for a top-level category (e.g., 'HandCrafted'). Select a parent for a sub-category (e.g., 'Clothing').",
@@ -69,6 +77,26 @@ export const category = defineType({
               type: "reference",
               to: [{ type: "attributeDefinition" }],
               validation: (Rule) => Rule.required(),
+              options: {
+                filter: ({ document }) => {
+                  const existingAttributeRefs = (
+                    Array(document?.categoryAttributes) || []
+                  )
+                    //@ts-expect-error error expected
+                    .map((attr) => attr?.attributeRef?._ref)
+                    .filter(Boolean);
+
+                  return {
+                    filter:
+                      existingAttributeRefs.length > 0
+                        ? "!(_id in $existingRefs)"
+                        : "",
+                    params: {
+                      existingRefs: existingAttributeRefs,
+                    },
+                  };
+                },
+              },
             }),
             defineField({
               name: "allowedValuesOverride",
@@ -86,6 +114,28 @@ export const category = defineType({
           },
         },
       ],
+      components: {
+        input: UniqueAttributesInput,
+      },
+      validation: (Rule) =>
+        Rule.custom((categoryAttributes) => {
+          if (!categoryAttributes || !Array.isArray(categoryAttributes)) {
+            return true;
+          }
+
+          const attributeRefs = categoryAttributes
+            //@ts-expect-error ref error expected
+            .map((item) => item?.attributeRef?._ref)
+            .filter(Boolean);
+
+          const uniqueRefs = new Set(attributeRefs);
+
+          if (attributeRefs.length !== uniqueRefs.size) {
+            return "Each attribute can only be selected once";
+          }
+
+          return true;
+        }),
     }),
 
     defineField({

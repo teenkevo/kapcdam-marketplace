@@ -65,19 +65,18 @@ export const cart = defineType({
                   .error("Current price must be a positive number"),
             }),
 
-          
             defineField({
-              name: "variant",
-              title: "Product Variant",
+              name: "product",
+              title: "Product",
               type: "reference",
               description: "Reference to the specific product variant",
-              to: [{ type: "productVariant" }], 
+              to: [{ type: "product" }],
               hidden: ({ parent }) => parent?.type !== "product",
               validation: (rule) =>
                 rule.custom((value, context) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   if ((context.parent as any)?.type === "product" && !value) {
-                    return "Product Variant reference is required";
+                    return "Product reference is required";
                   }
                   return true;
                 }),
@@ -131,14 +130,14 @@ export const cart = defineType({
               type: "type",
               quantity: "quantity",
               currentPrice: "currentPrice",
-              variantTitle: "variant.title", 
+              variantTitle: "variant.title",
               courseTitle: "course.title",
             },
             prepare({
               type,
               quantity,
               currentPrice,
-              variantTitle, 
+              variantTitle,
               courseTitle,
             }) {
               const itemName = type === "product" ? variantTitle : courseTitle;
