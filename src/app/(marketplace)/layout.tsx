@@ -2,14 +2,16 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Space_Grotesk } from "next/font/google";
 import type { Metadata } from "next";
 import "../globals.css";
-import Navbar from "@/components/Navbar";
 import { TRPCProvider } from "@/trpc/client";
+import Header from "@/features/layout/ui/components/header";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "KAPCDAM Marketplace",
-  description: "Shop now and enjoy huge savings with KAPCDAM's deals",
+  title:
+    "Kampala Parents of Children with Disabilities Association – Makindye (KAPCDAM)",
+  description:
+    "KAPCDAM is a non-profit organization that provides support to children with disabilities and their families.",
 };
 
 export default function RootLayout({
@@ -22,17 +24,8 @@ export default function RootLayout({
       <ClerkProvider dynamic>
         <html lang="en" suppressHydrationWarning>
           <body className={spaceGrotesk.className}>
-            {/* <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          > */}
-            <main>
-              <Navbar />
-              {children}
-            </main>
-            {/* </ThemeProvider> */}
+            <Header />
+            <main>{children}</main>
           </body>
         </html>
       </ClerkProvider>
