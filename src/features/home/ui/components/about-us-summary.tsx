@@ -138,7 +138,8 @@ export default function AboutUsSummary() {
             "Every year, external auditors review our operations to maintain high standards of financial integrity.",
         },
       ],
-      imageSrc: "/placeholder.svg?height=400&width=600", // Placeholder image [^1][^2]
+      imageSrc:
+        "https://res.cloudinary.com/teenkevo-cloud/image/upload/q_74/v1752884098/Candle_making_by_parents_of_Children_with_Disabilities_Association_sjb4nw.webp", // Placeholder image [^1][^2]
       backgroundColorClass: "bg-[#e7f2f0]",
       borderColorClass: "border border-gray-300",
       textColorClass: "text-gray-900",
@@ -179,10 +180,6 @@ export default function AboutUsSummary() {
               }
             />
           ))}
-        </div>
-        {/* Content that scrolls over/under the cards */}
-        <div className="h-[500px] bg-gray-50 flex items-center justify-center text-gray-500 text-2xl rounded-xl">
-          Learn more about KAPCDAM Makindye Uganda!
         </div>
       </div>
     </div>
