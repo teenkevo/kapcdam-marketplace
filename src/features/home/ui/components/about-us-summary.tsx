@@ -16,7 +16,7 @@ export default function AboutUsSummary() {
         {
           heading: "Underrepresented Voices",
           description:
-            "Children with disabilities in Makindye often face stigma and neglect. We work to create visibility, acceptance, and opportunity.",
+            "Children with disabilities often face stigma and neglect. We work to create visibility, acceptance, and opportunity.",
         },
         {
           heading: "Barriers to Education",
@@ -80,7 +80,7 @@ export default function AboutUsSummary() {
       id: "card-3",
       heading: "Sustaining Impact: Economic Empowerment",
       description:
-        "Our social enterprise model fuels long-term change. Whether you shop or donate, you’re helping us provide vital services to disabled children in Makindye.",
+        "Our social enterprise model fuels long-term change. Whether you shop or donate, you’re helping us provide vital services to disabled children.",
       features: [
         {
           heading: "Community Marketplace",

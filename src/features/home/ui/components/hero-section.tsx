@@ -39,7 +39,7 @@ export default function HeroSection() {
             {/* Hero Text */}
             <div>
               <p
-                className={`text-6xl font-bold max-w-lg tracking-tight text-gray-300 mb-4 ${barlowCondensed.className}`}
+                className={`text-4xl md:text-6xl font-bold max-w-lg tracking-tight text-gray-300 mb-4 ${barlowCondensed.className}`}
               >
                 BUILDING AN{" "}
                 <span className="text-lime-400">INCLUSIVE FUTURE</span> FOR
