@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 import { TRPCProvider } from "@/trpc/client";
 import Header from "@/features/layout/ui/components/header";
+import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
@@ -24,8 +25,10 @@ export default function RootLayout({
       <ClerkProvider dynamic>
         <html lang="en" suppressHydrationWarning>
           <body className={spaceGrotesk.className}>
-            <Header />
-            <main>{children}</main>
+            <MegaMenuProvider>
+              <Header />
+              <main>{children}</main>
+            </MegaMenuProvider>
           </body>
         </html>
       </ClerkProvider>

@@ -4,8 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button"; // Assuming Button is imported from shadcn/ui
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMegaMenuContext } from "./mega-menu-context";
 
 interface MegaMenuItem {
   title: string;
@@ -22,6 +23,7 @@ interface MegaMenuSection {
 interface MegaMenuProps {
   label: string;
   sections: MegaMenuSection[];
+  id?: string; // Optional ID, will generate one if not provided
 }
 
 const itemVariants = {
@@ -44,22 +46,38 @@ const menuVariants = {
   },
 };
 
-export default function MegaMenu({ label, sections }: MegaMenuProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
+  const menuId = React.useMemo(
+    () => id || `mega-menu-${Math.random().toString(36).substr(2, 9)}`,
+    [id]
+  );
+  const { openMenus, setMenuOpen } = useMegaMenuContext();
+  const isOpen = openMenus.has(menuId);
   const closeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = React.useCallback(() => {
     if (closeTimeoutRef.current) {
       clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
     }
-    setIsOpen(true);
-  };
+    setMenuOpen(menuId, true);
+  }, [menuId, setMenuOpen]);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = React.useCallback(() => {
     closeTimeoutRef.current = setTimeout(() => {
-      setIsOpen(false);
+      setMenuOpen(menuId, false);
     }, 100); // Small delay to account for hover transition
-  };
+  }, [menuId, setMenuOpen]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+      setMenuOpen(menuId, false);
+    };
+  }, [menuId, setMenuOpen]);
 
   return (
     <div
@@ -83,6 +101,7 @@ export default function MegaMenu({ label, sections }: MegaMenuProps) {
           )}
         />
       </Button>
+
       <AnimatePresence>
         {isOpen && (
           <motion.div
