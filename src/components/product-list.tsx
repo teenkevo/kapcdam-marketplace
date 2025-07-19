@@ -275,9 +275,11 @@ export const products: Product[] = [
 ];
 export function ProductList() {
   return (
-    <div className="px-8 py-10">
+    <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-black">Products</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-black tracking-tight">
+          Some of our products
+        </h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

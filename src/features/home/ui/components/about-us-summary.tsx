@@ -154,7 +154,7 @@ export default function AboutUsSummary() {
         {/* Sticky stack wrapper */}
         <div
           className="relative flex flex-col gap-8 md:gap-12"
-          style={{ height: "calc(4 * 600px + 280px)" }}
+          // style={{ height: "calc(4 * 600px)" }}
         >
           {cardsData.map((card, index) => (
             <FeatureCard

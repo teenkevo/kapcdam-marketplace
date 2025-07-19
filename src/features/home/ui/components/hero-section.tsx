@@ -35,7 +35,7 @@ export default function HeroSection() {
       {/* Content */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="flex flex-col justify-center px-8 space-y-10">
+          <div className="flex flex-col justify-center px-4 md:px-8 space-y-10">
             {/* Hero Text */}
             <div>
               <p
