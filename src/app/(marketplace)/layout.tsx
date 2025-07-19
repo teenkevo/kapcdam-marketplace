@@ -5,6 +5,7 @@ import "../globals.css";
 import { TRPCProvider } from "@/trpc/client";
 import Header from "@/features/layout/ui/components/header";
 import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
+import Footer from "@/features/layout/ui/components/footer";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
             <MegaMenuProvider>
               <Header />
               <main>{children}</main>
+              <Footer />
             </MegaMenuProvider>
           </body>
         </html>
