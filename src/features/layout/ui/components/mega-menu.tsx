@@ -69,6 +69,10 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
     }, 100); // Small delay to account for hover transition
   }, [menuId, setMenuOpen]);
 
+  const handleLinkClick = React.useCallback(() => {
+    setMenuOpen(menuId, false);
+  }, [menuId, setMenuOpen]);
+
   // Cleanup timeout on unmount
   React.useEffect(() => {
     return () => {
@@ -105,7 +109,7 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed top-[calc(theme(spacing.32)+theme(spacing.2))] left-0 right-0 mx-auto w-full max-w-7xl rounded-lg bg-white p-6 shadow-xl ring-1 ring-black ring-opacity-5 z-50"
+            className="fixed top-[calc(theme(spacing.24)+theme(spacing.2))] left-0 right-0 mx-auto w-full max-w-7xl rounded-lg bg-white p-6 shadow-xl ring-1 ring-black ring-opacity-5 z-50"
             initial="hidden"
             animate="visible"
             exit="hidden"
@@ -127,6 +131,7 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
                           <Link
                             href={item.href}
                             className="group flex items-start space-x-3 rounded-md p-2 hover:bg-gray-50 transition-colors duration-200"
+                            onClick={handleLinkClick}
                           >
                             {Icon && (
                               <Icon className="h-6 w-6 text-gray-500 group-hover:text-gray-700 transition-colors duration-200" />

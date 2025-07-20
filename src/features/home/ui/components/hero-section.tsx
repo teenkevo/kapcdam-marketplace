@@ -2,7 +2,6 @@
 import Image from "next/image";
 import { Barlow_Condensed } from "next/font/google";
 import { motion } from "framer-motion";
-import { useState } from "react";
 import DonationForm from "./donation-form";
 import DonateButton from "./donate-button";
 import ShopButton from "./shop-button";
@@ -13,9 +12,6 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export default function HeroSection() {
-  const [donateIsHovered, setDonateIsHovered] = useState(false);
-  const [shopIsHovered, setShopIsHovered] = useState(false);
-
   return (
     <section className="relative min-h-[550px] bg-gradient-to-r from-teal-500 to-blue-500 overflow-hidden">
       {/* Background Image with Zoom Animation */}

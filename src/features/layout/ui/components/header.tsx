@@ -159,7 +159,7 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-32">
+        <div className="flex items-center justify-between h-16 md:h-20 lg:h-24">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
@@ -168,6 +168,7 @@ export default function Header() {
                 alt="KAPCDAM Logo"
                 width={280}
                 height={280}
+                className="w-32 h-20 md:w-48 md:h-12 lg:w-64 lg:h-16 xl:w-72 xl:h-24 object-contain"
               />
             </Link>
           </div>
