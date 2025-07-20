@@ -31,7 +31,7 @@ export default function HeroSection() {
           <div className="grid lg:grid-cols-2">
             <div className="max-w-2xl">
               <motion.div
-                className="flex flex-col"
+                className="flex flex-col md:px-8 px-4"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
