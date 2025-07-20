@@ -60,7 +60,7 @@ export default function DonationCards() {
   ];
 
   return (
-    <section className="relative -mt-[10vh] z-20 pb-16">
+    <section className="relative -mt-[20vh] z-20 pb-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Card - Make Your Donation */}

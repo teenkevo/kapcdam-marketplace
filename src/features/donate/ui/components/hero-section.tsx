@@ -23,7 +23,7 @@ export default function HeroSection() {
       </div>
 
       {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/60 to-purple-800/80"></div>
+      <div className="absolute inset-0 bg-gradient-to-r md:from-black/90 from-blue-800/50 via-blue-800/60 to-black/80"></div>
 
       {/* Hero Content */}
       <div className="relative z-10 flex pt-28 h-full text-white">
@@ -46,7 +46,7 @@ export default function HeroSection() {
                   Uganda through education, healthcare, and community
                   integration programs.
                 </h2>
-                <div className="flex flex-wrap items-center gap-6 text-sm">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4" />
                     <span>100% Transparent</span>
