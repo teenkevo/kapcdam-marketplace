@@ -1,6 +1,6 @@
 import HeroSection from "@/features/home/ui/components/hero-section";
 import AboutUsSummary from "../components/about-us-summary";
-import Panel from "@/features/layout/ui/components/panel";
+import MarketPlaceTeaser from "@/features/home/ui/components/market-place-teaser";
 import { ProductList } from "@/components/product-list";
 
 export default async function HomeView() {
@@ -9,7 +9,7 @@ export default async function HomeView() {
       <main>
         <HeroSection />
         <AboutUsSummary />
-        <Panel />
+        <MarketPlaceTeaser />
         <ProductList />
       </main>
     </div>

@@ -17,7 +17,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-6 gap-8">
           {/* Left Column - Organization Info */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg p-6 shadow-sm">
+            <div className="bg-white rounded-lg p-6 shadow-lg">
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex items-center">
                   <Link href="/" className="flex items-center space-x-2">

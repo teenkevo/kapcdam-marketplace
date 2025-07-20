@@ -2,7 +2,6 @@
 import Image from "next/image";
 import { Barlow_Condensed } from "next/font/google";
 import { motion } from "framer-motion";
-import { useState } from "react";
 import DonationForm from "./donation-form";
 import DonateButton from "./donate-button";
 import ShopButton from "./shop-button";
@@ -13,9 +12,6 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export default function HeroSection() {
-  const [donateIsHovered, setDonateIsHovered] = useState(false);
-  const [shopIsHovered, setShopIsHovered] = useState(false);
-
   return (
     <section className="relative min-h-[550px] bg-gradient-to-r from-teal-500 to-blue-500 overflow-hidden">
       {/* Background Image with Zoom Animation */}
@@ -51,17 +47,17 @@ export default function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.8 }}
             >
-              <p
+              <h1
                 className={`text-4xl md:text-6xl font-bold max-w-lg tracking-tight text-gray-300 mb-4 ${barlowCondensed.className}`}
               >
                 BUILDING AN{" "}
                 <span className="text-lime-400">INCLUSIVE FUTURE</span> FOR
                 CHILDREN WITH DISABILITIES
-              </p>
-              <p className="text-sm font-light max-w-md text-gray-200">
+              </h1>
+              <h2 className="text-sm font-light max-w-md text-gray-200">
                 Owned by Kampala Parents of Children with Disabilities
                 Association – Makindye (KAPCDAM)
-              </p>
+              </h2>
             </motion.div>
 
             <motion.div

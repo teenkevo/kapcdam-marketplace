@@ -10,6 +10,9 @@ export default function DonationForm() {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
+  const [donationType, setDonationType] = useState<"monthly" | "one-time">(
+    "monthly"
+  );
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
@@ -32,7 +35,13 @@ export default function DonationForm() {
   return (
     <Card className="w-full max-w-md bg-white shadow-xl">
       <CardContent className="p-6">
-        <Tabs defaultValue="monthly" className="w-full">
+        <Tabs
+          defaultValue={donationType}
+          onValueChange={(value) =>
+            setDonationType(value as "monthly" | "one-time")
+          }
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger
               value="once"
@@ -61,9 +70,10 @@ export default function DonationForm() {
                 onCustomAmountChange={handleCustomAmountChange}
                 isCustomSelected={isCustomSelected}
                 onCustomSelect={handleCustomSelect}
+                donationType={donationType}
               />
               <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3">
-                JOIN TODAY
+                DONATE MONTHLY
               </Button>
             </div>
           </TabsContent>
@@ -81,6 +91,7 @@ export default function DonationForm() {
                 onCustomAmountChange={handleCustomAmountChange}
                 isCustomSelected={isCustomSelected}
                 onCustomSelect={handleCustomSelect}
+                donationType={donationType}
               />
               <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3">
                 DONATE NOW

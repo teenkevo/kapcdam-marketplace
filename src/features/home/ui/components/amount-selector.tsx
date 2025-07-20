@@ -11,6 +11,7 @@ interface AmountSelectorProps {
   onCustomAmountChange: (amount: string) => void;
   isCustomSelected?: boolean;
   onCustomSelect?: () => void;
+  donationType?: "monthly" | "one-time";
 }
 
 export default function AmountSelector({
@@ -21,6 +22,7 @@ export default function AmountSelector({
   onCustomAmountChange,
   isCustomSelected = false,
   onCustomSelect,
+  donationType = "monthly",
 }: AmountSelectorProps) {
   return (
     <div className="space-y-3">
@@ -41,7 +43,8 @@ export default function AmountSelector({
             }`}
             onClick={() => onAmountSelect(amount)}
           >
-            ${amount}/month
+            ${amount}
+            {donationType === "monthly" ? "/month" : ""}
           </Button>
         ))}
       </div>
@@ -51,7 +54,7 @@ export default function AmountSelector({
         <div className="relative">
           <Input
             type="text"
-            placeholder="Other amount"
+            placeholder="Other amount in USD"
             value={customAmount}
             onChange={(e) => onCustomAmountChange(e.target.value)}
             onFocus={() => onCustomSelect?.()}
