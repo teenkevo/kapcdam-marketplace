@@ -5,7 +5,7 @@ import SupportSystems from "./support-systems";
 export default function OtherWaysToSupport() {
   return (
     <section className=" py-16 bg-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className=" mb-12">
           <h2 className="text-2xl md:text-3xl mb-4 text-black font-extrabold tracking-tight">
             Other ways to support us

@@ -47,17 +47,17 @@ export default function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.8 }}
             >
-              <p
+              <h1
                 className={`text-4xl md:text-6xl font-bold max-w-lg tracking-tight text-gray-300 mb-4 ${barlowCondensed.className}`}
               >
                 BUILDING AN{" "}
                 <span className="text-lime-400">INCLUSIVE FUTURE</span> FOR
                 CHILDREN WITH DISABILITIES
-              </p>
-              <p className="text-sm font-light max-w-md text-gray-200">
+              </h1>
+              <h2 className="text-sm font-light max-w-md text-gray-200">
                 Owned by Kampala Parents of Children with Disabilities
                 Association – Makindye (KAPCDAM)
-              </p>
+              </h2>
             </motion.div>
 
             <motion.div

@@ -23,14 +23,15 @@ export default function HeroSection() {
       </div>
 
       {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r md:from-black/90 from-blue-800/50 via-blue-800/60 to-black/80"></div>
+      <div className="absolute inset-0 bg-gradient-to-r md:from-black/90 from-blue-800/50 md:via-blue-800/60 to-black/80"></div>
 
       {/* Hero Content */}
       <div className="relative z-10 flex pt-28 h-full text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="grid lg:grid-cols-2">
             <div className="max-w-2xl">
               <motion.div
+                className="flex flex-col"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}

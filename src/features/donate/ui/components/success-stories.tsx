@@ -127,7 +127,7 @@ export default function SuccessStories() {
       {/* Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent"></div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className=" mb-12">
           <h2 className="text-2xl md:text-3xl mb-4 text-white font-extrabold tracking-tight">
             Know that your donation is making a difference
