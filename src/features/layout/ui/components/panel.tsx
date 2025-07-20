@@ -9,10 +9,10 @@ export default function Panel() {
         {/* Outer white card container */}
         <div className="bg-white rounded-3xl shadow-2xl p-4">
           {/* Inner gray card */}
-          <div className="bg-[#eaeaea] rounded-2xl p-6 md:p-4">
+          <div className="bg-[#eaeaea] rounded-2xl p-4 md:p-6">
             <div className="grid md:grid-cols-2 gap-6">
               {/* Left Panel - No background, just border on gray */}
-              <div className="rounded-xl border border-gray-300 p-6">
+              <div className="rounded-xl border border-gray-300 p-4 md:p-6">
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 tracking-tight">
                   How we spend your money
                 </h3>
@@ -46,13 +46,13 @@ export default function Panel() {
               </div>
 
               {/* Right Panel - Dark with border */}
-              <div className="bg-gradient-to-b from-blue-900 to-gray-900 rounded-xl border border-gray-700 p-6 text-white">
+              <div className="bg-gradient-to-b from-blue-900 to-gray-900 rounded-xl border border-gray-700 p-4 md:p-6 text-white">
                 <h3 className="text-2xl md:text-3xl font-bold mb-4">
                   Buy from our marketplace
                 </h3>
                 <p className="text-gray-300 mb-8 leading-relaxed">
                   We have a wide range of products for you to choose from. All
-                  products are made by in partnership with the parents’ support
+                  products are made in partnership with the parents’ support
                   groups of disabled children. From handrafted products to
                   essential suplies and a skilling center, we have something for
                   everyone.
