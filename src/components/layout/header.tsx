@@ -157,7 +157,7 @@ const whyKAPCDAMSections = [
   },
 ];
 
-const Header = () => {
+export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -192,4 +192,4 @@ const Header = () => {
       </div>
     </header>
   );
-};
+}
