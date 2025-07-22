@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -113,7 +113,7 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
             initial="hidden"
             animate="visible"
             exit="hidden"
-            variants={menuVariants}
+            variants={menuVariants as Variants}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
