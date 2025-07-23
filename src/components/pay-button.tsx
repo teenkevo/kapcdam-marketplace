@@ -39,10 +39,13 @@ export function CustomPaymentForm({
 
     try {
       // Register IPN
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || window.location.origin;
       const ipnResult = await registerIpn.mutateAsync({
-        url: "https://0c2c03484da5.ngrok-free.app/api/webhooks/pesapal",
+        url: `${baseUrl}/api/webhooks/pesapal`,
         ipn_notification_type: "POST",
       });
+
+      console.log("----- Processing payment -----");
 
       // Submit order
       const orderResult = await submitOrder.mutateAsync({
@@ -50,8 +53,7 @@ export function CustomPaymentForm({
         currency,
         amount,
         description,
-        callback_url:
-          "https://0c2c03484da5.ngrok-free.app/api/payment/callback",
+        callback_url: `${baseUrl}/api/payment/callback`,
         notification_id: ipnResult.ipn_id,
         billing_address: billingInfo,
       });

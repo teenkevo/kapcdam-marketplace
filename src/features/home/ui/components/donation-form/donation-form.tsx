@@ -21,10 +21,17 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
+import { trpc } from "@/trpc/client";
 
 import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import AmountSelector from "../amount-selector";
+import { useRouter } from "next/navigation";
+import { generateDonationId } from "@/modules/donate/server/procedure";
+import { PesapalOrderRequest } from "@/modules/payments/schema";
+import { formatDateToDDMMYYYY } from "@/modules/payments/utils";
+import { makeDonation } from "@/modules/donate/actions";
+import { toast } from "sonner";
 
 interface FormData {
   firstName: string;
@@ -34,6 +41,7 @@ interface FormData {
 }
 
 export default function DonationForm() {
+  const router = useRouter();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
@@ -94,6 +102,11 @@ export default function DonationForm() {
     [isCustomSelected, handleCustomSelect]
   );
 
+  // Use the donations router procedures
+  const createDonation = trpc.donations.create.useMutation();
+  const registerIpn = trpc.payments.registerIpn.useMutation();
+  const processPayment = trpc.payments.submitOrder.useMutation();
+
   const onSubmit = async (data: FormData) => {
     // Validate amount
     const amountValidationError = validateAmount(selectedAmount, customAmount);
@@ -102,39 +115,48 @@ export default function DonationForm() {
       return;
     }
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    const donationAmount = selectedAmount || Number(customAmount);
 
-      console.log("Donation submitted:", {
-        ...data,
-        amount: selectedAmount || customAmount,
+    try {
+      const result = await makeDonation({
+        donationAmount,
         donationType,
         paymentMethod,
-        referenceNumber: paymentMethod === "bank" ? referenceNumber : undefined,
+        data,
       });
 
-      alert(
-        "Thank you for your donation! You will receive a confirmation email shortly."
-      );
-      setIsOpen(false);
-      form.reset();
+      // Create donation record
+      if (paymentMethod === "bank" && result.success) {
+        // Bank transfer method
+        toast.success("Thank you for your donation! 🎊", {
+          description: result.message,
+        });
+        setIsOpen(false);
+        form.reset();
+        setSelectedAmount(null);
+        setCustomAmount("");
+        setIsCustomSelected(false);
+      }
     } catch (error) {
-      console.error("Submission error:", error);
-      alert("There was an error processing your donation. Please try again.");
+      console.error("Donation submission error:", error);
+      toast.error(
+        "There was an error processing your donation. Please try again."
+      );
     }
   };
 
   const hasAmount = selectedAmount || customAmount;
   const hasValidAmount =
     hasAmount && (!customAmount || Number(customAmount) > 0);
+  const isProcessing = createDonation.isPending || processPayment.isPending;
 
   const DonateButton = ({ children }: { children: React.ReactNode }) => (
     <Button
       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      disabled={!hasValidAmount}
+      disabled={!hasValidAmount || isProcessing}
       onClick={() => setIsOpen(true)}
     >
-      {children}
+      {isProcessing ? "Processing..." : children}
     </Button>
   );
 
@@ -176,7 +198,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting}
+                  isSubmitting={form.formState.isSubmitting || isProcessing}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />
@@ -204,7 +226,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting}
+                  isSubmitting={form.formState.isSubmitting || isProcessing}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />

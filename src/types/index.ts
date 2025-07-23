@@ -20,3 +20,20 @@ export interface FilterState {
   rating: number;
   inStock: boolean;
 }
+
+// Global gtag types for Google Analytics
+declare global {
+  interface Window {
+    gtag?: (
+      command: "config" | "event" | "js",
+      targetId: string | Date,
+      config?: {
+        send_to?: string;
+        value?: number;
+        currency?: string;
+        transaction_id?: string;
+        [key: string]: any;
+      }
+    ) => void;
+  }
+}
