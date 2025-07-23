@@ -1,50 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, baseProcedure, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
+import { cancelOrderSchema, getTransactionStatusSchema, refundRequestSchema, registerIpnSchema, submitOrderSchema, type PesapalOrderRequest } from "../schema";
 
-const billingAddressSchema = z.object({
-  email_address: z.string().email(),
-  phone_number: z.string(),
-  country_code: z.string().length(2),
-  first_name: z.string(),
-  last_name: z.string(),
-  line_1: z.string(),
-  city: z.string().optional(),
-});
 
-const submitOrderSchema = z.object({
-  id: z.string(),
-  currency: z.string(),
-  amount: z.number().positive(),
-  description: z.string(),
-  callback_url: z.string().url(),
-  notification_id: z.string().uuid(),
-  billing_address: billingAddressSchema,
-});
-
-const registerIpnSchema = z.object({
-  url: z.string().url(),
-  ipn_notification_type: z.enum(["GET", "POST"]),
-});
-
-const refundRequestSchema = z.object({
-  confirmation_code: z.string(),
-  amount: z.number().positive(),
-  username: z.string(),
-  remarks: z.string(),
-});
-
-const cancelOrderSchema = z.object({
-  order_tracking_id: z.string().uuid(),
-});
-
-const getTransactionStatusSchema = z.object({
-  order_tracking_id: z.string().uuid(),
-});
 
 export const paymentsRouter = createTRPCRouter({
   // Register IPN URL
-  registerIpn: protectedProcedure
+  registerIpn: baseProcedure
     .input(registerIpnSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -82,7 +45,7 @@ export const paymentsRouter = createTRPCRouter({
     }),
 
   // Submit order request 
-  submitOrder: protectedProcedure
+  submitOrder: baseProcedure
     .input(submitOrderSchema)
     .mutation(async ({ input, ctx }) => {
       try {

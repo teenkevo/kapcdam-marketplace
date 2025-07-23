@@ -83,7 +83,7 @@ const updateDonationStatusSchema = z.object({
   isRecurring: z.boolean().default(false),
 });
 
-function generateDonationId(): string {
+export function generateDonationId(): string {
   const year = new Date().getFullYear();
   const timestamp = Date.now();
   return `DON-${year}-${timestamp.toString().slice(-6)}`;

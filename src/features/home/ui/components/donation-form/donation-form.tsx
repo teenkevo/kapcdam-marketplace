@@ -27,6 +27,7 @@ import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import AmountSelector from "../amount-selector";
 import { useRouter } from "next/navigation";
+import { generateDonationId } from "@/modules/donate/server/procedure";
 
 interface FormData {
   firstName: string;
@@ -99,8 +100,8 @@ export default function DonationForm() {
 
   // Use the donations router procedures
   const createDonation = trpc.donations.create.useMutation();
-  const registerIpn = trpc.donations.registerIpn.useMutation()
-  const processPayment = trpc.donations.processPayment.useMutation();
+  const registerIpn = trpc.payments.registerIpn.useMutation();
+  const processPayment = trpc.payments.submitOrder.useMutation();
 
   const onSubmit = async (data: FormData) => {
     // Validate amount
@@ -135,20 +136,29 @@ export default function DonationForm() {
 
       // Process payment if using card method
       if (paymentMethod === "card") {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_BASE_URL_PROD 
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD;
 
-          const ipnResult = await registerIpn.mutateAsync({
-            ipn_notification_type: "POST",
-            url: `${baseUrl}/api/webhooks/pesapal`,
-          });
+        const ipnResult = await registerIpn.mutateAsync({
+          ipn_notification_type: "POST",
+          url: `${baseUrl}/api/webhooks/pesapal`,
+        });
 
-          console.log("IPN RESULT",ipnResult)
-
+        console.log("IPN RESULT", ipnResult);
 
         const paymentResult = await processPayment.mutateAsync({
-          donationId: donation.donationId,
+          id: donation.donationId,
+          amount: donationAmount,
+          currency: "USD",
+          description: `Donation to KAPCDAM - ${donationType === "monthly" ? "Monthly" : "One-time"}`,
+          callback_url: `${baseUrl}/api/payment/callback`,
           notification_id: ipnResult.ipn_id,
+          billing_address: {
+            email_address: donation.donorInfo.email,
+            phone_number: donation.donorInfo.phone,
+            country_code: "UG",
+            first_name: donation.donorInfo.firstName,
+            last_name: donation.donorInfo.lastName,
+          },
         });
 
         // Redirect to Pesapal payment page
