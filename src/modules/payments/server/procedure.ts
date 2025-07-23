@@ -56,7 +56,7 @@ export const paymentsRouter = createTRPCRouter({
             headers: {
               Accept: "application/json",
               "Content-Type": "application/json",
-              Authorization: `Bearer ${ctx.pesapalToken}`, // Assuming token is in context
+              Authorization: `Bearer ${ctx.pesapalToken}`, 
             },
             body: JSON.stringify(input),
           }
