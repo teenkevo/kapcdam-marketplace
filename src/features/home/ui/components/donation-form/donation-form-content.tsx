@@ -66,7 +66,7 @@ export default function DonationFormContent({
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center">
               <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
               Processing...
             </div>
@@ -75,11 +75,11 @@ export default function DonationFormContent({
               {paymentMethod === "bank"
                 ? "Record My Donation"
                 : donationType === "monthly"
-                  ? "Start Monthly Giving"
-                  : "Donate Now"}
+                  ? "Start Monthly Giving -"
+                  : "Donate Now -"}
               {(selectedAmount || customAmount) && (
-                <span className="ml-2">
-                  - ${selectedAmount || customAmount}
+                <span>
+                  ${selectedAmount || customAmount}
                   {donationType === "monthly" ? "/month" : ""}
                 </span>
               )}
@@ -96,12 +96,7 @@ export default function DonationFormContent({
               " in your transfer note to ensure your donation is properly
               recorded.
             </p>
-          ) : (
-            <p className="bg-green-50 p-3 rounded-md border border-green-200">
-              🔒 Your donation is secure and encrypted. You will receive a
-              tax-deductible receipt via email.
-            </p>
-          )}
+          ) : null}
         </div>
       </form>
     </Form>

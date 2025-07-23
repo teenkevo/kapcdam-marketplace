@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,27 +13,105 @@ import {
   CheckCircle,
 } from "lucide-react";
 import AmountSelector from "@/features/home/ui/components/amount-selector";
+import DonationFormContent from "@/features/home/ui/components/donation-form/donation-form-content";
+import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
+import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
+
+interface DonationFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
 
 export default function DonationCards() {
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(25);
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(50);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
   const [donationType, setDonationType] = useState<"monthly" | "one-time">(
     "monthly"
   );
 
-  const monthlyAmounts = [10, 25, 50, 100, 200, 500];
-  const oneTimeAmounts = [25, 50, 100, 250, 500, 1000];
+  const [paymentMethod, setPaymentMethod] = useState<"bank" | "card">("card");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [amountError, setAmountError] = useState<string>("");
 
-  const handleAmountSelect = (amount: number) => {
+  const { form, validateAmount } = useFormValidation();
+
+  const generateReferenceNumber = useCallback(() => {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    return `DON-${timestamp}-${random}`;
+  }, []);
+
+  useEffect(() => {
+    if (paymentMethod === "bank" && !referenceNumber) {
+      setReferenceNumber(generateReferenceNumber());
+    }
+  }, [paymentMethod, referenceNumber, generateReferenceNumber]);
+
+  const handlePaymentMethodChange = useCallback(
+    (method: "bank" | "card") => {
+      setPaymentMethod(method);
+      if (method === "bank") {
+        setReferenceNumber(generateReferenceNumber());
+      }
+    },
+    [generateReferenceNumber]
+  );
+
+  const handleAmountSelect = useCallback((amount: number) => {
     setSelectedAmount(amount);
     setIsCustomSelected(false);
     setCustomAmount("");
-  };
+    setAmountError("");
+  }, []);
 
-  const handleCustomSelect = () => {
+  const handleCustomSelect = useCallback(() => {
     setIsCustomSelected(true);
     setSelectedAmount(null);
+  }, []);
+
+  const handleCustomAmountChange = useCallback(
+    (amount: string) => {
+      setCustomAmount(amount);
+      if (amount && !isCustomSelected) {
+        handleCustomSelect();
+      }
+      if (amount) {
+        setAmountError("");
+      }
+    },
+    [isCustomSelected, handleCustomSelect]
+  );
+
+  const onSubmit = async (data: DonationFormData) => {
+    // Validate amount
+    const amountValidationError = validateAmount(selectedAmount, customAmount);
+    if (amountValidationError) {
+      setAmountError(amountValidationError);
+      return;
+    }
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      console.log("Donation submitted:", {
+        ...data,
+        amount: selectedAmount || customAmount,
+        donationType,
+        paymentMethod,
+        referenceNumber: paymentMethod === "bank" ? referenceNumber : undefined,
+      });
+
+      alert(
+        "Thank you for your donation! You will receive a confirmation email shortly."
+      );
+      form.reset();
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("There was an error processing your donation. Please try again.");
+    }
   };
 
   const impactData = [
@@ -117,7 +195,7 @@ export default function DonationCards() {
                     selectedAmount={selectedAmount}
                     onAmountSelect={handleAmountSelect}
                     customAmount={customAmount}
-                    onCustomAmountChange={setCustomAmount}
+                    onCustomAmountChange={handleCustomAmountChange}
                     isCustomSelected={isCustomSelected}
                     onCustomSelect={handleCustomSelect}
                     donationType={donationType}
@@ -125,46 +203,22 @@ export default function DonationCards() {
                 </div>
 
                 {/* Personal Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Your Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input placeholder="First Name" />
-                    <Input placeholder="Last Name" />
+                {(selectedAmount || customAmount) && (
+                  <div className="space-y-4">
+                    <DonationFormContent
+                      form={form}
+                      paymentMethod={paymentMethod}
+                      onPaymentMethodChange={handlePaymentMethodChange}
+                      referenceNumber={referenceNumber}
+                      selectedAmount={selectedAmount}
+                      customAmount={customAmount}
+                      donationType={donationType}
+                      isSubmitting={form.formState.isSubmitting}
+                      onSubmit={onSubmit}
+                      amountError={amountError}
+                    />
                   </div>
-                  <Input placeholder="Email Address" type="email" />
-                  <Input placeholder="Phone Number" type="tel" />
-                </div>
-
-                {/* Payment Method */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Payment Method</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-12 bg-transparent">
-                      💳 Credit Card
-                    </Button>
-                    <Button variant="outline" className="h-12 bg-transparent">
-                      🏦 Bank Transfer
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Donate Button */}
-                <Button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-3 font-semibold">
-                  {donationType === "monthly"
-                    ? "Start Monthly Giving"
-                    : "Donate Now"}
-                  {(selectedAmount || customAmount) && (
-                    <span className="ml-2">
-                      - ${selectedAmount || customAmount}
-                      {donationType === "monthly" ? "/month" : ""}
-                    </span>
-                  )}
-                </Button>
-
-                <p className="text-xs text-gray-500 text-center">
-                  Your donation is secure and encrypted. You will receive a
-                  tax-deductible receipt via email.
-                </p>
+                )}
               </CardContent>
             </Card>
           </motion.div>

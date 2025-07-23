@@ -20,6 +20,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
 
 import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
@@ -230,18 +231,18 @@ export default function DonationForm() {
               value="once"
               className="text-sm font-medium data-[state=active]:bg-yellow-400"
             >
-              GIVE ONCE
+              One-Time Gift
             </TabsTrigger>
             <TabsTrigger
               value="monthly"
               className="text-sm font-medium data-[state=active]:bg-yellow-400"
             >
-              MONTHLY
+              Monthly Giving
             </TabsTrigger>
           </TabsList>
 
-          {renderTabContent("monthly", [10, 20, 40, 100], "DONATE MONTHLY")}
-          {renderTabContent("once", [25, 50, 100, 250], "DONATE NOW")}
+          {renderTabContent("monthly", monthlyAmounts, "Donate Monthly")}
+          {renderTabContent("once", oneTimeAmounts, "Donate Now")}
         </Tabs>
 
         <div className="text-center space-y-2 border-t border-dashed border-gray-200 pt-4 mt-5">

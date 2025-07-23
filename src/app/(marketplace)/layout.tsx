@@ -28,7 +28,7 @@ export default function RootLayout({
         <html lang="en" suppressHydrationWarning>
           <body className={spaceGrotesk.className}>
             <MegaMenuProvider>
-              <Toaster />
+              <Toaster position="top-right" />
               <Header />
               <main>{children}</main>
               <Footer />
