@@ -2,9 +2,9 @@
 import Image from "next/image";
 import { Barlow_Condensed } from "next/font/google";
 import { motion } from "framer-motion";
-import DonationForm from "./donation-form";
 import DonateButton from "./donate-button";
 import ShopButton from "./shop-button";
+import DonationForm from "./donation-form/donation-form";
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
