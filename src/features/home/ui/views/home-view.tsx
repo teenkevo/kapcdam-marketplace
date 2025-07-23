@@ -9,20 +9,7 @@ export default async function HomeView() {
     <div className="min-h-screen">
       <main>
         <HeroSection />
-        <CustomPaymentForm
-          amount={500}
-          currency="UGX"
-          description="Test Payment - KAPCDAM"
-          orderId={`TEST-${Date.now()}`}
-          billingInfo={{
-            email_address: "test@example.com",
-            phone_number: "+256761074816",
-            country_code: "UG",
-            first_name: "Test",
-            last_name: "User",
-            line_1: "Kira",
-          }}
-        />
+       
         <AboutUsSummary />
         <MarketPlaceTeaser />
         <ProductList />

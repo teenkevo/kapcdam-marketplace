@@ -3,7 +3,7 @@ import z from "zod";
 interface PesapalBillingAddress {
   email_address: string;
   phone_number: string;
-  country_code: string;
+  country_code?: string;
   first_name: string;
   middle_name?: string;
   last_name: string;

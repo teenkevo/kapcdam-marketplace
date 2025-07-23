@@ -30,6 +30,8 @@ import { useRouter } from "next/navigation";
 import { generateDonationId } from "@/modules/donate/server/procedure";
 import { PesapalOrderRequest } from "@/modules/payments/schema";
 import { formatDateToDDMMYYYY } from "@/modules/payments/utils";
+import { makeDonation } from "@/modules/donate/actions";
+import { toast } from "sonner";
 
 interface FormData {
   firstName: string;
@@ -116,79 +118,19 @@ export default function DonationForm() {
     const donationAmount = selectedAmount || Number(customAmount);
 
     try {
-      // Create donation record
-
-      const donation = await createDonation.mutateAsync({
-        amount: donationAmount,
-        type: donationType === "monthly" ? "monthly" : "one_time",
-        isBankTransfer: paymentMethod === "bank" ? true : false,
-        donorInfo: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phone: data.phone,
-        },
-        ...(donationType === "monthly" && {
-          recurringDetails: {
-            startDate: new Date().toISOString(),
-            endDate: new Date(
-              Date.now() + 365 * 24 * 60 * 60 * 1000
-            ).toISOString(), // Default to 1 year
-          },
-        }),
+      const result = await makeDonation({
+        donationAmount,
+        donationType,
+        paymentMethod,
+        data,
       });
 
-      // Process payment if using card method
-      if (paymentMethod === "card") {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD;
-
-        const ipnResult = await registerIpn.mutateAsync({
-          ipn_notification_type: "POST",
-          url: `${baseUrl}/api/webhooks/pesapal`,
-        });
-
-        const orderPayload: PesapalOrderRequest = {
-          id: donation.donationId,
-          amount: donationAmount,
-          currency: "USD",
-          description: `Donation to KAPCDAM - ${donationType === "monthly" ? "Monthly" : "One-time"}`,
-          callback_url: `${baseUrl}/api/payment/callback`,
-          notification_id: ipnResult.ipn_id,
-          billing_address: {
-            email_address: donation.donorInfo.email,
-            phone_number: donation.donorInfo.phone,
-            country_code: "UG",
-            first_name: donation.donorInfo.firstName,
-            last_name: donation.donorInfo.lastName,
-          },
-        };
-
-        if (donationType === "monthly") {
-          orderPayload.subscription_details = {
-            start_date: formatDateToDDMMYYYY(new Date()),
-            end_date: formatDateToDDMMYYYY(
-              new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-            ),
-            frequency: "MONTHLY",
-          };
-          orderPayload.account_number = donation.donationId;
-        }
-
-        console.log("Order Payload", orderPayload);
-
-        const paymentResult = await processPayment.mutateAsync(orderPayload);
-
-        // Redirect to Pesapal payment page
-        if (paymentResult.redirect_url) {
-          router.push(paymentResult.redirect_url);
-        } else {
-          throw new Error("Payment redirect URL not received");
-        }
-      } else {
+      // Create donation record
+      if (paymentMethod === "bank" && result.success) {
         // Bank transfer method
-        alert(
-          `Thank you for your donation! Your reference number is: ${referenceNumber}. Please use this reference when making your bank transfer.`
-        );
+        toast.success("Thank you for your donation! 🎊", {
+          description: result.message,
+        });
         setIsOpen(false);
         form.reset();
         setSelectedAmount(null);
@@ -197,7 +139,9 @@ export default function DonationForm() {
       }
     } catch (error) {
       console.error("Donation submission error:", error);
-      alert("There was an error processing your donation. Please try again.");
+      toast.error(
+        "There was an error processing your donation. Please try again."
+      );
     }
   };
 

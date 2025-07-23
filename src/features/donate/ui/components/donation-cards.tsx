@@ -16,6 +16,8 @@ import AmountSelector from "@/features/home/ui/components/amount-selector";
 import DonationFormContent from "@/features/home/ui/components/donation-form/donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
+import { makeDonation } from "@/modules/donate/actions";
+import { toast } from "sonner";
 
 interface DonationFormData {
   firstName: string;
@@ -94,23 +96,25 @@ export default function DonationCards() {
     }
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      console.log("Donation submitted:", {
-        ...data,
-        amount: selectedAmount || customAmount,
+      const result = await makeDonation({
+        donationAmount: selectedAmount || Number(customAmount),
         donationType,
         paymentMethod,
-        referenceNumber: paymentMethod === "bank" ? referenceNumber : undefined,
+        data,
       });
 
-      alert(
-        "Thank you for your donation! You will receive a confirmation email shortly."
-      );
+      if (paymentMethod === "bank" && result.success) {
+        toast.success("Thank you for your donation! 🎊", {
+          description: result.message,
+        });
+      }
+
       form.reset();
     } catch (error) {
       console.error("Submission error:", error);
-      alert("There was an error processing your donation. Please try again.");
+      toast.error(
+        "There was an error processing your donation. Please try again."
+      );
     }
   };
 
