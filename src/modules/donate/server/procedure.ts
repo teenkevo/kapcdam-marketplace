@@ -64,7 +64,7 @@ const createDonationSchema = z.object({
       endDate: z.string().datetime().optional(),
     })
     .optional(),
-  isBankTransfer: z.enum(["true", "false"]),
+  isBankTransfer: z.boolean().default(false),
 });
 
 const processDonationPaymentSchema = z.object({
@@ -106,6 +106,7 @@ export const donationsRouter = createTRPCRouter({
           currency: "USD",
           type: input.type,
           donorInfo: input.donorInfo,
+          isBankTransfer: input.isBankTransfer,
           message: input.message,
           paymentStatus: "pending",
           thankYouSent: false,

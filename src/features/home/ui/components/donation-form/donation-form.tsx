@@ -117,10 +117,11 @@ export default function DonationForm() {
 
     try {
       // Create donation record
+
       const donation = await createDonation.mutateAsync({
         amount: donationAmount,
         type: donationType === "monthly" ? "monthly" : "one_time",
-        isBankTransfer: paymentMethod === "bank" ? "true" : "false",
+        isBankTransfer: paymentMethod === "bank" ? true : false,
         donorInfo: {
           firstName: data.firstName,
           lastName: data.lastName,
