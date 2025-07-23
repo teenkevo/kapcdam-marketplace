@@ -43,7 +43,7 @@ export default function DonationFormContent({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-6 md:px-[1px] px-2 pb-14"
+        className="space-y-6 md:px-[1px] md:pb-14 px-2"
       >
         <PersonalInfoForm control={form.control} isPending={isSubmitting} />
 
@@ -87,7 +87,7 @@ export default function DonationFormContent({
           )}
         </Button>
 
-        <div className="text-xs text-gray-500 space-y-2 mb-10">
+        <div className="text-xs text-gray-500 space-y-2">
           {paymentMethod === "bank" ? (
             <p className="bg-blue-50 p-3 rounded-md border border-blue-200">
               <strong>Next Steps:</strong> Please proceed with your bank
