@@ -1,5 +1,8 @@
 import { Product } from "@/types";
 import { ProductCard } from "./product-card";
+import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
+import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
+import { CartProvider } from "@/features/cart/lib/contexts/cart-context";
 
 export const products: Product[] = [
   {
@@ -275,18 +278,23 @@ export const products: Product[] = [
 ];
 export function ProductList() {
   return (
-    <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-black tracking-tight">
-          Some of our products
-        </h1>
+    <CartProvider>
+      <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-black tracking-tight">
+            Some of our products
+          </h1>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product, index) => (
-          <ProductCard key={index} product={product} />
-        ))}
-      </div>
-    </div>
+      {/* Cart Components */}
+      <CartSheet />
+      <CartBubble />
+    </CartProvider>
   );
 }
