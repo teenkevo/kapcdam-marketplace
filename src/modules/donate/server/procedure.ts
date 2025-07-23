@@ -146,6 +146,10 @@ export const donationsRouter = createTRPCRouter({
         }
 
         // Register IPN URL
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : "http://localhost:3000";
+        
         const ipnResponse = await fetch(
           `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
           {
@@ -156,7 +160,7 @@ export const donationsRouter = createTRPCRouter({
               Authorization: `Bearer ${ctx.pesapalToken}`,
             },
             body: JSON.stringify({
-              url: "https://0c2c03484da5.ngrok-free.app/api/webhooks/pesapal",
+              url: `${baseUrl}/api/webhooks/pesapal`,
               ipn_notification_type: "POST",
             }),
           }

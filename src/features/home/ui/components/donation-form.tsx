@@ -25,6 +25,7 @@ import AmountSelector from "./amount-selector";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CreditCard, Banknote, AlertCircle } from "lucide-react";
+import { trpc } from "@/trpc/client";
 
 interface FormData {
   firstName: string;
@@ -206,6 +207,10 @@ export default function DonationForm() {
     setErrors(newErrors);
   };
 
+  // TRPC mutations
+  const createDonation = trpc.donations.create.useMutation();
+  const processPayment = trpc.donations.processPayment.useMutation();
+
   const handleSubmit = async () => {
     // Mark all fields as touched
     setTouched({
@@ -222,25 +227,67 @@ export default function DonationForm() {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const finalAmount = Number(selectedAmount || customAmount);
+      const donationType_mapped = donationType === "monthly" ? "monthly" : "one_time";
 
-      // Handle successful submission
-      console.log("Donation submitted:", {
-        ...formData,
-        amount: selectedAmount || customAmount,
-        donationType,
-        paymentMethod,
-        referenceNumber: paymentMethod === "bank" ? referenceNumber : undefined,
+      // For bank transfers, just create the donation record
+      if (paymentMethod === "bank") {
+        const donation = await createDonation.mutateAsync({
+          amount: finalAmount,
+          type: donationType_mapped,
+          donorInfo: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+          },
+          ...(donationType === "monthly" && {
+            recurringDetails: {
+              startDate: new Date().toISOString(),
+            },
+          }),
+        });
+
+        alert(
+          `Thank you for your donation! Please proceed with your bank transfer using reference number: ${referenceNumber}. You will receive a confirmation email once we receive your payment.`
+        );
+        setIsOpen(false);
+        return;
+      }
+
+      // For card/mobile payments, create donation and process payment
+      const donation = await createDonation.mutateAsync({
+        amount: finalAmount,
+        type: donationType_mapped,
+        donorInfo: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        ...(donationType === "monthly" && {
+          recurringDetails: {
+            startDate: new Date().toISOString(),
+          },
+        }),
       });
 
-      // Reset form or show success message
-      alert(
-        "Thank you for your donation! You will receive a confirmation email shortly."
-      );
-      setIsOpen(false);
+      // Process payment through Pesapal
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || window.location.origin;
+      const paymentResult = await processPayment.mutateAsync({
+        donationId: donation.donationId,
+        callback_url: `${baseUrl}/api/payment/callback`,
+        notification_id: crypto.randomUUID(),
+      });
+
+      // Redirect to payment page
+      if (paymentResult.redirect_url) {
+        window.location.href = paymentResult.redirect_url;
+      } else {
+        throw new Error("No payment URL received");
+      }
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("Donation submission error:", error);
       alert("There was an error processing your donation. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -468,7 +515,7 @@ export default function DonationForm() {
           >
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger
-                value="once"
+                value="one-time"
                 className="text-sm font-medium data-[state=active]:bg-yellow-400"
               >
                 GIVE ONCE
@@ -567,7 +614,7 @@ export default function DonationForm() {
         >
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger
-              value="once"
+              value="one-time"
               className="text-sm font-medium data-[state=active]:bg-yellow-400"
             >
               GIVE ONCE
