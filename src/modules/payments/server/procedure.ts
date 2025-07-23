@@ -48,7 +48,7 @@ export const paymentsRouter = createTRPCRouter({
     .input(registerIpnSchema)
     .mutation(async ({ input, ctx }) => {
       try {
-        console.log("token: ", ctx.pesapalToken);
+        // console.log("token: ", ctx.pesapalToken);
         const response = await fetch(
           `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
           {
@@ -116,7 +116,7 @@ export const paymentsRouter = createTRPCRouter({
     }),
 
   // Get transaction status
-  getTransactionStatus: protectedProcedure
+  getTransactionStatus: baseProcedure
     .input(getTransactionStatusSchema)
     .query(async ({ input, ctx }) => {
       try {

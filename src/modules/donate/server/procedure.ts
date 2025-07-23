@@ -6,7 +6,7 @@ import {
 } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
-
+import { trpc } from "@/trpc/server";
 interface PesapalBillingAddress {
   email_address: string;
   phone_number: string;
@@ -23,7 +23,7 @@ interface PesapalBillingAddress {
 }
 
 interface PesapalSubscriptionDetails {
-  start_date: string; // dd-MM-yyyy format
+  start_date: string;
   end_date: string;
   frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
 }
@@ -39,6 +39,13 @@ interface PesapalOrderRequest {
   account_number?: string;
   subscription_details?: PesapalSubscriptionDetails;
 }
+
+const registerIpnSchema = z.object({
+  url: z.string().url(),
+  ipn_notification_type: z.enum(["GET", "POST"]),
+});
+
+// Validation schemas
 const donorInfoSchema = z.object({
   firstName: z.string().min(2).max(50),
   lastName: z.string().min(2).max(50),
@@ -47,7 +54,7 @@ const donorInfoSchema = z.object({
 });
 
 const createDonationSchema = z.object({
-  amount: z.number().min(1), 
+  amount: z.number().min(1),
   type: z.enum(["one_time", "monthly"]),
   donorInfo: donorInfoSchema,
   message: z.string().optional(),
@@ -59,13 +66,10 @@ const createDonationSchema = z.object({
     .optional(),
 });
 
-
 const processDonationPaymentSchema = z.object({
   donationId: z.string(),
-  callback_url: z.string().url(),
-  notification_id: z.string().uuid(),
+  notification_id:z.string().url(),
 });
-
 
 const updateDonationStatusSchema = z.object({
   donationId: z.string(),
@@ -83,6 +87,14 @@ function generateDonationId(): string {
   const year = new Date().getFullYear();
   const timestamp = Date.now();
   return `DON-${year}-${timestamp.toString().slice(-6)}`;
+}
+
+function formatDateForPesapal(dateString: string): string {
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 
 export const donationsRouter = createTRPCRouter({
@@ -127,12 +139,47 @@ export const donationsRouter = createTRPCRouter({
       }
     }),
 
-  // Process donation payment
+  registerIpn: baseProcedure
+    .input(registerIpnSchema)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // console.log("token: ", ctx.pesapalToken);
+        const response = await fetch(
+          `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ctx.pesapalToken}`,
+            },
+            body: JSON.stringify(input),
+          }
+        );
+
+        if (!response.ok) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Failed to register IPN URL",
+          });
+        }
+
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Server error",
+        });
+      }
+    }),
   processPayment: baseProcedure
     .input(processDonationPaymentSchema)
     .mutation(async ({ input, ctx }) => {
+
+      console.log("----- Processing payment -----")
       try {
-        
+        // Fetch donation details
         const donation = await client.fetch(
           `*[_type == "donation" && donationId == $donationId][0]`,
           { donationId: input.donationId }
@@ -145,81 +192,54 @@ export const donationsRouter = createTRPCRouter({
           });
         }
 
-        // Register IPN URL
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}` 
-          : "http://localhost:3000";
-        
-        const ipnResponse = await fetch(
-          `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
-          {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${ctx.pesapalToken}`,
-            },
-            body: JSON.stringify({
-              url: `${baseUrl}/api/webhooks/pesapal`,
-              ipn_notification_type: "POST",
-            }),
-          }
-        );
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD;
 
-        if (!ipnResponse.ok) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Failed to register IPN URL",
-          });
-        }
+             console.log("Donation", donation);
+             console.log("Base Url: ", `${baseUrl}/api/donation/callback`);
 
-        const ipnResult = await ipnResponse.json();
+         const orderPayload: PesapalOrderRequest = {
+           id: donation.donationId,
+           currency: "USD",
+           amount: donation.amount,
+           description: `Donation to KAPCDAM - ${donation.type === "monthly" ? "Monthly" : "One-time"}`,
+           callback_url: `${baseUrl}/api/donation/callback`,
+           notification_id: input.notification_id,
+           billing_address: {
+             email_address: donation.donorInfo.email,
+             phone_number: donation.donorInfo.phone,
+             country_code: "UG",
+             first_name: donation.donorInfo.firstName,
+             last_name: donation.donorInfo.lastName,
+             line_1: "KAPCDAM Donation",
+           },
+         };
 
-        // Submit order to PESAPAL
-        const orderPayload: PesapalOrderRequest = {
-          id: donation.donationId,
-          currency: donation.currency,
-          amount: donation.amount,
-          description: `Donation to KAPCDAM - ${donation.type === "monthly" ? "Monthly" : "One-time"}`,
-          callback_url: input.callback_url,
-          notification_id: ipnResult.ipn_id,
-          billing_address: {
-            email_address: donation.donorInfo.email,
-            phone_number: donation.donorInfo.phone,
-            country_code: "US",
-            first_name: donation.donorInfo.firstName,
-            last_name: donation.donorInfo.lastName,
-            line_1: "Address",
-          },
-        };
+    
 
-        // Add subscription details for monthly donations
         if (donation.type === "monthly" && donation.recurringDetails) {
+        
           orderPayload.account_number = donation.donationId;
 
-          // Convert dates to PESAPAL format (dd-MM-yyyy)
-          const formatDateForPesapal = (dateString: string) => {
-            const date = new Date(dateString);
-            const day = String(date.getDate()).padStart(2, "0");
-            const month = String(date.getMonth() + 1).padStart(2, "0");
-            const year = date.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
-
-          orderPayload.subscription_details = {
-            start_date: formatDateForPesapal(
-              donation.recurringDetails.startDate
-            ),
-            end_date: donation.recurringDetails.endDate
-              ? formatDateForPesapal(donation.recurringDetails.endDate)
-              : formatDateForPesapal(
-                  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-                ),
-            frequency: "MONTHLY",
-          };
+          if (donation.recurringDetails.startDate) {
+            orderPayload.subscription_details = {
+              start_date: formatDateForPesapal(
+                donation.recurringDetails.startDate
+              ),
+              end_date: donation.recurringDetails.endDate
+                ? formatDateForPesapal(donation.recurringDetails.endDate)
+                : formatDateForPesapal(
+                    new Date(
+                      Date.now() + 365 * 24 * 60 * 60 * 1000
+                    ).toISOString()
+                  ),
+              frequency: "MONTHLY",
+            };
+          }
         }
 
-        const orderResponse = await fetch(
+console.log("Input", input);
+        
+        const response = await fetch(
           `${process.env.PESAPAL_API_URL}/Transactions/SubmitOrderRequest`,
           {
             method: "POST",
@@ -231,27 +251,28 @@ export const donationsRouter = createTRPCRouter({
           }
         );
 
-        if (!orderResponse.ok) {
+        console.log("Order Response",response)
+
+        if (!response.ok) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Failed to submit order to PESAPAL",
+            message: "Failed to submit order",
           });
         }
 
-        const orderResult = await orderResponse.json();
+        const orderResponse = await response.json();
 
-        // Update donation with order tracking ID
-        if (orderResult.order_tracking_id) {
+        if (orderResponse.order_tracking_id) {
           await client
             .patch(donation._id)
             .set({
-              orderTrackingId: orderResult.order_tracking_id,
+              orderTrackingId: orderResponse.order_tracking_id,
               updatedAt: new Date().toISOString(),
             })
             .commit();
         }
 
-        return orderResult;
+        return orderResponse;
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -295,7 +316,6 @@ export const donationsRouter = createTRPCRouter({
 
           // Handle recurring payments vs initial payment
           if (input.isRecurring && donation.type === "monthly") {
-            
             const currentRecurring = donation.recurringDetails || {};
             const currentPayments = currentRecurring.recurringPayments || [];
 
@@ -368,7 +388,7 @@ export const donationsRouter = createTRPCRouter({
     .input(
       z.object({
         orderTrackingId: z.string(),
-        originalDonationId: z.string(), // The OrderMerchantReference from IPN
+        originalDonationId: z.string(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -454,5 +474,4 @@ export const donationsRouter = createTRPCRouter({
         });
       }
     }),
-
 });

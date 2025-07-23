@@ -45,6 +45,8 @@ export function CustomPaymentForm({
         ipn_notification_type: "POST",
       });
 
+      console.log("----- Processing payment -----");
+
       // Submit order
       const orderResult = await submitOrder.mutateAsync({
         id: orderId,

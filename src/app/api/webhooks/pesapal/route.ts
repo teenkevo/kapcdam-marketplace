@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (OrderNotificationType === "RECURRING") {
       const result = await trpc.donations.handleRecurringPayment({
         orderTrackingId: OrderTrackingId,
-        originalDonationId: OrderMerchantReference, // This is the donation ID
+        originalDonationId: OrderMerchantReference, 
       });
       return NextResponse.json(result);
     }
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         paidAt: new Date().toISOString(),
         paymentMethod: transactionStatus.payment_method,
         amount: transactionStatus.amount,
-        isRecurring: false, // This is the initial payment
+        isRecurring: false, 
       });
 
       return NextResponse.json({

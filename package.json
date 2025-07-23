@@ -55,6 +55,7 @@
     "@trpc/react-query": "^11.4.3",
     "@trpc/server": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
+    "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.1",
     "client-only": "^0.0.1",
     "clsx": "^2.1.1",
@@ -89,6 +90,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

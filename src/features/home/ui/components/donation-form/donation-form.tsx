@@ -21,10 +21,12 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
+import { trpc } from "@/trpc/client";
 
 import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import AmountSelector from "../amount-selector";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   firstName: string;
@@ -34,6 +36,7 @@ interface FormData {
 }
 
 export default function DonationForm() {
+  const router = useRouter();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
@@ -94,6 +97,11 @@ export default function DonationForm() {
     [isCustomSelected, handleCustomSelect]
   );
 
+  // Use the donations router procedures
+  const createDonation = trpc.donations.create.useMutation();
+  const registerIpn = trpc.donations.registerIpn.useMutation()
+  const processPayment = trpc.donations.processPayment.useMutation();
+
   const onSubmit = async (data: FormData) => {
     // Validate amount
     const amountValidationError = validateAmount(selectedAmount, customAmount);
@@ -102,24 +110,66 @@ export default function DonationForm() {
       return;
     }
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    const donationAmount = selectedAmount || Number(customAmount);
 
-      console.log("Donation submitted:", {
-        ...data,
-        amount: selectedAmount || customAmount,
-        donationType,
-        paymentMethod,
-        referenceNumber: paymentMethod === "bank" ? referenceNumber : undefined,
+    try {
+      // Create donation record
+      const donation = await createDonation.mutateAsync({
+        amount: donationAmount,
+        type: donationType === "monthly" ? "monthly" : "one_time",
+        donorInfo: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+        },
+        ...(donationType === "monthly" && {
+          recurringDetails: {
+            startDate: new Date().toISOString(),
+            endDate: new Date(
+              Date.now() + 365 * 24 * 60 * 60 * 1000
+            ).toISOString(), // Default to 1 year
+          },
+        }),
       });
 
-      alert(
-        "Thank you for your donation! You will receive a confirmation email shortly."
-      );
-      setIsOpen(false);
-      form.reset();
+      // Process payment if using card method
+      if (paymentMethod === "card") {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL_PROD 
+
+          const ipnResult = await registerIpn.mutateAsync({
+            ipn_notification_type: "POST",
+            url: `${baseUrl}/api/webhooks/pesapal`,
+          });
+
+          console.log("IPN RESULT",ipnResult)
+
+
+        const paymentResult = await processPayment.mutateAsync({
+          donationId: donation.donationId,
+          notification_id: ipnResult.ipn_id,
+        });
+
+        // Redirect to Pesapal payment page
+        if (paymentResult.redirect_url) {
+          router.push(paymentResult.redirect_url);
+        } else {
+          throw new Error("Payment redirect URL not received");
+        }
+      } else {
+        // Bank transfer method
+        alert(
+          `Thank you for your donation! Your reference number is: ${referenceNumber}. Please use this reference when making your bank transfer.`
+        );
+        setIsOpen(false);
+        form.reset();
+        setSelectedAmount(null);
+        setCustomAmount("");
+        setIsCustomSelected(false);
+      }
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("Donation submission error:", error);
       alert("There was an error processing your donation. Please try again.");
     }
   };
@@ -127,14 +177,15 @@ export default function DonationForm() {
   const hasAmount = selectedAmount || customAmount;
   const hasValidAmount =
     hasAmount && (!customAmount || Number(customAmount) > 0);
+  const isProcessing = createDonation.isPending || processPayment.isPending;
 
   const DonateButton = ({ children }: { children: React.ReactNode }) => (
     <Button
       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      disabled={!hasValidAmount}
+      disabled={!hasValidAmount || isProcessing}
       onClick={() => setIsOpen(true)}
     >
-      {children}
+      {isProcessing ? "Processing..." : children}
     </Button>
   );
 
@@ -176,7 +227,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting}
+                  isSubmitting={form.formState.isSubmitting || isProcessing}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />
@@ -204,7 +255,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting}
+                  isSubmitting={form.formState.isSubmitting || isProcessing}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />
