@@ -28,6 +28,8 @@ import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation
 import AmountSelector from "../amount-selector";
 import { useRouter } from "next/navigation";
 import { generateDonationId } from "@/modules/donate/server/procedure";
+import { PesapalOrderRequest } from "@/modules/payments/schema";
+import { formatDateToDDMMYYYY } from "@/modules/payments/utils";
 
 interface FormData {
   firstName: string;
@@ -118,6 +120,7 @@ export default function DonationForm() {
       const donation = await createDonation.mutateAsync({
         amount: donationAmount,
         type: donationType === "monthly" ? "monthly" : "one_time",
+        isBankTransfer: paymentMethod === "bank" ? "true" : "false",
         donorInfo: {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -143,9 +146,7 @@ export default function DonationForm() {
           url: `${baseUrl}/api/webhooks/pesapal`,
         });
 
-        console.log("IPN RESULT", ipnResult);
-
-        const paymentResult = await processPayment.mutateAsync({
+        const orderPayload: PesapalOrderRequest = {
           id: donation.donationId,
           amount: donationAmount,
           currency: "USD",
@@ -159,7 +160,22 @@ export default function DonationForm() {
             first_name: donation.donorInfo.firstName,
             last_name: donation.donorInfo.lastName,
           },
-        });
+        };
+
+        if (donationType === "monthly") {
+          orderPayload.subscription_details = {
+            start_date: formatDateToDDMMYYYY(new Date()),
+            end_date: formatDateToDDMMYYYY(
+              new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+            ),
+            frequency: "MONTHLY",
+          };
+          orderPayload.account_number = donation.donationId;
+        }
+
+        console.log("Order Payload", orderPayload);
+
+        const paymentResult = await processPayment.mutateAsync(orderPayload);
 
         // Redirect to Pesapal payment page
         if (paymentResult.redirect_url) {

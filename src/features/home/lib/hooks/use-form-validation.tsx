@@ -14,12 +14,17 @@ export function useFormValidation() {
     mode: "onChange",
     reValidateMode: "onChange",
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
+      firstName: "Shafic",
+      lastName: "Zziwa",
+      email: "shafic@gmail.com",
+      phone: "+256761074816",
     },
   });
+
+  // form.setValue("firstName", "Shafic");
+  // form.setValue("lastName", "Zziwa");
+  // form.setValue("email", "shafic@gmail.com");
+  // form.setValue("phone", "+256761074816");
 
   const validateAmount = (
     selectedAmount: number | null,

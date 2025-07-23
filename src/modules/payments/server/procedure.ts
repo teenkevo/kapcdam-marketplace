@@ -49,6 +49,8 @@ export const paymentsRouter = createTRPCRouter({
     .input(submitOrderSchema)
     .mutation(async ({ input, ctx }) => {
       try {
+
+        console.log("Server Payload", input);
         const response = await fetch(
           `${process.env.PESAPAL_API_URL}/Transactions/SubmitOrderRequest`,
           {

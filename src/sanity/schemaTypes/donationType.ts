@@ -52,6 +52,20 @@ export const donation = defineType({
     }),
 
     defineField({
+      name: "isBankTransfer",
+      title: "Is this a bank transfer?",
+      type: "string",
+      description: "Is this a bank transfer? If true, the payment method will be bank transfer",
+      options: {
+        list: [
+          { title: "Yes", value: "true" },
+          { title: "No", value: "false" },
+        ],
+      },
+      readOnly: true,
+    }),
+
+    defineField({
       name: "donorInfo",
       title: "Donor Information",
       type: "object",
@@ -117,6 +131,7 @@ export const donation = defineType({
         layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Payment status is required"),
+      readOnly: ({ document }) => document?.isBankTransfer === "true",
       initialValue: "pending",
     }),
 
