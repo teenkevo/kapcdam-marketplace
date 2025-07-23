@@ -6,6 +6,7 @@ import { TRPCProvider } from "@/trpc/client";
 import Header from "@/features/layout/ui/components/header";
 import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
 import Footer from "@/features/layout/ui/components/footer";
+import { Toaster } from "sonner";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
         <html lang="en" suppressHydrationWarning>
           <body className={spaceGrotesk.className}>
             <MegaMenuProvider>
+              <Toaster />
               <Header />
               <main>{children}</main>
               <Footer />
