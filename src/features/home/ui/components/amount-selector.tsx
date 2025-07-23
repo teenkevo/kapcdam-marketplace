@@ -36,7 +36,7 @@ export default function AmountSelector({
                 ? "default"
                 : "outline"
             }
-            className={`text-sm font-medium ${
+            className={`text-xs md:text-sm font-medium ${
               selectedAmount === amount && !isCustomSelected
                 ? "bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-400"
                 : "border-gray-300 hover:border-gray-400"
