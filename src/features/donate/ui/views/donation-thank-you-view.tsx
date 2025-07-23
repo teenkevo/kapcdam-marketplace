@@ -16,10 +16,10 @@ export default function DonationThankYouView() {
     // Track conversion (view event)
     if (typeof window !== "undefined" && window.gtag) {
       window.gtag("event", "conversion", {
-        send_to: "AW-CONVERSION_ID/CONVERSION_LABEL", // Replace with your actual conversion ID
+        send_to: "AW-CONVERSION_ID/CONVERSION_LABEL",
         value: 1.0,
         currency: "USD",
-        transaction_id: donationRef,
+        transaction_id: donationRef ?? undefined,
       });
     }
 
@@ -59,7 +59,8 @@ export default function DonationThankYouView() {
               Thank You for Your Donation!
             </h1>
             <p className="text-gray-600">
-              Your generous contribution helps us make a positive impact in our community.
+              Your generous contribution helps us make a positive impact in our
+              community.
             </p>
           </div>
 
@@ -110,9 +111,13 @@ export default function DonationThankYouView() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const text = "I just made a donation to KAPCDAM! Join me in making a difference.";
+                  const text =
+                    "I just made a donation to KAPCDAM! Join me in making a difference.";
                   const url = window.location.origin;
-                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank");
+                  window.open(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+                    "_blank"
+                  );
                 }}
               >
                 Share on Twitter
@@ -122,7 +127,10 @@ export default function DonationThankYouView() {
                 size="sm"
                 onClick={() => {
                   const url = window.location.origin;
-                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank");
+                  window.open(
+                    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+                    "_blank"
+                  );
                 }}
               >
                 Share on Facebook
