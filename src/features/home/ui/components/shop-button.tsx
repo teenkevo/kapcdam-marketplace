@@ -13,7 +13,7 @@ export default function ShopButton() {
       onMouseEnter={() => setShopIsHovered(true)}
       onMouseLeave={() => setShopIsHovered(false)}
     >
-      Shop Now
+      Go to shop
       <motion.div
         animate={{
           x: shopIsHovered ? 5 : 0,
