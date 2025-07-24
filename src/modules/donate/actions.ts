@@ -79,8 +79,6 @@ export const makeDonation = async (donationPayload: DonationPayload) => {
 
     const paymentResult = await trpc.payments.submitOrder(orderPayload);
 
-    console.log("Payment Result", paymentResult);
-
     // Redirect to Pesapal payment page
     if (paymentResult.redirect_url) {
       redirect(paymentResult.redirect_url);
