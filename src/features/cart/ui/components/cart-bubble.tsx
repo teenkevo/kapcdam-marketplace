@@ -16,13 +16,14 @@ export function CartBubble() {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <Button
+        type="button"
         onClick={() => setIsCartOpen(true)}
-        className="relative h-14 w-14 rounded-full bg-[#C5F82A] text-black hover:bg-[#B4E729] shadow-lg hover:shadow-xl transition-all duration-1000 animate-bounce"
+        className="relative rounded-full bg-gradient-to-b from-[#39393F] to-[#222227] text-white shadow"
       >
-        <ShoppingCart className="h-6 w-6" />
+        <ShoppingCart strokeWidth={2} className="text-white h-6 w-6" />
         <Badge
-          variant="destructive"
-          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs font-bold"
+          variant="secondary"
+          className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-b from-[#39393F] to-[#222227] text-lime-300 rounded-full p-0 flex items-center justify-center text-xs font-bold"
         >
           {totalItems > 99 ? "99+" : totalItems}
         </Badge>

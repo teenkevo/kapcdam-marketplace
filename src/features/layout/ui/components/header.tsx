@@ -23,6 +23,9 @@ import {
   MapPin,
 } from "lucide-react";
 import DonateButton from "@/features/home/ui/components/donate-button";
+import { CartNavButton } from "@/features/cart/ui/components/cart-nav-button";
+import { CartProvider } from "@/features/cart/lib/contexts/cart-context";
+import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -181,12 +184,13 @@ export default function Header() {
           {/* Auth & CTA */}
           <div className="flex items-center space-x-4">
             <SignInButton>
-              <Button className="border rounded-full border-[#363639] bg-gradient-to-b from-[#39393F] to-[#222227] text-white shadow hover:border-white/60">
-                <LogIn size={20} strokeWidth={1.75} className="mr-2" />
-                Sign in
+              <Button variant="outline" className="rounded-full">
+                <LogIn size={20} strokeWidth={1.75} />
               </Button>
             </SignInButton>
-            <DonateButton />
+            {/* Cart Components */}
+            <CartSheet />
+            <CartNavButton />
           </div>
         </div>
       </div>

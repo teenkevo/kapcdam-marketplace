@@ -3,6 +3,7 @@ import "../globals.css";
 import Header from "@/features/layout/ui/components/header";
 import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
 import Footer from "@/features/layout/ui/components/footer";
+import { CartProvider } from "@/features/cart/lib/contexts/cart-context";
 
 export const metadata: Metadata = {
   title:
@@ -18,9 +19,11 @@ export default function MarketplaceLayout({
 }>) {
   return (
     <MegaMenuProvider>
-      <Header />
-      <main>{children}</main>
-      <Footer />
+      <CartProvider>
+        <Header />
+        <main>{children}</main>
+        <Footer />
+      </CartProvider>
     </MegaMenuProvider>
   );
 }
