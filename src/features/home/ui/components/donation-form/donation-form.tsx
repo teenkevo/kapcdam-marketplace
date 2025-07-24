@@ -32,6 +32,8 @@ import { PesapalOrderRequest } from "@/modules/payments/schema";
 import { formatDateToDDMMYYYY } from "@/modules/payments/utils";
 import { makeDonation } from "@/modules/donate/actions";
 import { toast } from "sonner";
+import RedirectToPayDialog from "@/components/redirect-to-pay-dialog";
+import { BankDonationRecordDialog } from "@/components/bank-donation-record.dialog";
 
 interface FormData {
   firstName: string;
@@ -46,14 +48,16 @@ export default function DonationForm() {
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
   const [donationType, setDonationType] = useState<"monthly" | "one-time">(
-    "monthly"
+    "one-time"
   );
   const [isMobile, setIsMobile] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "card">("card");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [amountError, setAmountError] = useState<string>("");
-
+  const [redirectDialogOpen, setRedirectDialogOpen] = useState(false);
+  const [bankDonationRecordDialogOpen, setBankDonationRecordDialogOpen] =
+    useState(false);
   const { form, validateAmount } = useFormValidation();
 
   useEffect(() => {
@@ -125,17 +129,23 @@ export default function DonationForm() {
         data,
       });
 
+      if (result.readyToRedirect && result.redirectUrl) {
+        setRedirectDialogOpen(true);
+        setIsOpen(false);
+        setTimeout(() => {
+          router.push(result.redirectUrl);
+        }, 3000);
+      }
+
       // Create donation record
       if (paymentMethod === "bank" && result.success) {
-        // Bank transfer method
-        toast.success("Thank you for your donation! 🎊", {
-          description: result.message,
-        });
         setIsOpen(false);
         form.reset();
+        setPaymentMethod("card");
         setSelectedAmount(null);
         setCustomAmount("");
         setIsCustomSelected(false);
+        setBankDonationRecordDialogOpen(true);
       }
     } catch (error) {
       console.error("Donation submission error:", error);
@@ -154,14 +164,17 @@ export default function DonationForm() {
     <Button
       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       disabled={!hasValidAmount || isProcessing}
-      onClick={() => setIsOpen(true)}
+      onClick={() => {
+        setReferenceNumber(generateReferenceNumber());
+        setIsOpen(true);
+      }}
     >
       {isProcessing ? "Processing..." : children}
     </Button>
   );
 
   const renderTabContent = (
-    tabValue: "monthly" | "once",
+    tabValue: "monthly" | "one-time",
     amounts: number[],
     buttonText: string
   ) => (
@@ -185,7 +198,12 @@ export default function DonationForm() {
             <DrawerTrigger asChild>
               <DonateButton>{buttonText}</DonateButton>
             </DrawerTrigger>
-            <DrawerContent className="max-h-[90vh]">
+            <DrawerContent
+              className="max-h-[100vh]"
+              hideClose={isProcessing}
+              onInteractOutside={(e) => e.preventDefault()}
+              onEscapeKeyDown={(e) => e.preventDefault()}
+            >
               <DrawerHeader>
                 <DrawerTitle>Complete Your Donation</DrawerTitle>
               </DrawerHeader>
@@ -210,7 +228,13 @@ export default function DonationForm() {
             <SheetTrigger asChild>
               <DonateButton>{buttonText}</DonateButton>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-md h-full">
+            <SheetContent
+              side="right"
+              className="w-full sm:max-w-md h-full"
+              hideClose={form.formState.isSubmitting || isProcessing}
+              onInteractOutside={(e) => e.preventDefault()}
+              onEscapeKeyDown={(e) => e.preventDefault()}
+            >
               <SheetHeader className="flex-shrink-0 border-b border-gray-200 pb-5">
                 <SheetTitle>Complete Your Donation</SheetTitle>
                 <SheetDescription>
@@ -250,7 +274,7 @@ export default function DonationForm() {
         >
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger
-              value="once"
+              value="one-time"
               className="text-sm font-medium data-[state=active]:bg-yellow-400"
             >
               One-Time Gift
@@ -264,7 +288,7 @@ export default function DonationForm() {
           </TabsList>
 
           {renderTabContent("monthly", monthlyAmounts, "Donate Monthly")}
-          {renderTabContent("once", oneTimeAmounts, "Donate Now")}
+          {renderTabContent("one-time", oneTimeAmounts, "Donate Now")}
         </Tabs>
 
         <div className="text-center space-y-2 border-t border-dashed border-gray-200 pt-4 mt-5">
@@ -272,6 +296,18 @@ export default function DonationForm() {
             🔒 Your donation is secure and will be used to support our mission.
           </p>
         </div>
+        <RedirectToPayDialog
+          open={redirectDialogOpen}
+          onOpenChange={setRedirectDialogOpen}
+        />
+        <BankDonationRecordDialog
+          open={bankDonationRecordDialogOpen}
+          setOpen={setBankDonationRecordDialogOpen}
+          donation={{
+            donationId: referenceNumber,
+            amount: selectedAmount || Number(customAmount),
+          }}
+        />
       </CardContent>
     </Card>
   );

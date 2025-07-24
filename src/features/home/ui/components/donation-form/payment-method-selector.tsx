@@ -4,17 +4,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CreditCard, Banknote } from "lucide-react";
 import { FormSection } from "@/components/shared/form-section";
+import { isSunday } from "date-fns";
 
 interface PaymentMethodSelectorProps {
   paymentMethod: "bank" | "card";
   onPaymentMethodChange: (method: "bank" | "card") => void;
   referenceNumber: string;
+  isSubmitting: boolean;
 }
 
 export default function PaymentMethodSelector({
   paymentMethod,
   onPaymentMethodChange,
   referenceNumber,
+  isSubmitting,
 }: PaymentMethodSelectorProps) {
   return (
     <FormSection
@@ -22,6 +25,7 @@ export default function PaymentMethodSelector({
       description="Choose how you'd like to make your donation"
     >
       <RadioGroup
+        disabled={isSubmitting}
         value={paymentMethod}
         onValueChange={(value) =>
           onPaymentMethodChange(value as "bank" | "card")

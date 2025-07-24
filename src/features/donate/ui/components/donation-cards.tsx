@@ -18,6 +18,9 @@ import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation
 import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
 import { makeDonation } from "@/modules/donate/actions";
 import { toast } from "sonner";
+import { BankDonationRecordDialog } from "@/components/bank-donation-record.dialog";
+import RedirectToPayDialog from "@/components/redirect-to-pay-dialog";
+import { useRouter } from "next/navigation";
 
 interface DonationFormData {
   firstName: string;
@@ -27,16 +30,20 @@ interface DonationFormData {
 }
 
 export default function DonationCards() {
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(50);
+  const router = useRouter();
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(25);
   const [customAmount, setCustomAmount] = useState("");
   const [isCustomSelected, setIsCustomSelected] = useState(false);
   const [donationType, setDonationType] = useState<"monthly" | "one-time">(
-    "monthly"
+    "one-time"
   );
 
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "card">("card");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [amountError, setAmountError] = useState<string>("");
+  const [redirectDialogOpen, setRedirectDialogOpen] = useState(false);
+  const [bankDonationRecordDialogOpen, setBankDonationRecordDialogOpen] =
+    useState(false);
 
   const { form, validateAmount } = useFormValidation();
 
@@ -103,10 +110,18 @@ export default function DonationCards() {
         data,
       });
 
+      if (result.readyToRedirect && result.redirectUrl) {
+        setRedirectDialogOpen(true);
+
+        setTimeout(() => {
+          router.push(result.redirectUrl);
+        }, 3000);
+      }
+
       if (paymentMethod === "bank" && result.success) {
-        toast.success("Thank you for your donation! 🎊", {
-          description: result.message,
-        });
+        setBankDonationRecordDialogOpen(true);
+        form.reset();
+        setBankDonationRecordDialogOpen(true);
       }
 
       form.reset();
@@ -165,16 +180,6 @@ export default function DonationCards() {
                 <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      donationType === "monthly"
-                        ? "bg-black text-white shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    onClick={() => setDonationType("monthly")}
-                  >
-                    Monthly Giving
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       donationType === "one-time"
                         ? "bg-black text-white shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
@@ -182,6 +187,16 @@ export default function DonationCards() {
                     onClick={() => setDonationType("one-time")}
                   >
                     One-Time Gift
+                  </button>
+                  <button
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      donationType === "monthly"
+                        ? "bg-black text-white shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setDonationType("monthly")}
+                  >
+                    Monthly Giving
                   </button>
                 </div>
 
@@ -310,6 +325,18 @@ export default function DonationCards() {
           </motion.div>
         </div>
       </div>
+      <BankDonationRecordDialog
+        open={bankDonationRecordDialogOpen}
+        setOpen={setBankDonationRecordDialogOpen}
+        donation={{
+          donationId: referenceNumber,
+          amount: selectedAmount || Number(customAmount),
+        }}
+      />
+      <RedirectToPayDialog
+        open={redirectDialogOpen}
+        onOpenChange={setRedirectDialogOpen}
+      />
     </section>
   );
 }
