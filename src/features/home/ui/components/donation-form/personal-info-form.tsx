@@ -44,6 +44,7 @@ export default function PersonalInfoForm({
               <FormLabel required>First Name</FormLabel>
               <FormControl>
                 <Input
+                  autoComplete="off"
                   placeholder="First Name"
                   disabled={isPending}
                   {...field}
@@ -65,6 +66,7 @@ export default function PersonalInfoForm({
               <FormLabel required>Last Name</FormLabel>
               <FormControl>
                 <Input
+                  autoComplete="off"
                   placeholder="Last Name"
                   disabled={isPending}
                   {...field}
@@ -91,6 +93,7 @@ export default function PersonalInfoForm({
             <FormLabel required>Email Address</FormLabel>
             <FormControl>
               <Input
+                autoComplete="off"
                 type="email"
                 placeholder="Email Address"
                 disabled={isPending}
@@ -115,6 +118,7 @@ export default function PersonalInfoForm({
             <FormLabel>Phone number</FormLabel>
             <FormControl>
               <PhoneInput
+                autoComplete="off"
                 defaultCountry="UG"
                 disabled={isPending}
                 placeholder="Enter a phone number e.g. +256 792 445002"

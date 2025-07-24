@@ -58,6 +58,7 @@ export default function DonationFormContent({
           paymentMethod={paymentMethod}
           onPaymentMethodChange={onPaymentMethodChange}
           referenceNumber={referenceNumber}
+          isSubmitting={isSubmitting}
         />
 
         <Button

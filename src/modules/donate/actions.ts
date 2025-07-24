@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { PesapalOrderRequest } from "../payments/schema";
 import { formatDateToDDMMYYYY } from "../payments/utils";
 import { trpc } from "@/trpc/server";
@@ -81,7 +80,11 @@ export const makeDonation = async (donationPayload: DonationPayload) => {
 
     // Redirect to Pesapal payment page
     if (paymentResult.redirect_url) {
-      redirect(paymentResult.redirect_url);
+      return {
+        success: true,
+        readyToRedirect: true,
+        redirectUrl: paymentResult.redirect_url,
+      };
     } else {
       throw new Error("Payment redirect URL not received");
     }
