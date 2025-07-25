@@ -1,9 +1,8 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import { Roboto } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { TRPCProvider } from "@/trpc/client";
 import { Toaster } from "sonner";
+import { Providers } from "./providers";
 
 const roboto = Roboto({
   weight: ["100", "300", "400", "700", "900"],
@@ -30,15 +29,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <TRPCProvider>
-      <ClerkProvider dynamic>
-        <html lang="en" suppressHydrationWarning>
-          <body className={roboto.className}>
-            <Toaster position="top-right" />
-            {children}
-          </body>
-        </html>
-      </ClerkProvider>
-    </TRPCProvider>
+    <Providers>
+      <html lang="en" suppressHydrationWarning>
+        <body className={roboto.className}>
+          <Toaster position="top-right" />
+          {children}
+        </body>
+      </html>
+    </Providers>
   );
 }
