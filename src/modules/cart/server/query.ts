@@ -14,6 +14,7 @@ export const CART_ITEMS_QUERY = defineQuery(`
       currentPrice,
       addedAt,
       lastUpdated,
+      selectedVariantSku,
       type == "product" => {
         "product": product-> {
           _id,
@@ -22,11 +23,11 @@ export const CART_ITEMS_QUERY = defineQuery(`
           hasVariants,
           totalStock,
           "defaultImage": images[isDefault == true][0],
-          variants[] {
+       
+          "selectedVariant": variants[sku == ^.selectedVariantSku][0] {
             sku,
             price,
             stock,
-            isDefault,
             attributes[] {
               "id": attributeRef._ref,
               "name": attributeRef->name,
