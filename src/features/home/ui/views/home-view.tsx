@@ -9,7 +9,6 @@ export default async function HomeView() {
     <div className="min-h-screen">
       <main>
         <HeroSection />
-       
         <AboutUsSummary />
         <MarketPlaceTeaser />
         <ProductList />

@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { NumericFormat } from "react-number-format";
 import { useCart } from "@/features/cart/lib/contexts/cart-context";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { urlFor } from "@/sanity/lib/image";
+import Image from "next/image";
 
 export function CartSheet() {
   const {
@@ -57,21 +59,22 @@ export function CartSheet() {
                 key={item.id}
                 className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
               >
-                <img
+                <Image
                   src={
-                    item.product.images[0] ||
-                    `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(item.product.name) || "/placeholder.svg"}`
+                    item.product.images?.find(img => img.isDefault) || item.product.images?.[0]
+                      ? urlFor(item.product.images?.find(img => img.isDefault) || item.product.images?.[0]!).width(80).height(80).url()
+                      : `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(item.product.title || "")}`
                   }
-                  alt={item.product.name}
+                  alt={item.product.title || "Product image"}
+                  width={64}
+                  height={64}
                   className="w-16 h-16 object-cover rounded-md"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-medium text-gray-900 truncate">
-                    {item.product.name}
+                    {item.product.title}
                   </h4>
-                  <p className="text-sm text-gray-500">
-                    {item.product.seller.name}
-                  </p>
+                  <p className="text-sm text-gray-500">Kapcdam Marketplace</p>
                   <div className="flex items-center">
                     <NumericFormat
                       thousandSeparator={true}

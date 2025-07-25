@@ -20,7 +20,6 @@ export const cart = defineType({
       name: "cartItems",
       title: "Cart Items",
       type: "array",
-
       description: "Items in the shopping cart",
       of: [
         {
@@ -69,15 +68,27 @@ export const cart = defineType({
               name: "product",
               title: "Product",
               type: "reference",
-              description: "Reference to the specific product variant",
+              description: "Reference to the specific product",
               to: [{ type: "product" }],
               hidden: ({ parent }) => parent?.type !== "product",
               validation: (rule) =>
                 rule.custom((value, context) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   if ((context.parent as any)?.type === "product" && !value) {
                     return "Product reference is required";
                   }
+                  return true;
+                }),
+            }),
+
+            defineField({
+              name: "selectedVariantSku",
+              title: "Selected Variant SKU",
+              type: "string",
+              description:
+                "SKU of the selected variant (if product has variants)",
+              hidden: ({ parent }) => parent?.type !== "product",
+              validation: (rule) =>
+                rule.custom((value, context) => {
                   return true;
                 }),
             }),
@@ -91,7 +102,6 @@ export const cart = defineType({
               hidden: ({ parent }) => parent?.type !== "course",
               validation: (rule) =>
                 rule.custom((value, context) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   if ((context.parent as any)?.type === "course" && !value) {
                     return "Course reference is required";
                   }
@@ -130,19 +140,28 @@ export const cart = defineType({
               type: "type",
               quantity: "quantity",
               currentPrice: "currentPrice",
-              variantTitle: "variant.title",
+              productTitle: "product.title",
+              selectedVariantSku: "selectedVariantSku",
               courseTitle: "course.title",
             },
             prepare({
               type,
               quantity,
               currentPrice,
-              variantTitle,
+              productTitle,
+              selectedVariantSku,
               courseTitle,
             }) {
-              const itemName = type === "product" ? variantTitle : courseTitle;
-              const itemType = type === "product" ? "(Product)" : "(Course)";
+              let itemName;
+              if (type === "product") {
+                itemName = selectedVariantSku
+                  ? `${productTitle} (${selectedVariantSku})`
+                  : productTitle;
+              } else {
+                itemName = courseTitle;
+              }
 
+              const itemType = type === "product" ? "(Product)" : "(Course)";
               const priceFormatted = currentPrice
                 ? `${currentPrice.toLocaleString()} UGX`
                 : "No price";
@@ -202,13 +221,6 @@ export const cart = defineType({
       type: "boolean",
       description: "Is this cart active/visible?",
       initialValue: true,
-    }),
-
-    defineField({
-      name: "sessionId",
-      title: "Session ID",
-      type: "string",
-      description: "Browser session identifier (for guest cart merging)",
     }),
 
     defineField({

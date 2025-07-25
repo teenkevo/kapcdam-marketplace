@@ -1,17 +1,38 @@
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, baseProcedure } from "@/trpc/init";
-
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
-import { Product } from "@root/sanity.types";
 import { groq } from "next-sanity";
+import { EnhancedProductSchema, ProductsResponseSchema, SingleProductSchema } from "../schemas";
 
 export const productsRouter = createTRPCRouter({
   getOne: baseProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ input, ctx }) => {
-      const query = groq`*[_type == "product" && slug.current == $slug][0]`;
-      const product = client.fetch(query, {
+      const query = groq`*[_type == "product" && slug.current == $slug][0]{
+        ...,
+        "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+        "defaultVariant": variants[isDefault == true][0],
+        "totalStock": select(
+          hasVariants == true => math::sum(variants[].totalStock),
+          totalStock
+        ),
+        "price": select(
+          hasVariants == true => variants[isDefault == true][0].price,
+          price
+        ),
+        "rating": coalesce(rating, 0),
+        "totalReviews": count(*[_type == "review" && product._ref == ^._id]),
+        category->{
+          _id,
+          _type,
+          name,
+          slug,
+          description
+        }
+      }`;
+      
+      const product = await client.fetch(query, {
         slug: input.slug,
       });
 
@@ -21,7 +42,8 @@ export const productsRouter = createTRPCRouter({
           message: "Product not found",
         });
       }
-      return product;
+      
+      return SingleProductSchema.parse(product);
     }),
 
   getMany: baseProcedure
@@ -42,7 +64,28 @@ export const productsRouter = createTRPCRouter({
 
       const cursorCondition = lastId ? `&& _id > $lastId` : "";
       const query = groq`{
-      "items": *[_type == "product" ${searchCondition} ${cursorCondition}] | order(_id asc) [0...${pageSize}],
+      "items": *[_type == "product" ${searchCondition} ${cursorCondition}] | order(_id asc) [0...${pageSize}]{
+        ...,
+        "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+        "defaultVariant": variants[isDefault == true][0],
+        "totalStock": select(
+          hasVariants == true => math::sum(variants[].totalStock),
+          totalStock
+        ),
+        "price": select(
+          hasVariants == true => variants[isDefault == true][0].price,
+          price
+        ),
+        "rating": coalesce(rating, 0),
+        "totalReviews": count(*[_type == "review" && product._ref == ^._id]),
+        category->{
+          _id,
+          _type,
+          name,
+          slug,
+          description
+        }
+      },
       "total": count(*[_type == "product" ${searchCondition}])
     }`;
 
@@ -50,23 +93,18 @@ export const productsRouter = createTRPCRouter({
       if (search) params.search = search;
       if (lastId) params.lastId = lastId;
 
-      const result = await client.fetch(query, params);
-      const items = z.custom<Product[]>().parse(result.items);
-      const total = z.number().parse(result.total);
-      const nextCursor = z
-        .string()
-        .nullable()
-        .parse(
-          result.items.length > 0
-            ? result.items[result.items.length - 1]._id
-            : null
-        );
+      console.log(query);
 
-      return {
-        items,
-        total,
+      const result = await client.fetch(query, params);
+      console.log("Query Result: ", result);
+      
+      const parsedResult = ProductsResponseSchema.parse({
+        items: result.items,
+        total: result.total,
         hasMore: result.items.length === pageSize,
-        nextCursor,
-      };
+        nextCursor: result.items.length > 0 ? result.items[result.items.length - 1]._id : null,
+      });
+
+      return parsedResult;
     }),
 });
