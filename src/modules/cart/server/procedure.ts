@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
-  baseProcedure,
   protectedProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
