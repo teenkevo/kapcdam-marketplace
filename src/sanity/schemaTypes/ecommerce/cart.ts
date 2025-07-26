@@ -53,18 +53,6 @@ export const cart = defineType({
             }),
 
             defineField({
-              name: "currentPrice",
-              title: "Current Price (UGX)",
-              type: "number",
-              description: "Current price for real-time totals",
-              validation: (rule) =>
-                rule
-                  .required()
-                  .min(0)
-                  .error("Current price must be a positive number"),
-            }),
-
-            defineField({
               name: "product",
               title: "Product",
               type: "reference",
@@ -139,7 +127,6 @@ export const cart = defineType({
             select: {
               type: "type",
               quantity: "quantity",
-              currentPrice: "currentPrice",
               productTitle: "product.title",
               selectedVariantSku: "selectedVariantSku",
               courseTitle: "course.title",
@@ -207,15 +194,6 @@ export const cart = defineType({
     }),
 
     defineField({
-      name: "subtotal",
-      title: "Subtotal (UGX)",
-      type: "number",
-      description: "Cart subtotal (sum of all item totals)",
-      validation: (rule) => rule.min(0).error("Subtotal cannot be negative"),
-      initialValue: 0,
-    }),
-
-    defineField({
       name: "isActive",
       title: "Cart Active",
       type: "boolean",
@@ -245,13 +223,9 @@ export const cart = defineType({
       userEmail: "user.email",
       userName: "user.firstName",
       itemCount: "itemCount",
-      subtotal: "subtotal",
       isActive: "isActive",
     },
-    prepare({ userEmail, userName, itemCount, subtotal, isActive }) {
-      const totalFormatted = subtotal
-        ? `${subtotal.toLocaleString()} UGX`
-        : "0 UGX";
+    prepare({ userEmail, userName, itemCount, isActive }) {
       const itemsText = itemCount === 1 ? "item" : "items";
       const itemCountText = itemCount ? `${itemCount} ${itemsText}` : "Empty";
       const userDisplay = userName || userEmail || "Unknown User";
@@ -260,7 +234,7 @@ export const cart = defineType({
 
       return {
         title: `${userDisplay}${status}`,
-        subtitle: `${itemCountText} • ${totalFormatted}`,
+        subtitle: `${itemCountText}`,
         media: null,
       };
     },
@@ -276,11 +250,6 @@ export const cart = defineType({
       title: "Recently Created",
       name: "recentlyCreated",
       by: [{ field: "createdAt", direction: "desc" }],
-    },
-    {
-      title: "Cart Value: High to Low",
-      name: "subtotalDesc",
-      by: [{ field: "subtotal", direction: "desc" }],
     },
     {
       title: "Item Count: High to Low",

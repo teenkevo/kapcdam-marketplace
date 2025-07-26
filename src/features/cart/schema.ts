@@ -10,7 +10,6 @@ const CartItemSchema = z.object({
   quantity: z.number().min(1),
   addedAt: z.coerce.date(),
   preferredStartDate: z.coerce.date().nullable().optional(),
-  currentPrice: z.number(),
 });
 
 const CartSchema = z.object({

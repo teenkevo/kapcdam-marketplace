@@ -7,6 +7,7 @@ if (!token) {
   throw new Error("Sanity token not found");
 }
 
+
 export const { sanityFetch, SanityLive } = defineLive({
   client: client.withConfig({
     apiVersion: "vX",

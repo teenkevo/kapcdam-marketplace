@@ -41,10 +41,6 @@ function AuthenticatedCartSheet({ userCart }: Props) {
   const { setIsCartOpen, isCartOpen } = useLocalCartStore();
   const { isSyncing } = useCartSync();
 
-  console.log("AuthenticatedCartSheet - userCart:", userCart);
-  console.log("AuthenticatedCartSheet - cartItems:", userCart?.cartItems);
-  console.log("AuthenticatedCartSheet - itemCount:", userCart?.itemCount);
-
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

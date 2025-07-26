@@ -162,7 +162,6 @@ export function ProductCard({ product }: ProductCardProps) {
                 productId: product._id,
                 selectedVariantSku: defaultVariant?.sku,
                 quantity: 1,
-                currentPrice: parseInt(displayPrice),
                 addedAt: new Date(),
               }}
             />

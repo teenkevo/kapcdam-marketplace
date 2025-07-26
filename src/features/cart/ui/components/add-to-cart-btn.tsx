@@ -41,7 +41,6 @@ export const AddToLocalCartButton = ({ product }: Props) => {
       productId: product.productId,
       selectedVariantSku: product.selectedVariantSku,
       quantity: 1,
-      currentPrice: product.currentPrice,
     });
     toast.success(
       `${product.type === "product" ? "Product" : "Course"} added to cart!`
@@ -88,7 +87,6 @@ export const AddToServerCartButton = ({
         return false;
       });
 
-      console.log("In Cart", inCart);
       setIsInCart(inCart ?? false);
     }
   }, [cart.data, product]);
