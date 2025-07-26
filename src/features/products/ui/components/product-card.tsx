@@ -5,48 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
 
-import { Check, Heart, ShoppingCart, Star } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Heart, Star } from "lucide-react";
 
 import { urlFor } from "@/sanity/lib/image";
-import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { ProductListItem } from "@/features/products/schemas";
-import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 
 type ProductCardProps = {
   product: ProductListItem;
 };
 
 export function ProductCard({ product }: ProductCardProps) {
-  const [isAdding, setIsAdding] = useState(false);
-  const user = useUser();
-  const { addLocalCartItem, items: localCartItems } = useLocalCartStore();
-
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  const { data: userCart } = useQuery({
-    ...trpc.cart.getUserCart.queryOptions(),
-    staleTime: 0,
-    refetchInterval: 2000,
-    refetchOnWindowFocus: true,
-  });
-
-  const addItemToCart = useMutation(
-    trpc.cart.addToCart.mutationOptions({
-      onSuccess: async () => {
-        queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
-      },
-      onError: (error) => {
-        toast.error(error.message);
-      },
-    })
-  );
-
   if (!product.totalStock || product.totalStock === 0) {
     return null;
   }
@@ -73,84 +43,11 @@ export function ProductCard({ product }: ProductCardProps) {
     ? Math.max(0, product.variantOptions.length - 1)
     : 0;
 
-
-  const handleAddToCart = async () => {
-    if (!availableStock || availableStock === 0 || isInCart) return;
-
-    setIsAdding(true);
-
-    if (user.isSignedIn) {
-      try {
-        addItemToCart.mutate({
-          type: "product",
-          clerkUserId: user.user?.id,
-          productId: product._id,
-          selectedVariantSku: product.hasVariants
-            ? defaultVariant?.sku
-            : undefined,
-          quantity: 1,
-        });
-        toast.success(`${product.title} added to cart!`);
-      } catch (error) {
-        toast.error("Failed to add item to cart");
-        console.error("Add to cart error:", error);
-      } finally {
-        setTimeout(() => {
-          setIsAdding(false);
-        }, 500);
-      }
-    } else {
-      addLocalCartItem({
-        type: "product",
-        productId: product._id,
-        selectedVariantSku: defaultVariant?.sku,
-        quantity: 1,
-        displayData: {
-          image: product.defaultImage,
-          price: parseInt(displayPrice),
-          title: product.title,
-        },
-      });
-      toast.success(`${product.title} added to cart!`);
-      setTimeout(() => {
-        setIsAdding(false);
-      }, 500);
-    }
-  };
-
   const imageSrc = product.defaultImage
     ? urlFor(product.defaultImage).width(300).height(300).url()
     : `/placeholder.svg?height=300&width=300&query=${encodeURIComponent(
         product.title || ""
       )}`;
-
-  // Button state and text logic
-  const getButtonContent = () => {
-    if (isInCart) {
-      return (
-        <>
-          <Check className="w-4 h-4 mr-2" />
-          In Basket
-        </>
-      );
-    }
-
-    if (isAdding) {
-      return (
-        <>
-          <Check className="w-4 h-4 mr-2" />
-          Adding to cart...
-        </>
-      );
-    }
-
-    return (
-      <>
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        Add to Cart
-      </>
-    );
-  };
 
   return (
     <Card className="overflow-hidden">
@@ -259,17 +156,16 @@ export function ProductCard({ product }: ProductCardProps) {
             <Button size="icon" variant="outline" className="shrink-0">
               <Heart className="w-4 h-4" />
             </Button>
-            <Button
-              className={
-                isInCart
-                  ? "bg-gray-100 text-gray-600 cursor-not-allowed flex-1"
-                  : "bg-[#C5F82A] text-black hover:bg-[#B4E729] flex-1"
-              }
-              onClick={handleAddToCart}
-              disabled={!availableStock || isAdding || isInCart}
-            >
-              {getButtonContent()}
-            </Button>
+            <AddToCartButton
+              product={{
+                type: "product",
+                productId: product._id,
+                selectedVariantSku: defaultVariant?.sku,
+                quantity: 1,
+                currentPrice: parseInt(displayPrice),
+                addedAt: new Date(),
+              }}
+            />
           </div>
         </div>
       </CardContent>

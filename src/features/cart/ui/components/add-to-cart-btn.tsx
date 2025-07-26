@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@clerk/nextjs";
 
 type Props = {
   product: CartItemType;
@@ -93,7 +94,7 @@ export const AddToServerCartButton = ({
       </Button>
     );
   }
-  
+
   return (
     <Button
       className="bg-[#C5F82A] text-black flex-1"
@@ -101,5 +102,15 @@ export const AddToServerCartButton = ({
     >
       Add to Cart
     </Button>
+  );
+};
+
+export const AddToCartButton = ({ product }: { product: CartItemType }) => {
+  const user = useUser();
+
+  return user.isSignedIn ? (
+    <AddToServerCartButton product={product} />
+  ) : (
+    <AddToLocalCartButton product={product} />
   );
 };
