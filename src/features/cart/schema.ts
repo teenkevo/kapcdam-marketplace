@@ -1,5 +1,39 @@
 import { z } from "zod";
 
+const CartDisplayProductSchema = z.object({
+  _id: z.string(),
+  title: z.string(),
+  price: z.number().nullable().optional(),
+  hasVariants: z.boolean(),
+  totalStock: z.number().nullable().optional(),
+  defaultImage: z.string(),
+  variants: z
+    .array(
+      z.object({
+        sku: z.string(),
+        price: z.number(),
+        totalStock: z.number(),
+        isDefault: z.boolean(),
+        attributes: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            value: z.string(),
+          })
+        ),
+      })
+    )
+    .nullable()
+    .optional(),
+});
+
+const CartDisplayCourseSchema = z.object({
+  _id: z.string(),
+  title: z.string(),
+  price: z.number(),
+  defaultImage: z.string(),
+});
+
 const CartItemSchema = z.object({
   type: z.enum(["product", "course"]),
   productId: z.string().nullable().optional(),
@@ -42,6 +76,8 @@ export {
   updateCartItemSchema,
   CartItemSchema,
   syncCartSchema,
+  CartDisplayProductSchema,
+  CartDisplayCourseSchema,
 };
 
 export type CartItemType = z.infer<typeof CartItemSchema>;
@@ -49,3 +85,5 @@ export type AddToCartType = z.infer<typeof addToCartSchema>;
 export type UpdateCartItemType = z.infer<typeof updateCartItemSchema>;
 export type SyncCartType = z.infer<typeof syncCartSchema>;
 export type CartType = z.infer<typeof CartSchema>;
+export type CartDisplayProductType = z.infer<typeof CartDisplayProductSchema>;
+export type CartDisplayCourseType = z.infer<typeof CartDisplayCourseSchema>;  

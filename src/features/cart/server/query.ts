@@ -22,3 +22,25 @@ export const CART_ITEMS_QUERY = defineQuery(`
     }
   }
 `);
+
+const CART_DISPLAY_PRODUCT_QUERY = defineQuery(`
+  *[_type == "product" && _id == $productId][0] {
+    _id,
+    title,
+    price,
+    hasVariants,
+    totalStock,
+    defaultImage,
+    variants[] {
+      sku,
+      price,
+      totalStock,
+      isDefault,
+      attributes[] {
+        "id": attributeRef._ref,
+        "name": attributeRef->name,
+        "value": value
+      }
+    }
+  }
+`);

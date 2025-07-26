@@ -34,7 +34,6 @@ interface LocalCartState {
   itemCount: () => number;
   isEmpty: () => boolean;
   hasItems: () => boolean;
-  getTotalPrice: () => number;
 }
 
 export const useLocalCartStore = create<LocalCartState>()(
@@ -165,14 +164,7 @@ export const useLocalCartStore = create<LocalCartState>()(
           return get().items.length > 0;
         },
 
-        getTotalPrice: () => {
-          return get().items.reduce((total, item) => {
-            if (item.currentPrice) {
-              return total + item.currentPrice * item.quantity;
-            }
-            return total;
-          }, 0);
-        },
+   
 
         isInCart: (productId, courseId, selectedVariantSku) => {
           return get().items.some((item) => {
