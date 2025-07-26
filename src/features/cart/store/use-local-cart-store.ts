@@ -26,9 +26,11 @@ interface LocalCartState {
     quantity: number
   ) => void;
   clearCart: () => void;
+  setIsCartOpen: (isOpen: boolean) => void;
   syncToServer: (clerkUserId: string) => Promise<boolean>;
 
   // Computed
+  isCartOpen: boolean;
   itemCount: () => number;
   isEmpty: () => boolean;
   hasItems: () => boolean;
@@ -44,6 +46,7 @@ export const useLocalCartStore = create<LocalCartState>()(
         error: null,
         isSyncing: false,
         lastUpdated: null,
+        isCartOpen: false,
 
         // Actions
         addItem: (newItem) => {
@@ -86,6 +89,10 @@ export const useLocalCartStore = create<LocalCartState>()(
           });
 
           toast.success("Item added to your cart successfully!");
+        },
+
+        setIsCartOpen: (isOpen) => {
+          set({ isCartOpen: isOpen });
         },
 
         removeItem: (productId, courseId, variantSku) => {
@@ -148,9 +155,8 @@ export const useLocalCartStore = create<LocalCartState>()(
           set({ isSyncing: true, error: null });
 
           try {
-
             const syncCart = trpc.cart.syncCartToUser.useMutation();
-            
+
             const result = await syncCart.mutateAsync({
               clerkUserId,
               localCartItems: items,

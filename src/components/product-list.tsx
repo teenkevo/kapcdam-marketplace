@@ -6,7 +6,6 @@ import { trpc } from "@/trpc/server";
 
 export async function ProductList() {
   const data = await trpc.products.getMany({ page: 1, pageSize: 10 });
-  console.log("Products", data);
   if (!data) return null;
 
   return (
@@ -24,7 +23,7 @@ export async function ProductList() {
         </div>
       </div>
 
-      {/* Cart Components */}
+    
       <CartSheet />
       <CartBubble />
     </>

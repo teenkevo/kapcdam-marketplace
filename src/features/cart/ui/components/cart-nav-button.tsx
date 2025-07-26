@@ -2,14 +2,29 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useCart } from "@/features/cart/lib/contexts/cart-context";
 import { ShoppingCart } from "lucide-react";
+import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
+import { useUser } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
+import { trpc } from "@/trpc/client";
 
 export function CartNavButton() {
-  const { getTotalItems, setIsCartOpen, isCartOpen } = useCart();
-  const totalItems = getTotalItems();
+  const user = useUser();
+  const { itemCount, setIsCartOpen } = useLocalCartStore();
+  const [totalItems, setTotalItems] = useState(0);
+  const localItemCount = itemCount();
 
-  console.log(isCartOpen);
+  const userCart = trpc.cart.getUserCart.useQuery();
+
+  console.log("userCart", userCart.data);
+
+  useEffect(() => {
+    if (!user.isSignedIn) {
+      setTotalItems(localItemCount);
+    } else {
+      setTotalItems(userCart.data?.cartItems.length || 0);
+    }
+  }, [user.isSignedIn, localItemCount, userCart.data]);
 
   return (
     <Button

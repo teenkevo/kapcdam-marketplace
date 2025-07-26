@@ -29,14 +29,14 @@ const cartItemSchema = z.object({
             })
           ),
         })
-        .optional(), 
+        .optional(),
     })
     .optional(),
   course: z
     .object({
       _id: z.string(),
       title: z.string(),
-      price: z.string(), 
+      price: z.string(),
       defaultImage: z.custom<SanityAsset>().optional(),
     })
     .optional(),
@@ -61,6 +61,13 @@ const localCartItemSchema = z.object({
   quantity: z.number().min(1),
   addedAt: z.coerce.date(),
   preferredStartDate: z.coerce.date().optional(),
+  displayData: z
+    .object({
+      title: z.string(),
+      price: z.number(),
+      image: z.any().optional(),
+    })
+    .optional(),
 });
 
 const addToCartSchema = z

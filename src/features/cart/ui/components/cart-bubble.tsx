@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useCart } from "@/features/cart/lib/contexts/cart-context";
 import { ShoppingCart } from "lucide-react";
+import { useLocalCartStore } from "../../store/use-local-cart-store";
 
 export function CartBubble() {
-  const { getTotalItems, setIsCartOpen } = useCart();
-  const totalItems = getTotalItems();
+  const { itemCount, setIsCartOpen } = useLocalCartStore();
+  const totalItems = itemCount();
 
   if (totalItems === 0) {
     return null;

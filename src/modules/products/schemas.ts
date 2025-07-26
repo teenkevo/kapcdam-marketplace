@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 import { SanityAsset } from "@sanity/image-url/lib/types/types";
 
@@ -21,8 +22,8 @@ const baseCategorySchema = z.object({
 const parentCategorySchema = baseCategorySchema;
 
 const categorySchema = baseCategorySchema.extend({
-  hasParent: z.boolean().optional(),
-  parent: parentCategorySchema.optional(),
+  hasParent: z.boolean().optional().nullable(),
+  parent: parentCategorySchema.optional().nullable(),
 });
 
 // Variant attribute schema
@@ -36,19 +37,24 @@ const variantAttributeSchema = z.object({
 const productVariantSchema = z.object({
   sku: z.string(),
   price: z.string(),
-  stock: z.number(),
+  stock: z
+    .number()
+    .nullable()
+    .transform((val) => val ?? 0),
   isDefault: z.boolean(),
   attributes: z.array(variantAttributeSchema),
 });
 
-// Discount info schema
-const discountInfoSchema = z.object({
-  value: z.number(),
-  isActive: z.boolean(),
-  title: z.string(),
-  startDate: z.string(), // ISO date string from Sanity
-  endDate: z.string(), // ISO date string from Sanity
-});
+// Discount info schema - only present when discount exists and is active
+const discountInfoSchema = z
+  .object({
+    value: z.number(),
+    isActive: z.boolean(),
+    title: z.string(),
+    startDate: z.string(), 
+    endDate: z.string(), 
+  })
+  .nullable();
 
 // Product list item schema (for getMany)
 const productListItemSchema = z.object({
@@ -57,16 +63,15 @@ const productListItemSchema = z.object({
   slug: sanitySlugSchema,
   hasVariants: z.boolean(),
   status: z.enum(["draft", "active", "archived"]),
-  defaultImage: sanityAssetSchema.optional(),
+  defaultImage: sanityAssetSchema.optional().nullable(),
   price: z.string(),
-  compareAtPrice: z.string().optional(),
   totalStock: z.number(),
   averageRating: z.number().optional().nullable(),
   totalReviews: z.number(),
   category: categorySchema,
   variantOptions: z.array(productVariantSchema),
   hasDiscount: z.boolean(),
-  discountInfo: discountInfoSchema.optional(),
+  discountInfo: discountInfoSchema.optional().nullable(),
 });
 
 // Product detail schema (for getOne)
@@ -84,7 +89,7 @@ const productsResponseSchema = z.object({
 
 const categoriesResponseSchema = z.array(categorySchema);
 
-// Input schemas for procedures
+
 const getManyProductsInputSchema = z.object({
   page: z.number().min(1).default(1),
   pageSize: z.number().min(1).max(20).default(10),
@@ -98,7 +103,7 @@ const getOneProductInputSchema = z.object({
   slug: z.string(),
 });
 
-// Export schemas
+
 export {
   // Base schemas
   sanitySlugSchema,
@@ -121,7 +126,7 @@ export {
   getOneProductInputSchema,
 };
 
-// Export types inferred from schemas
+
 export type SanitySlug = z.infer<typeof sanitySlugSchema>;
 export type Category = z.infer<typeof categorySchema>;
 export type VariantAttribute = z.infer<typeof variantAttributeSchema>;
@@ -134,7 +139,7 @@ export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
 export type GetManyProductsInput = z.infer<typeof getManyProductsInputSchema>;
 export type GetOneProductInput = z.infer<typeof getOneProductInputSchema>;
 
-
+// Validation helpers
 export const validateProductsResponse = (data: unknown): ProductsResponse => {
   return productsResponseSchema.parse(data);
 };
