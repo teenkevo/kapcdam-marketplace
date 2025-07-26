@@ -1,13 +1,11 @@
-// "use client";
+
 import { ProductCard } from "./product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
-import { client } from "@/sanity/lib/client";
 import { trpc } from "@/trpc/server";
 
 export async function ProductList() {
   const data = await trpc.products.getMany({ page: 1, pageSize: 10 });
-  // const products = await client.fetch(`*[_type == "product"]`);
   console.log("Products", data);
   if (!data) return null;
 

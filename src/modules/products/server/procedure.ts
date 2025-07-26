@@ -1,40 +1,61 @@
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, baseProcedure } from "@/trpc/init";
-import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
-import { EnhancedProductSchema, ProductsResponseSchema, SingleProductSchema } from "../schemas";
+import {
+  getManyProductsInputSchema,
+  getOneProductInputSchema,
+  validateCategoriesResponse,
+  validateProductDetail,
+  validateProductsResponse,
+} from "../schemas";
 
 export const productsRouter = createTRPCRouter({
   getOne: baseProcedure
-    .input(z.object({ slug: z.string() }))
-    .query(async ({ input, ctx }) => {
+    .input(getOneProductInputSchema)
+    .query(async ({ input }) => {
       const query = groq`*[_type == "product" && slug.current == $slug][0]{
-        ...,
+        _id,
+        title,
+        slug,
+        hasVariants,
+        status,
         "defaultImage": coalesce(images[isDefault == true][0], images[0]),
-        "defaultVariant": variants[isDefault == true][0],
-        "totalStock": select(
-          hasVariants == true => math::sum(variants[].totalStock),
-          totalStock
-        ),
         "price": select(
           hasVariants == true => variants[isDefault == true][0].price,
           price
         ),
-        "rating": coalesce(rating, 0),
-        "totalReviews": count(*[_type == "review" && product._ref == ^._id]),
-        category->{
+        "totalStock": select(
+          hasVariants == true => sum(variants[].stock),
+          totalStock
+        ),
+        "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+        "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+        category-> {
           _id,
-          _type,
           name,
           slug,
-          description
+          hasParent,
+          parent-> {
+            _id,
+            name,
+            slug
+          }
+        },
+        variants[] {
+          sku,
+          price,
+          stock,
+          isDefault,
+          attributes[] {
+            "attributeName": attributeRef->name,
+            "attributeCode": attributeRef->code.current,
+            value
+          }
         }
       }`;
-      
-      const product = await client.fetch(query, {
-        slug: input.slug,
-      });
+
+      const product = await client.fetch(query, { slug: input.slug });
 
       if (!product) {
         throw new TRPCError({
@@ -42,69 +63,136 @@ export const productsRouter = createTRPCRouter({
           message: "Product not found",
         });
       }
-      
-      return SingleProductSchema.parse(product);
+
+      return validateProductDetail(product);
     }),
 
   getMany: baseProcedure
-    .input(
-      z.object({
-        page: z.number().default(1),
-        pageSize: z.number().min(1).max(10).default(10),
-        search: z.string().nullish(),
-        lastId: z.string().nullish(),
-      })
-    )
-    .query(async ({ input, ctx }) => {
-      const { search, pageSize, lastId } = input;
+    .input(getManyProductsInputSchema)
+    .query(async ({ input }) => {
+      const { search, pageSize, lastId, categoryId, status } = input;
 
-      const searchCondition = search
-        ? `&& (title match $search + "*" || description match $search + "*")`
-        : "";
+      const conditions = [`_type == "product"`, `status == "${status}"`];
 
-      const cursorCondition = lastId ? `&& _id > $lastId` : "";
+      if (search) {
+        conditions.push(`(title match $search + "*")`);
+      }
+
+      if (categoryId) {
+        conditions.push(`category._ref == $categoryId`);
+      }
+
+      if (lastId) {
+        conditions.push(`_id > $lastId`);
+      }
+
+      const filterExpression = conditions.join(" && ");
+
       const query = groq`{
-      "items": *[_type == "product" ${searchCondition} ${cursorCondition}] | order(_id asc) [0...${pageSize}]{
-        ...,
-        "defaultImage": coalesce(images[isDefault == true][0], images[0]),
-        "defaultVariant": variants[isDefault == true][0],
-        "totalStock": select(
-          hasVariants == true => math::sum(variants[].totalStock),
-          totalStock
-        ),
-        "price": select(
-          hasVariants == true => variants[isDefault == true][0].price,
-          price
-        ),
-        "rating": coalesce(rating, 0),
-        "totalReviews": count(*[_type == "review" && product._ref == ^._id]),
-        category->{
+        "items": *[${filterExpression}] | order(_id asc) [0...${pageSize}] {
           _id,
-          _type,
-          name,
+          title,
           slug,
-          description
-        }
-      },
-      "total": count(*[_type == "product" ${searchCondition}])
-    }`;
+          hasVariants,
+          status,
+          "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+          "price": select(
+            hasVariants == true => variants[isDefault == true][0].price,
+            price
+          ),
+          "compareAtPrice": select(
+            hasVariants == true => variants[isDefault == true][0].compareAtPrice,
+            compareAtPrice
+          ),
+          "totalStock": select(
+            hasVariants == true => sum(variants[].stock),
+            totalStock
+          ),
+          "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+          "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+          category-> {
+            _id,
+            name,
+            slug,
+            hasParent,
+            parent-> {
+              _id,
+              name,
+              slug
+            }
+          },
+          "variantOptions": variants[] {
+            sku,
+            price,
+            stock,
+            isDefault,
+            attributes[] {
+              "attributeName": attributeRef->name,
+              "attributeCode": attributeRef->code.current,
+              value
+            }
+          },
+          "hasDiscount": defined(discount) && discount.isActive == true,
+          "discountInfo": discount {
+            value,
+            isActive,
+            title,
+            startDate,
+            endDate
+          }
+        },
+        "total": count(*[${filterExpression}])
+      }`;
 
       const params: Record<string, unknown> = {};
       if (search) params.search = search;
+      if (categoryId) params.categoryId = categoryId;
       if (lastId) params.lastId = lastId;
 
-      console.log(query);
+      try {
+        const result = await client.fetch(query, params);
 
-      const result = await client.fetch(query, params);
-      console.log("Query Result: ", result);
-      
-      const parsedResult = ProductsResponseSchema.parse({
-        items: result.items,
-        total: result.total,
-        hasMore: result.items.length === pageSize,
-        nextCursor: result.items.length > 0 ? result.items[result.items.length - 1]._id : null,
-      });
-
-      return parsedResult;
+        return validateProductsResponse({
+          items: result.items || [],
+          total: result.total || 0,
+          hasMore: (result.items?.length || 0) === pageSize,
+          nextCursor:
+            result.items && result.items.length > 0
+              ? result.items[result.items.length - 1]._id
+              : null,
+        });
+      } catch (error) {
+        console.error("GROQ Query Error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch products",
+        });
+      }
     }),
+
+  // Helper procedure to get categories for filtering
+  getCategories: baseProcedure.query(async () => {
+    const query = groq`*[_type == "category"] | order(displayOrder asc, name asc) {
+      _id,
+      name,
+      slug,
+      hasParent,
+      parent-> {
+        _id,
+        name,
+        slug
+      }
+    }`;
+
+    try {
+      const categories = await client.fetch(query);
+      return validateCategoriesResponse(categories);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch categories",
+      });
+    }
+  }),
 });
