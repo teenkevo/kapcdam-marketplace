@@ -1,11 +1,16 @@
-
+"use client";
 import { ProductCard } from "./product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
-import { trpc } from "@/trpc/server";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 
-export async function ProductList() {
-  const data = await trpc.products.getMany({ page: 1, pageSize: 10 });
+export function ProductList() {
+  const trpc = useTRPC();
+  const { data } = useQuery(
+    trpc.products.getMany.queryOptions({ page: 1, pageSize: 10 })
+  );
+
   if (!data) return null;
 
   return (
@@ -23,7 +28,6 @@ export async function ProductList() {
         </div>
       </div>
 
-    
       <CartSheet />
       <CartBubble />
     </>

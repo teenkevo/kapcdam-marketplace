@@ -7,12 +7,46 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useMegaMenuContext } from "./mega-menu-context";
+import {
+  LogIn,
+  DollarSign,
+  Handshake,
+  Users,
+  Target,
+  Sparkles,
+  BookOpen,
+  BarChart2,
+  Eye,
+  LinkIcon,
+  Droplet,
+  HeartPulse,
+  Lightbulb,
+} from "lucide-react";
+
+// Icon mapping to resolve icon names to components
+const iconMap = {
+  DollarSign,
+  Handshake,
+  Users,
+  Target,
+  Sparkles,
+  BookOpen,
+  BarChart2,
+  Eye,
+  LinkIcon,
+  Droplet,
+  HeartPulse,
+  Lightbulb,
+  LogIn,
+} as const;
+
+type IconName = keyof typeof iconMap;
 
 interface MegaMenuItem {
   title: string;
   description?: string;
   href: string;
-  icon?: React.ElementType;
+  icon?: IconName; // Changed from React.ElementType to IconName
 }
 
 interface MegaMenuSection {
@@ -125,7 +159,7 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
                   </h3>
                   <ul className="space-y-2">
                     {section.items.map((item, itemIndex) => {
-                      const Icon = item.icon;
+                      const Icon = item.icon ? iconMap[item.icon] : null;
                       return (
                         <motion.li key={itemIndex} variants={itemVariants}>
                           <Link

@@ -9,6 +9,7 @@ export const CART_ITEMS_QUERY = defineQuery(`
     updatedAt,
     isActive,
     cartItems[] {
+      _key,
       type,
       quantity,
       currentPrice,
@@ -22,12 +23,11 @@ export const CART_ITEMS_QUERY = defineQuery(`
           price,
           hasVariants,
           totalStock,
-          "defaultImage": images[isDefault == true][0],
-       
+          "defaultImage": images[isDefault == true][0].asset,
           "selectedVariant": variants[sku == ^.selectedVariantSku][0] {
             sku,
             price,
-            stock,
+            "stock": totalStock,
             attributes[] {
               "id": attributeRef._ref,
               "name": attributeRef->name,
@@ -41,7 +41,7 @@ export const CART_ITEMS_QUERY = defineQuery(`
           _id,
           title,
           price,
-          "defaultImage": images[0]
+          "defaultImage": images[0].asset
         }
       },
       preferredStartDate

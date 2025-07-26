@@ -2,12 +2,13 @@ import { SanityAsset } from "@sanity/image-url/lib/types/types";
 import { z } from "zod";
 
 const cartItemSchema = z.object({
+  _key: z.string().optional(),
   type: z.enum(["product", "course"]),
   quantity: z.number().min(1),
   currentPrice: z.number(),
   addedAt: z.coerce.date(),
   lastUpdated: z.coerce.date(),
-  selectedVariantSku: z.string().optional(),
+  selectedVariantSku: z.string().nullable().optional(), // Handle null values
   product: z
     .object({
       _id: z.string(),
@@ -15,7 +16,7 @@ const cartItemSchema = z.object({
       price: z.string(),
       hasVariants: z.boolean(),
       totalStock: z.number().optional(),
-      defaultImage: z.custom<SanityAsset>().optional(),
+      defaultImage: z.custom<SanityAsset>().nullable().optional(), // Handle null
       selectedVariant: z
         .object({
           sku: z.string(),
@@ -29,6 +30,7 @@ const cartItemSchema = z.object({
             })
           ),
         })
+        .nullable()
         .optional(),
     })
     .optional(),
@@ -37,14 +39,14 @@ const cartItemSchema = z.object({
       _id: z.string(),
       title: z.string(),
       price: z.string(),
-      defaultImage: z.custom<SanityAsset>().optional(),
+      defaultImage: z.custom<SanityAsset>().nullable().optional(), // Handle null
     })
     .optional(),
-  preferredStartDate: z.coerce.date().optional(),
+  preferredStartDate: z.coerce.date().nullable().optional(), // Handle null
 });
 
 const CartSchema = z.object({
-  _id: z.string(),
+  _id: z.string().optional(),
   cartItems: z.array(cartItemSchema),
   itemCount: z.number(),
   subtotal: z.number(),
@@ -94,7 +96,6 @@ const updateCartItemSchema = z.object({
 });
 
 const syncCartSchema = z.object({
-  clerkUserId: z.string(),
   localCartItems: z.array(localCartItemSchema),
 });
 

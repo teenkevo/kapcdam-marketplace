@@ -25,11 +25,18 @@ export const cartRouter = createTRPCRouter({
       if (!cart) {
         return null;
       }
-      console.log("User", ctx.auth.userId);
-      console.log("user cart", cart);
 
-      return CartSchema.parse(cart);
+      const parsedCart = CartSchema.parse(cart);
+      return parsedCart;
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Schema validation error:", error.errors);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Invalid cart data structure",
+        });
+      }
+
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch cart",

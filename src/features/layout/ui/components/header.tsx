@@ -4,23 +4,13 @@ import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import {
-  LogIn,
-  DollarSign,
-  Handshake,
-  Users,
-  Target,
-  Sparkles,
-  BookOpen,
-  BarChart2,
-  Eye,
-  LinkIcon,
-  Droplet,
-  HeartPulse,
-  Lightbulb,
-} from "lucide-react";
+import { LogIn } from "lucide-react";
 
-import { CartNavButton, CartNavButtonFallBack } from "@/features/cart/ui/components/cart-nav-button";
+import {
+  CartNavButton,
+  CartNavButtonFallBack,
+  CartNavButtonLocal,
+} from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { trpc, getQueryClient } from "@/trpc/server";
 import { auth } from "@clerk/nextjs/server";
@@ -35,19 +25,19 @@ const takeActionSections = [
         title: "Donate Now",
         description: "Support our mission with a contribution.",
         href: "/donate",
-        icon: DollarSign,
+        icon: "DollarSign" as const,
       },
       {
         title: "Start a Fundraiser",
         description: "Create your own campaign to raise awareness.",
         href: "/fundraise",
-        icon: Handshake,
+        icon: "Handshake" as const,
       },
       {
         title: "Volunteer",
         description: "Join our team on the ground or remotely.",
         href: "/volunteer",
-        icon: Users,
+        icon: "Users" as const,
       },
     ],
   },
@@ -58,13 +48,13 @@ const takeActionSections = [
         title: "Our Campaigns",
         description: "Discover current and past initiatives.",
         href: "/campaigns",
-        icon: Target,
+        icon: "Target" as const,
       },
       {
         title: "Success Stories",
         description: "Read about the impact of your support.",
         href: "/stories",
-        icon: Sparkles,
+        icon: "Sparkles" as const,
       },
     ],
   },
@@ -78,19 +68,19 @@ const aboutUsSections = [
         title: "Our Story",
         description: "Learn about our origins and mission.",
         href: "/about/story",
-        icon: BookOpen,
+        icon: "BookOpen" as const,
       },
       {
         title: "Our Team",
         description: "Meet the dedicated individuals behind our work.",
         href: "/about/team",
-        icon: Users,
+        icon: "Users" as const,
       },
       {
         title: "Financials",
         description: "Transparency in our operations and spending.",
         href: "/about/financials",
-        icon: BarChart2,
+        icon: "BarChart2" as const,
       },
     ],
   },
@@ -101,13 +91,13 @@ const aboutUsSections = [
         title: "Vision & Mission",
         description: "Our long-term goals and daily purpose.",
         href: "/about/vision",
-        icon: Eye,
+        icon: "Eye" as const,
       },
       {
         title: "Partnerships",
         description: "Collaborating for greater impact.",
         href: "/about/partnerships",
-        icon: LinkIcon,
+        icon: "LinkIcon" as const,
       },
     ],
   },
@@ -121,20 +111,20 @@ const whyKAPCDAMSections = [
         title: "Facts & Figures",
         description: "Statistics and realities faced by disabled children.",
         href: "/why-disabled-children/facts",
-        icon: Droplet, // Consider changing icon if you have a more relevant one
+        icon: "Droplet" as const, // Consider changing icon if you have a more relevant one
       },
       {
         title: "Health & Wellbeing",
         description: "Unique health needs and care for disabled children.",
         href: "/why-disabled-children/health",
-        icon: HeartPulse,
+        icon: "HeartPulse" as const,
       },
       {
         title: "Social Inclusion",
         description:
           "The importance of community and inclusion for disabled children.",
         href: "/why-disabled-children/inclusion",
-        icon: Users,
+        icon: "Users" as const,
       },
     ],
   },
@@ -145,13 +135,13 @@ const whyKAPCDAMSections = [
         title: "Support Programs",
         description: "How we support and empower disabled children.",
         href: "/why-disabled-children/support",
-        icon: Lightbulb,
+        icon: "Lightbulb" as const,
       },
       {
         title: "Success Stories",
         description: "Real-life impact and testimonials from families.",
         href: "/why-disabled-children/stories",
-        icon: Sparkles,
+        icon: "Sparkles" as const,
       },
     ],
   },
@@ -161,9 +151,9 @@ export default async function Header() {
   const { userId } = await auth();
 
   const queryClient = getQueryClient();
-  void queryClient.prefetchQuery(
-    trpc.cart.getUserCart.queryOptions()
-  );
+  if (userId) {
+    void queryClient.prefetchQuery(trpc.cart.getUserCart.queryOptions());
+  }
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -190,21 +180,25 @@ export default async function Header() {
 
           <div className="flex items-center space-x-4">
             {userId ? (
-              <UserButton />
+              <>
+                <UserButton />
+                <HydrationBoundary>
+                  <Suspense fallback={<CartNavButtonFallBack />}>
+                    <CartNavButton />
+                  </Suspense>
+                </HydrationBoundary>
+              </>
             ) : (
-              <SignInButton>
-                <Button variant="outline" className="rounded-full">
-                  <LogIn size={20} strokeWidth={1.75} />
-                </Button>
-              </SignInButton>
+              <>
+                <SignInButton>
+                  <Button variant="outline" className="rounded-full">
+                    <LogIn size={20} strokeWidth={1.75} />
+                  </Button>
+                </SignInButton>
+                <CartNavButtonLocal />
+              </>
             )}
-            {/* Cart Components */}
-            <HydrationBoundary state={dehydrate(queryClient)}>
-              <Suspense fallback={<CartNavButtonFallBack />}>
-                <CartSheet />
-                <CartNavButton />
-              </Suspense>
-            </HydrationBoundary>
+            <CartSheet />
           </div>
         </div>
       </div>

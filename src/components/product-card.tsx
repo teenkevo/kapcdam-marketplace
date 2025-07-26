@@ -7,19 +7,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 
-import {
-  Check,
-  Heart,
-  ShoppingCart,
-  Star,
-} from "lucide-react";
+import { Check, Heart, ShoppingCart, Star } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { urlFor } from "@/sanity/lib/image";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { ProductListItem } from "@/modules/products/schemas";
-import { trpc } from "@/trpc/client";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -28,9 +24,20 @@ type ProductCardProps = {
 export function ProductCard({ product }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const user = useUser();
-  const { addItem } = useLocalCartStore();
-  const addServerItem = trpc.cart.addToCart.useMutation()
+  const { addLocalCartItem } = useLocalCartStore();
 
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const addItemToCart = useMutation(
+    trpc.cart.addToCart.mutationOptions({
+      onSuccess: async () => {
+        queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    })
+  );
 
   if (!product.totalStock || product.totalStock === 0) {
     return null;
@@ -64,25 +71,27 @@ export function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true);
 
     if (user.isSignedIn) {
-        try {
-          await addServerItem.mutateAsync({
-            type: "product",
-            clerkUserId: user.user?.id,
-            productId: product._id,
-            selectedVariantSku: product.hasVariants ? defaultVariant?.sku : undefined,
-            quantity: 1,
-          })
-          toast.success(`${product.title} added to cart!`);
-        } catch (error) {
-          toast.error("Failed to add item to cart");
-          console.error("Add to cart error:", error);
-        } finally {
-          setTimeout(() => {
-            setIsAdding(false);
-          }, 500);
-        }
+      try {
+        addItemToCart.mutate({
+          type: "product",
+          clerkUserId: user.user?.id,
+          productId: product._id,
+          selectedVariantSku: product.hasVariants
+            ? defaultVariant?.sku
+            : undefined,
+          quantity: 1,
+        });
+        toast.success(`${product.title} added to cart!`);
+      } catch (error) {
+        toast.error("Failed to add item to cart");
+        console.error("Add to cart error:", error);
+      } finally {
+        setTimeout(() => {
+          setIsAdding(false);
+        }, 500);
+      }
     } else {
-      addItem({
+      addLocalCartItem({
         type: "product",
         productId: product._id,
         selectedVariantSku: defaultVariant?.sku,
