@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Home, Timer } from "lucide-react";
 
-export default function DonationThankYouView() {
+function DonationThankYouContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const donationRef = searchParams.get("ref");
@@ -140,5 +140,19 @@ export default function DonationThankYouView() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function DonationThankYouView() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500"></div>
+        </div>
+      }
+    >
+      <DonationThankYouContent />
+    </Suspense>
   );
 }

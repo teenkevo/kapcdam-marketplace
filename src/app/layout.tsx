@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Providers } from "./providers";
+import { SanityLive } from "@/sanity/lib/live";
 
 const roboto = Roboto({
   weight: ["100", "300", "400", "700", "900"],
@@ -33,6 +34,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={roboto.className}>
           <Toaster position="top-right" />
+          <SanityLive/>
           {children}
         </body>
       </html>

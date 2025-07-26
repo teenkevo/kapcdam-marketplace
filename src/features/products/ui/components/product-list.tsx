@@ -1,27 +1,22 @@
+"use client";
+
 import { ProductCard } from "./product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { trpc } from "@/trpc/server";
 import { ProductListItem } from "../../schemas";
-import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
-import { sanityFetch } from "@/sanity/lib/live";
-import { CartType } from "@/features/cart/schema";
-import { auth } from "@clerk/nextjs/server";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 
-export async function ProductList() {
-  const { userId } = await auth();
 
-  const products = await trpc.products.getMany({ page: 1, pageSize: 10 });
+
+export function ProductList() {
+  const trpc = useTRPC();
+
+  const products = useQuery(
+    trpc.products.getMany.queryOptions({ page: 1, pageSize: 10 })
+  );
 
   if (!products) return null;
-
-   let cartData: CartType | null = null;
-   if (userId) {
-     const { data } = await sanityFetch({
-       query: CART_ITEMS_QUERY,
-       params: { clerkUserId: userId },
-     });
-     cartData = data;
-   }
 
   return (
     <>
@@ -32,14 +27,13 @@ export async function ProductList() {
           </h1>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.items.map((product: ProductListItem) => (
+          {products.data?.items.map((product: ProductListItem) => (
             <ProductCard key={product._id} product={product} />
           ))}
         </div>
       </div>
 
-      {/* <CartSheet /> */}
-      <CartBubble totalItems={cartData?.itemCount ?? 0} />
+    
     </>
   );
 }
