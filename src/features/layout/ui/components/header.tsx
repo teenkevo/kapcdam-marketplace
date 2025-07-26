@@ -12,12 +12,10 @@ import {
   CartNavButtonLocal,
 } from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
-import { trpc, getQueryClient } from "@/trpc/server";
 import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { sanityFetch } from "@/sanity/lib/live";
-import { CART_ITEMS_QUERY } from "@/modules/cart/server/query";
-import { CartType } from "@/modules/cart/schema";
+import { groq } from "next-sanity";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -153,13 +151,15 @@ const whyKAPCDAMSections = [
 export default async function Header() {
   const { userId } = await auth();
 
-  let cartData: CartType | null = null
+  let totalItems = 0;
   if (userId) {
     const { data } = await sanityFetch({
-      query: CART_ITEMS_QUERY,
+      query: groq`*[_type == "cart" && user->clerkUserId == $clerkUserId][0] {
+    itemCount
+    }`,
       params: { clerkUserId: userId },
     });
-    cartData = data;
+    totalItems = data;
   }
 
   return (
@@ -191,7 +191,7 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButton initialCartData={cartData} />
+                    <CartNavButton totalItems={totalItems} />
                   </Suspense>
                 </HydrationBoundary>
               </>

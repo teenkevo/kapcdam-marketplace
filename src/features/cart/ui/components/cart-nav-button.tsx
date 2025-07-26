@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShoppingCart } from "lucide-react";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { CartType } from "@/modules/cart/schema";
 
 type Props = {
-  initialCartData: CartType | null;
+  totalItems: number;
 };
 
-export function CartNavButton({ initialCartData }: Props) {
+export function CartNavButton({ totalItems }: Props) {
   const { setIsCartOpen } = useLocalCartStore();
 
   return (
@@ -25,9 +24,7 @@ export function CartNavButton({ initialCartData }: Props) {
         variant="secondary"
         className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-b from-[#39393F] to-[#222227] text-lime-300 rounded-full p-0 flex items-center justify-center text-xs font-bold"
       >
-        {(initialCartData?.itemCount ?? 0) > 99
-          ? "99+"
-          : (initialCartData?.itemCount ?? 0)}
+        {totalItems > 99 ? "99+" : totalItems}
       </Badge>
     </Button>
   );
