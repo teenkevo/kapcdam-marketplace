@@ -1,19 +1,17 @@
 "use client";
 
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShoppingCart } from "lucide-react";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { useTRPC } from "@/trpc/client";
+import { CartType } from "@/modules/cart/schema";
 
-export function CartNavButton() {
+type Props = {
+  initialCartData: CartType | null;
+};
+
+export function CartNavButton({ initialCartData }: Props) {
   const { setIsCartOpen } = useLocalCartStore();
-  const trpc = useTRPC();
-
-  const { data } = useSuspenseQuery(trpc.cart.getUserCart.queryOptions());
-
-  const totalItems = data?.itemCount || 0;
 
   return (
     <Button
@@ -27,7 +25,9 @@ export function CartNavButton() {
         variant="secondary"
         className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-b from-[#39393F] to-[#222227] text-lime-300 rounded-full p-0 flex items-center justify-center text-xs font-bold"
       >
-        {totalItems > 99 ? "99+" : totalItems}
+        {(initialCartData?.itemCount ?? 0) > 99
+          ? "99+"
+          : (initialCartData?.itemCount ?? 0)}
       </Badge>
     </Button>
   );

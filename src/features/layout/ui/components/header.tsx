@@ -15,6 +15,9 @@ import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { trpc, getQueryClient } from "@/trpc/server";
 import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
+import { sanityFetch } from "@/sanity/lib/live";
+import { CART_ITEMS_QUERY } from "@/modules/cart/server/query";
+import { CartType } from "@/modules/cart/schema";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -150,9 +153,13 @@ const whyKAPCDAMSections = [
 export default async function Header() {
   const { userId } = await auth();
 
-  const queryClient = getQueryClient();
+  let cartData: CartType | null = null
   if (userId) {
-    void queryClient.prefetchQuery(trpc.cart.getUserCart.queryOptions());
+    const { data } = await sanityFetch({
+      query: CART_ITEMS_QUERY,
+      params: { clerkUserId: userId },
+    });
+    cartData = data;
   }
 
   return (
@@ -184,7 +191,7 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButton />
+                    <CartNavButton initialCartData={cartData} />
                   </Suspense>
                 </HydrationBoundary>
               </>
