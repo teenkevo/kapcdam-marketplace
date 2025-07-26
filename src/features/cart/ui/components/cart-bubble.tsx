@@ -4,30 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart } from "lucide-react";
 import { useLocalCartStore } from "../../store/use-local-cart-store";
+import { useUser } from "@clerk/nextjs";
+import { CartNavButton, CartNavButtonLocal } from "./cart-nav-button";
 
-export function CartBubble() {
-  const { itemCount, setIsCartOpen } = useLocalCartStore();
-  const totalItems = itemCount();
-
-  if (totalItems === 0) {
-    return null;
-  }
-
+export function CartBubble({ totalItems }: { totalItems: number }) {
+  const { isSignedIn } = useUser();
   return (
     <div className="fixed bottom-6 right-6 z-50">
-      <Button
-        type="button"
-        onClick={() => setIsCartOpen(true)}
-        className="relative rounded-full bg-gradient-to-b from-[#39393F] to-[#222227] text-white shadow"
-      >
-        <ShoppingCart strokeWidth={2} className="text-white h-6 w-6" />
-        <Badge
-          variant="secondary"
-          className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-b from-[#39393F] to-[#222227] text-lime-300 rounded-full p-0 flex items-center justify-center text-xs font-bold"
-        >
-          {totalItems > 99 ? "99+" : totalItems}
-        </Badge>
-      </Button>
+      {isSignedIn ? (
+        <CartNavButton totalItems={totalItems} />
+      ) : (
+        <CartNavButtonLocal />
+      )}
     </div>
   );
 }

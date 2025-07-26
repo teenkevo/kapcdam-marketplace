@@ -1,7 +1,7 @@
 import { defineQuery } from "next-sanity";
 
 export const CART_ITEMS_QUERY = defineQuery(`
-  *[_type == "cart" && user->clerkUserId == $clerkUserId][0] {
+  *[_type == "cart" && user->clerkUserId == $clerkUserId && isActive == true][0] {
     _id,
     itemCount,
     subtotal,
@@ -9,44 +9,18 @@ export const CART_ITEMS_QUERY = defineQuery(`
     updatedAt,
     isActive,
     cartItems[] {
-      _key,
       type,
       quantity,
       currentPrice,
       addedAt,
-      lastUpdated,
+      preferredStartDate,
       selectedVariantSku,
       type == "product" => {
-        "product": product-> {
-          _id,
-          title,
-          price,
-          hasVariants,
-          totalStock,
-          "defaultImage": images[isDefault == true][0],
-          // Get ALL variants, we'll filter on the client side
-          "variants": variants[] {
-            sku,
-            price,
-            totalStock,
-            isDefault,
-            attributes[] {
-              "id": attributeRef._ref,
-              "name": attributeRef->name,
-              "value": value
-            }
-          }
-        }
+        "productId": product._ref
       },
       type == "course" => {
-        "course": course-> {
-          _id,
-          title,
-          price,
-          "defaultImage": images[0]
-        }
-      },
-      preferredStartDate
+        "courseId": course._ref
+      }
     }
   }
 `);

@@ -8,7 +8,7 @@ import {
   productDetailSchema,
   productsResponseSchema,
   categoriesResponseSchema,
-} from "@/modules/products/schemas";
+} from "../schemas";
 
 function cleanProductData(data: any) {
   return {
@@ -255,7 +255,6 @@ export const productsRouter = createTRPCRouter({
       }
     }),
 
- 
   getCategories: baseProcedure.query(async () => {
     const query = groq`*[_type == "category"] | order(displayOrder asc, name asc) {
       _id,

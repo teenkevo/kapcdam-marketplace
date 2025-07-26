@@ -191,9 +191,7 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButton
-                      totalItems={cartData ? cartData.itemCount : 0}
-                    />
+                    <CartNavButton totalItems={cartData?.itemCount ?? 0} />
                   </Suspense>
                 </HydrationBoundary>
               </>

@@ -1,68 +1,26 @@
 import { z } from "zod";
 
-// const cartItemSchema = z.object({
-//   _key: z.string().optional(),
-//   type: z.enum(["product", "course"]),
-//   quantity: z.number().min(1),
-//   currentPrice: z.number(),
-//   addedAt: z.coerce.date(),
-//   lastUpdated: z.coerce.date(),
-//   selectedVariantSku: z.string().nullable().optional(),
-//   product: z
-//     .object({
-//       _id: z.string(),
-//       title: z.string(),
-//       price: z.string(),
-//       hasVariants: z.boolean(),
-//       totalStock: z.number().optional(),
-//       defaultImage: z.string(), // Handle null
-//       selectedVariant: z
-//         .object({
-//           sku: z.string(),
-//           price: z.string(),
-//           stock: z.number(),
-//           attributes: z.array(
-//             z.object({
-//               id: z.string(),
-//               name: z.string(),
-//               value: z.string(),
-//             })
-//           ),
-//         })
-//         .nullable()
-//         .optional(),
-//     })
-//     .optional(),
-//   course: z
-//     .object({
-//       _id: z.string(),
-//       title: z.string(),
-//       price: z.string(),
-//       defaultImage: z.custom<SanityAsset>().nullable().optional(), // Handle null
-//     })
-//     .optional(),
-//   preferredStartDate: z.coerce.date().nullable().optional(), // Handle null
-// });
+
 
 const CartItemSchema = z.object({
   type: z.enum(["product", "course"]),
-  productId: z.string().optional(),
-  courseId: z.string().optional(),
-  selectedVariantSku: z.string().optional(),
+  productId: z.string().nullable().optional(),
+  courseId: z.string().nullable().optional(),
+  selectedVariantSku: z.string().nullable().optional(),
   quantity: z.number().min(1),
   addedAt: z.coerce.date(),
-  preferredStartDate: z.coerce.date().optional(),
+  preferredStartDate: z.coerce.date().nullable().optional(),
   currentPrice: z.number(),
 });
 
 const CartSchema = z.object({
-  _id: z.string().optional(),
-  cartItems: z.array(CartItemSchema),
-  itemCount: z.number(),
-  subtotal: z.number(),
+  _id: z.string(),
+  cartItems: z.array(CartItemSchema).default([]),
+  itemCount: z.number().nullable().optional().default(0),
+  subtotal: z.number().nullable().optional().default(0),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-  isActive: z.boolean(),
+  isActive: z.boolean().default(true),
 });
 
 const addToCartSchema = CartItemSchema.refine((data) => {

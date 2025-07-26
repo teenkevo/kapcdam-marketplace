@@ -27,8 +27,7 @@ export const cartRouter = createTRPCRouter({
         return null;
       }
 
-      const parsedCart = CartSchema.parse(cart);
-      return parsedCart;
+      return CartSchema.parse(cart);
     } catch (error) {
       if (error instanceof z.ZodError) {
         console.error("Schema validation error:", error.errors);
@@ -632,72 +631,4 @@ export const cartRouter = createTRPCRouter({
       }
     }),
 
-  isInCart: protectedProcedure
-    .input(
-      z.object({
-        productId: z.string().optional(),
-        courseId: z.string().optional(),
-        selectedVariantSku: z.string().optional(),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      try {
-        const { productId, courseId, selectedVariantSku } = input;
-
-        // Validate that either productId or courseId is provided
-        if (!productId && !courseId) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Either productId or courseId must be provided",
-          });
-        }
-
-        // Get user's active cart
-        const cart: {
-          cartItems: {
-            product: { _ref: string };
-            course: { _ref: string };
-            selectedVariantSku: string;
-          }[];
-        } = await client.fetch(
-          groq`*[_type == "cart" && user->clerkUserId == $clerkUserId && isActive == true][0]{
-            cartItems[]->{
-              product,
-              course,
-              selectedVariantSku,
-            }
-          }`,
-          { clerkUserId: ctx.auth.userId }
-        );
-
-        if (!cart || !cart.cartItems) {
-          return false;
-        }
-
-        // Check if item exists in cart
-        const itemExists = cart.cartItems.some((cartItem: any) => {
-          if (productId) {
-            // match both productId and selectedVariantSku
-            return (
-              cartItem.product?._ref === productId &&
-              cartItem.selectedVariantSku === selectedVariantSku
-            );
-          } else if (courseId) {
-            // match courseId only
-            return cartItem.course?._ref === courseId;
-          }
-          return false;
-        });
-
-        return itemExists;
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to check cart status",
-        });
-      }
-    }),
 });
