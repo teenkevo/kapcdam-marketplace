@@ -8,7 +8,7 @@ const cartItemSchema = z.object({
   currentPrice: z.number(),
   addedAt: z.coerce.date(),
   lastUpdated: z.coerce.date(),
-  selectedVariantSku: z.string().nullable().optional(), // Handle null values
+  selectedVariantSku: z.string().nullable().optional(),
   product: z
     .object({
       _id: z.string(),
@@ -99,6 +99,22 @@ const syncCartSchema = z.object({
   localCartItems: z.array(localCartItemSchema),
 });
 
+const variantSchema = z.object({
+  sku: z.string(),
+  price: z.string(),
+  stock: z.string(),
+  attributes: z
+    .array(
+      z.object({
+        _id: z.string(),
+        name: z.string(),
+        value: z.string(),
+      })
+    )
+    .nullable()
+    .optional(),
+});
+
 export {
   CartSchema,
   addToCartSchema,
@@ -106,6 +122,7 @@ export {
   cartItemSchema,
   syncCartSchema,
   localCartItemSchema,
+  variantSchema,
 };
 
 export type LocalCartItemType = z.infer<typeof localCartItemSchema>;
@@ -113,3 +130,4 @@ export type AddToCartType = z.infer<typeof addToCartSchema>;
 export type UpdateCartItemType = z.infer<typeof updateCartItemSchema>;
 export type SyncCartType = z.infer<typeof syncCartSchema>;
 export type CartType = z.infer<typeof CartSchema>;
+export type VariantType = z.infer<typeof variantSchema>;

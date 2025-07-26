@@ -8,6 +8,7 @@ import {
   addToCartSchema,
   updateCartItemSchema,
   syncCartSchema,
+  VariantType,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "./query";
 
@@ -61,7 +62,6 @@ export const cartRouter = createTRPCRouter({
           preferredStartDate,
         } = input;
 
-        // Get user's existing cart
         let cart = await client.fetch(
           groq`*[_type == "cart" && user->clerkUserId == $clerkUserId && isActive == true][0]`,
           { clerkUserId: ctx.auth.userId }
@@ -102,17 +102,17 @@ export const cartRouter = createTRPCRouter({
 
         if (type === "product" && productId) {
           const product = await client.fetch(
-            groq`*[_type == "product" && _id == $productId][0]{
-      price, 
-      hasVariants, 
-      totalStock,
-      "selectedVariant": variants[sku == $selectedVariantSku][0] {
-        sku,
-        price,
-        stock
-      }
-    }`,
-            { productId, selectedVariantSku: selectedVariantSku || "" }
+            groq`*[_type == "product" && _id == $productId][0] {
+                                          hasVariants,
+                                          price,
+                                          totalStock,
+                                          variants[]{
+                                            price,
+                                            sku,
+                                            stock
+                                          }
+                                        }`,
+            { productId }
           );
 
           if (!product) {
@@ -123,6 +123,7 @@ export const cartRouter = createTRPCRouter({
           }
 
           if (product.hasVariants) {
+            // Check if variant SKU is provided
             if (!selectedVariantSku) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -130,15 +131,22 @@ export const cartRouter = createTRPCRouter({
               });
             }
 
-            if (!product.selectedVariant) {
+            // Find the selected variant
+            const selectedVariant: VariantType = product.variants.find(
+              (variant: VariantType) => variant.sku === selectedVariantSku
+            );
+
+            // Check if the selected variant exists
+            if (!selectedVariant) {
               throw new TRPCError({
                 code: "NOT_FOUND",
                 message: `Product variant with SKU "${selectedVariantSku}" not found`,
               });
             }
 
-            currentPrice = parseInt(product.selectedVariant.price);
-            if (product.selectedVariant.stock < quantity) {
+            // Set the current price to the price of the selected variant
+            currentPrice = parseInt(selectedVariant.price);
+            if (parseInt(selectedVariant.stock) < quantity) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message: "Insufficient stock for selected variant",
@@ -151,6 +159,7 @@ export const cartRouter = createTRPCRouter({
                 message: "Product price not found",
               });
             }
+
             currentPrice = parseInt(product.price);
 
             if (product.totalStock && product.totalStock < quantity) {
@@ -179,14 +188,12 @@ export const cartRouter = createTRPCRouter({
         // Check if item already exists in cart
         const existingItemIndex = cart.cartItems?.findIndex((cartItem: any) => {
           if (type === "product") {
-            // For products, match both product ID and variant SKU
             return (
-              cartItem.product?._id === productId &&
+              cartItem.product?._ref === productId &&
               cartItem.selectedVariantSku === selectedVariantSku
             );
           } else {
-            // For courses, just match course ID
-            return cartItem.course?._id === courseId;
+            return cartItem.course?._ref === courseId;
           }
         });
 
