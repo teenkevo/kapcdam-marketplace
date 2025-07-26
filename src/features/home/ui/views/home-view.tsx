@@ -1,7 +1,7 @@
 import HeroSection from "@/features/home/ui/components/hero-section";
 import AboutUsSummary from "../components/about-us-summary";
 import MarketPlaceTeaser from "@/features/home/ui/components/market-place-teaser";
-import { ProductList } from "@/components/product-list";
+import { ProductList } from "@/features/products/ui/components/product-list";
 import { CustomPaymentForm } from "@/components/pay-button";
 import { auth } from "@clerk/nextjs/server";
 
@@ -14,7 +14,7 @@ export default async function HomeView() {
         <HeroSection />
         <AboutUsSummary />
         <MarketPlaceTeaser />
-        <ProductList/>
+        <ProductList />
       </main>
     </div>
   );

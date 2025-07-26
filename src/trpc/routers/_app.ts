@@ -1,12 +1,10 @@
-import { paymentsRouter } from "@/modules/payments/server/procedure";
+import { paymentsRouter } from "@/features/payments/server/procedure";
 import { createTRPCRouter, protectedProcedure } from "../init";
-import { productsRouter } from "@/modules/products/server/procedure";
-import { userRouter } from "@/modules/auth/server/procedure";
-import { donationsRouter } from "@/modules/donate/server/procedure";
-import { cartRouter } from "@/modules/cart/server/procedure";
-import { client } from "@/sanity/lib/client";
-import { CART_ITEMS_QUERY } from "@/modules/cart/server/query";
-import { CartSchema } from "@/modules/cart/schema";
+import { productsRouter } from "@/features/products/server/procedure";
+import { userRouter } from "@/features/auth/server/procedure";
+import { donationsRouter } from "@/features/donate/server/procedure";
+import { cartRouter } from "@/features/cart/server/procedure";
+
 
 export const appRouter = createTRPCRouter({
   products: productsRouter,

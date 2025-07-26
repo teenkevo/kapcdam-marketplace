@@ -1,6 +1,6 @@
 import React from "react";
 import Filters from "./filters";
-import { ProductList } from "./product-list";
+import { ProductList } from "../features/products/ui/components/product-list";
 
 export default function Products() {
   return (

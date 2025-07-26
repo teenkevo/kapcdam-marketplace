@@ -1,5 +1,5 @@
 "use client";
-import { ProductCard } from "./product-card";
+import { ProductCard } from "../../../../components/product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { useTRPC } from "@/trpc/client";

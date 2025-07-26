@@ -29,7 +29,7 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { CartType } from "@/modules/cart/schema";
+import { CartType } from "@/features/cart/schema";
 
 type Props = {
   userCart: CartType | null;

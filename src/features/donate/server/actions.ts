@@ -1,7 +1,7 @@
 "use server";
 
-import { PesapalOrderRequest } from "../payments/schema";
-import { formatDateToDDMMYYYY } from "../payments/utils";
+import { PesapalOrderRequest } from "../../payments/schema";
+import { formatDateToDDMMYYYY } from "../../payments/utils";
 import { trpc } from "@/trpc/server";
 
 type DonationPayload = {

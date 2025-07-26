@@ -1,16 +1,16 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { toast } from "sonner";
-import type { LocalCartItemType } from "@/modules/cart/schema";
+import type { CartItemType } from "@/features/cart/schema";
 
 interface LocalCartState {
   // State
-  items: LocalCartItemType[];
+  items: CartItemType[];
   isCartOpen: boolean;
   lastUpdated: Date | null;
 
   // Actions
-  addLocalCartItem: (item: Omit<LocalCartItemType, "addedAt">) => void;
+  addLocalCartItem: (item: Omit<CartItemType, "addedAt">) => void;
   removeItem: (
     productId?: string,
     courseId?: string,
@@ -24,6 +24,11 @@ interface LocalCartState {
   ) => void;
   clearCart: () => void;
   setIsCartOpen: (isOpen: boolean) => void;
+  isInCart: (
+    productId?: string,
+    courseId?: string,
+    selectedVariantSku?: string
+  ) => boolean;
 
   // Computed
   itemCount: () => number;
@@ -85,7 +90,9 @@ export const useLocalCartStore = create<LocalCartState>()(
             };
           });
 
-          toast.success("Item added to your cart successfully!");
+          toast.success("Added to cart successfully!", {
+            description: "Sign in to sync your cart",
+          });
         },
 
         setIsCartOpen: (isOpen) => {
@@ -159,9 +166,37 @@ export const useLocalCartStore = create<LocalCartState>()(
         },
 
         getTotalPrice: () => {
-          // For local cart, we can't calculate total without server prices
-          // Return 0 and handle pricing on server sync
-          return 0;
+          return get().items.reduce((total, item) => {
+            if (item.currentPrice) {
+              return total + item.currentPrice * item.quantity;
+            }
+            return total;
+          }, 0);
+        },
+
+        isInCart: (productId, courseId, selectedVariantSku) => {
+          return get().items.some((item) => {
+            // Check for product with variant
+            if (productId && selectedVariantSku) {
+              return (
+                item.type === "product" &&
+                item.productId === productId &&
+                item.selectedVariantSku === selectedVariantSku
+              );
+            }
+            // Check for product without variant (hasVariants: false)
+            else if (productId && !selectedVariantSku) {
+              return (
+                item.type === "product" &&
+                item.productId === productId &&
+                !item.selectedVariantSku
+              );
+            } else if (courseId) {
+              return item.type === "course" && item.courseId === courseId;
+            }
+
+            return false;
+          });
         },
       }),
       {

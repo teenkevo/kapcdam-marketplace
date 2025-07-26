@@ -16,8 +16,8 @@ import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { sanityFetch } from "@/sanity/lib/live";
 import { groq } from "next-sanity";
-import { CART_ITEMS_QUERY } from "@/modules/cart/server/query";
-import { CartType } from "@/modules/cart/schema";
+import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
+import { CartType } from "@/features/cart/schema";
 
 // Define the data for the mega menus
 const takeActionSections = [

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 import { urlFor } from "@/sanity/lib/image";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { ProductListItem } from "@/modules/products/schemas";
+import { ProductListItem } from "@/features/products/schemas";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -73,25 +73,6 @@ export function ProductCard({ product }: ProductCardProps) {
     ? Math.max(0, product.variantOptions.length - 1)
     : 0;
 
-  const isInCart = user.isSignedIn
-    ? userCart?.cartItems?.some((item) => {
-        if (item.type === "product") {
-          return (
-            item.product?._id === product._id &&
-            item.selectedVariantSku === (defaultVariant?.sku || null)
-          );
-        }
-        return false;
-      }) || false
-    : localCartItems.some((item) => {
-        if (item.type === "product") {
-          return (
-            item.productId === product._id &&
-            item.selectedVariantSku === (defaultVariant?.sku || undefined)
-          );
-        }
-        return false;
-      });
 
   const handleAddToCart = async () => {
     if (!availableStock || availableStock === 0 || isInCart) return;

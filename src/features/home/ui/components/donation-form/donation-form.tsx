@@ -26,7 +26,7 @@ import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import AmountSelector from "../amount-selector";
 import { useRouter } from "next/navigation";
-import { makeDonation } from "@/modules/donate/actions";
+import { makeDonation } from "@/features/donate/server/actions";
 import { toast } from "sonner";
 import RedirectToPayDialog from "@/components/redirect-to-pay-dialog";
 import { BankDonationRecordDialog } from "@/components/bank-donation-record.dialog";
