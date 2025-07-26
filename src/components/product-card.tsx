@@ -10,10 +10,8 @@ import { useUser } from "@clerk/nextjs";
 import {
   Check,
   Heart,
-  ShieldCheck,
   ShoppingCart,
   Star,
-  Package,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
