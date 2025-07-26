@@ -29,7 +29,12 @@ export function ProductCard({ product }: ProductCardProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const { data: userCart } = useQuery(trpc.cart.getUserCart.queryOptions());
+  const { data: userCart } = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    staleTime: 0,
+    refetchInterval: 2000,
+    refetchOnWindowFocus: true,
+  });
 
   const addItemToCart = useMutation(
     trpc.cart.addToCart.mutationOptions({
@@ -78,8 +83,7 @@ export function ProductCard({ product }: ProductCardProps) {
         }
         return false;
       }) || false
-    : // For unauthenticated users, check local cart
-      localCartItems.some((item) => {
+    : localCartItems.some((item) => {
         if (item.type === "product") {
           return (
             item.productId === product._id &&

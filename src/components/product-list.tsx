@@ -28,7 +28,7 @@ export function ProductList() {
         </div>
       </div>
 
-      <CartSheet />
+      {/* <CartSheet /> */}
       <CartBubble />
     </>
   );

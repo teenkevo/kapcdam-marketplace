@@ -23,11 +23,13 @@ export const CART_ITEMS_QUERY = defineQuery(`
           price,
           hasVariants,
           totalStock,
-          "defaultImage": images[isDefault == true][0].asset,
-          "selectedVariant": variants[sku == ^.selectedVariantSku][0] {
+          "defaultImage": images[isDefault == true][0],
+          // Get ALL variants, we'll filter on the client side
+          "variants": variants[] {
             sku,
             price,
-            "stock": totalStock,
+            totalStock,
+            isDefault,
             attributes[] {
               "id": attributeRef._ref,
               "name": attributeRef->name,
@@ -41,7 +43,7 @@ export const CART_ITEMS_QUERY = defineQuery(`
           _id,
           title,
           price,
-          "defaultImage": images[0].asset
+          "defaultImage": images[0]
         }
       },
       preferredStartDate

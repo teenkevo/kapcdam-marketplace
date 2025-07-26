@@ -31,16 +31,22 @@ import {
 } from "@tanstack/react-query";
 import { CartType } from "@/modules/cart/schema";
 
-function AuthenticatedCartSheet() {
+type Props = {
+  userCart: CartType | null;
+};
+
+function AuthenticatedCartSheet({ userCart }: Props) {
   const [isMobile, setIsMobile] = useState(false);
 
   const { setIsCartOpen, isCartOpen } = useLocalCartStore();
   const { isSyncing } = useCartSync();
 
+  console.log("AuthenticatedCartSheet - userCart:", userCart);
+  console.log("AuthenticatedCartSheet - cartItems:", userCart?.cartItems);
+  console.log("AuthenticatedCartSheet - itemCount:", userCart?.itemCount);
+
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-
-  const { data: serverCart } = useQuery(trpc.cart.getUserCart.queryOptions());
 
   const updateServerCartMutation = useMutation(
     trpc.cart.updateCartItem.mutationOptions({
@@ -63,23 +69,23 @@ function AuthenticatedCartSheet() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const items = serverCart?.cartItems || [];
-  const itemCount = serverCart?.itemCount || 0;
-  const totalPrice = serverCart?.subtotal || 0;
+  const items = userCart?.cartItems || [];
+  const itemCount = userCart?.itemCount || 0;
+  const totalPrice = userCart?.subtotal || 0;
 
   const handleUpdateQuantity = (itemIndex: number, newQuantity: number) => {
-    if (!serverCart?._id) return;
+    if (!userCart?._id) return;
     updateServerCartMutation.mutate({
-      cartId: serverCart._id,
+      cartId: userCart._id,
       itemIndex,
       quantity: newQuantity,
     });
   };
 
   const handleRemoveItem = (itemIndex: number) => {
-    if (!serverCart?._id) return;
+    if (!userCart?._id) return;
     updateServerCartMutation.mutate({
-      cartId: serverCart._id,
+      cartId: userCart._id,
       itemIndex,
       quantity: 0,
     });
@@ -87,14 +93,33 @@ function AuthenticatedCartSheet() {
 
   const getDisplayPrice = (item: any) => item.currentPrice || 0;
 
+  const getSelectedVariant = (item: any) => {
+    if (
+      item.type === "product" &&
+      item.product?.hasVariants &&
+      item.selectedVariantSku &&
+      item.product.variants
+    ) {
+      return item.product.variants.find(
+        (variant: any) => variant.sku === item.selectedVariantSku
+      );
+    }
+    return null;
+  };
+
   const getDisplayTitle = (item: any) => {
     if (item.type === "product" && item.product) {
-      if (item.selectedVariant && item.selectedVariant.attributes) {
-        const variantText = item.selectedVariant.attributes
+      const selectedVariant = getSelectedVariant(item);
+
+      if (selectedVariant && selectedVariant.attributes) {
+        const variantText = selectedVariant.attributes
           .map((attr: any) => attr.value)
           .join(", ");
         return `${item.product.title} - ${variantText}`;
+      } else if (item.selectedVariantSku) {
+        return `${item.product.title} (${item.selectedVariantSku})`;
       }
+
       return item.product.title;
     } else if (item.type === "course" && item.course) {
       return item.course.title;
@@ -449,10 +474,13 @@ function LocalCartSheet() {
   );
 }
 
-// Main CartSheet component that conditionally renders based on auth
-export function CartSheet() {
+export function CartSheet({ userCart }: Props) {
   const { userId } = useAuth();
 
   // Render appropriate version based on auth status
-  return userId ? <AuthenticatedCartSheet /> : <LocalCartSheet />;
+  return userId ? (
+    <AuthenticatedCartSheet userCart={userCart} />
+  ) : (
+    <LocalCartSheet />
+  );
 }

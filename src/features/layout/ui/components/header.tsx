@@ -16,6 +16,8 @@ import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { sanityFetch } from "@/sanity/lib/live";
 import { groq } from "next-sanity";
+import { CART_ITEMS_QUERY } from "@/modules/cart/server/query";
+import { CartType } from "@/modules/cart/schema";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -151,15 +153,13 @@ const whyKAPCDAMSections = [
 export default async function Header() {
   const { userId } = await auth();
 
-  let totalItems = 0;
+  let cartData: CartType | null = null;
   if (userId) {
     const { data } = await sanityFetch({
-      query: groq`*[_type == "cart" && user->clerkUserId == $clerkUserId][0] {
-    itemCount
-    }`,
+      query: CART_ITEMS_QUERY,
       params: { clerkUserId: userId },
     });
-    totalItems = data;
+    cartData = data;
   }
 
   return (
@@ -191,7 +191,9 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButton totalItems={totalItems} />
+                    <CartNavButton
+                      totalItems={cartData ? cartData.itemCount : 0}
+                    />
                   </Suspense>
                 </HydrationBoundary>
               </>
@@ -205,7 +207,7 @@ export default async function Header() {
                 <CartNavButtonLocal />
               </>
             )}
-            <CartSheet />
+            <CartSheet userCart={cartData} />
           </div>
         </div>
       </div>
