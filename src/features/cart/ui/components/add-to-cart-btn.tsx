@@ -5,7 +5,7 @@ import { CartItemType } from "../../schema";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Props = {
   product: CartItemType;
@@ -75,6 +75,25 @@ export const AddToServerCartButton = ({
     })
   );
 
+  const isInCart = useQuery(
+    trpc.cart.isInCart.queryOptions({
+      productId: product.productId,
+      courseId: undefined,
+      selectedVariantSku: product.selectedVariantSku,
+    })
+  );
+
+  if (isInCart.data) {
+    return (
+      <Button
+        className="bg-[#C5F82A] text-black flex-1 opacity-70 cursor-not-allowed"
+        disabled
+      >
+        In Basket
+      </Button>
+    );
+  }
+  
   return (
     <Button
       className="bg-[#C5F82A] text-black flex-1"
