@@ -20,10 +20,11 @@ import {
   Lightbulb,
 } from "lucide-react";
 
-import { CartNavButton } from "@/features/cart/ui/components/cart-nav-button";
+import { CartNavButton, CartNavButtonFallBack } from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
-import {auth  } from "@clerk/nextjs/server";
+import { trpc, getQueryClient } from "@/trpc/server";
+import { auth } from "@clerk/nextjs/server";
+import { Suspense } from "react";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -159,7 +160,10 @@ const whyKAPCDAMSections = [
 export default async function Header() {
   const { userId } = await auth();
 
-  void trpc.cart.getUserCart.prefetch();
+  const queryClient = getQueryClient();
+  void queryClient.prefetchQuery(
+    trpc.cart.getUserCart.queryOptions()
+  );
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -195,10 +199,12 @@ export default async function Header() {
               </SignInButton>
             )}
             {/* Cart Components */}
-            <HydrateClient>
-              <CartSheet />
-              <CartNavButton />
-            </HydrateClient>
+            <HydrationBoundary state={dehydrate(queryClient)}>
+              <Suspense fallback={<CartNavButtonFallBack />}>
+                <CartSheet />
+                <CartNavButton />
+              </Suspense>
+            </HydrationBoundary>
           </div>
         </div>
       </div>
