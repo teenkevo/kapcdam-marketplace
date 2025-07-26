@@ -16,15 +16,17 @@ export function CartNavButton() {
 
   const userCart = trpc.cart.getUserCart.useQuery();
 
-  console.log("userCart", userCart.data);
+  console.log("userCart", userCart);
 
   useEffect(() => {
     if (!user.isSignedIn) {
       setTotalItems(localItemCount);
     } else {
-      setTotalItems(userCart.data?.cartItems.length || 0);
+      setTotalItems(userCart.data?.itemCount || 0);
     }
   }, [user.isSignedIn, localItemCount, userCart.data]);
+
+  console.log("totalItems", totalItems);
 
   return (
     <Button

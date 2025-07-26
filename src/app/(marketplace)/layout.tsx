@@ -19,11 +19,9 @@ export default function MarketplaceLayout({
 }>) {
   return (
     <MegaMenuProvider>
-      <CartProvider>
-        <Header />
-        <main>{children}</main>
-        <Footer />
-      </CartProvider>
+      <Header />
+      <main>{children}</main>
+      <Footer />
     </MegaMenuProvider>
   );
 }

@@ -179,7 +179,7 @@ export default function Header() {
             <MegaMenu label="About Us" sections={aboutUsSections} />
             <MegaMenu label="Why KAPCDAM?" sections={whyKAPCDAMSections} />
           </nav>
-          {/* Auth & CTA */}
+
           <div className="flex items-center space-x-4">
             {user.isSignedIn ? (
               <UserButton />

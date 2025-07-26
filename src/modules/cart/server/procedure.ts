@@ -1,8 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import {
-  createTRPCRouter,
-  protectedProcedure,
-} from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
@@ -93,7 +90,7 @@ export const cartRouter = createTRPCRouter({
 
         // Get current price for the item
         let currentPrice = 0;
-    
+
         if (type === "product" && productId) {
           const product = await client.fetch(
             groq`*[_type == "product" && _id == $productId][0]{
