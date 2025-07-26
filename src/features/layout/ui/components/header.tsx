@@ -1,10 +1,9 @@
 "use client";
-
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
 import {
   LogIn,
   DollarSign,
@@ -18,13 +17,10 @@ import {
   LinkIcon,
   Droplet,
   HeartPulse,
-  TrendingDown,
   Lightbulb,
-  MapPin,
 } from "lucide-react";
-import DonateButton from "@/features/home/ui/components/donate-button";
+
 import { CartNavButton } from "@/features/cart/ui/components/cart-nav-button";
-import { CartProvider } from "@/features/cart/lib/contexts/cart-context";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 
 // Define the data for the mega menus
@@ -159,6 +155,8 @@ const whyKAPCDAMSections = [
 ];
 
 export default function Header() {
+  const user = useUser();
+
   return (
     <header className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -183,11 +181,15 @@ export default function Header() {
           </nav>
           {/* Auth & CTA */}
           <div className="flex items-center space-x-4">
-            <SignInButton>
-              <Button variant="outline" className="rounded-full">
-                <LogIn size={20} strokeWidth={1.75} />
-              </Button>
-            </SignInButton>
+            {user.isSignedIn ? (
+              <UserButton />
+            ) : (
+              <SignInButton>
+                <Button variant="outline" className="rounded-full">
+                  <LogIn size={20} strokeWidth={1.75} />
+                </Button>
+              </SignInButton>
+            )}
             {/* Cart Components */}
             <CartSheet />
             <CartNavButton />
