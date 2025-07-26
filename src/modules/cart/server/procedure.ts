@@ -318,7 +318,7 @@ export const cartRouter = createTRPCRouter({
           0
         );
 
-        // Update cart
+       
         const updatedCart = await client
           .patch(cartId)
           .set({
