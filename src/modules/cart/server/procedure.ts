@@ -25,6 +25,8 @@ export const cartRouter = createTRPCRouter({
       if (!cart) {
         return null;
       }
+      console.log("User", ctx.auth.userId);
+      console.log("user cart", cart);
 
       return CartSchema.parse(cart);
     } catch (error) {

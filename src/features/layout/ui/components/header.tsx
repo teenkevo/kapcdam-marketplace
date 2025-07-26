@@ -1,9 +1,9 @@
-"use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
-import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
+import { SignInButton, UserButton } from "@clerk/nextjs";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import {
   LogIn,
   DollarSign,
@@ -22,6 +22,8 @@ import {
 
 import { CartNavButton } from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
+import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import {auth  } from "@clerk/nextjs/server";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -154,8 +156,10 @@ const whyKAPCDAMSections = [
   },
 ];
 
-export default function Header() {
-  const user = useUser();
+export default async function Header() {
+  const { userId } = await auth();
+
+  void trpc.cart.getUserCart.prefetch();
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -181,7 +185,7 @@ export default function Header() {
           </nav>
 
           <div className="flex items-center space-x-4">
-            {user.isSignedIn ? (
+            {userId ? (
               <UserButton />
             ) : (
               <SignInButton>
@@ -191,8 +195,10 @@ export default function Header() {
               </SignInButton>
             )}
             {/* Cart Components */}
-            <CartSheet />
-            <CartNavButton />
+            <HydrateClient>
+              <CartSheet />
+              <CartNavButton />
+            </HydrateClient>
           </div>
         </div>
       </div>

@@ -9,22 +9,22 @@ import { useEffect, useState } from "react";
 import { trpc } from "@/trpc/client";
 
 export function CartNavButton() {
-  const user = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const { itemCount, setIsCartOpen } = useLocalCartStore();
   const [totalItems, setTotalItems] = useState(0);
   const localItemCount = itemCount();
 
-  const userCart = trpc.cart.getUserCart.useQuery();
+  const [userCart] = trpc.cart.getUserCart.useSuspenseQuery();
 
-  console.log("userCart", userCart);
+    console.log("userCart data:", userCart);
 
   useEffect(() => {
-    if (!user.isSignedIn) {
+    if (!isSignedIn) {
       setTotalItems(localItemCount);
     } else {
       setTotalItems(userCart.data?.itemCount || 0);
     }
-  }, [user.isSignedIn, localItemCount, userCart.data]);
+  }, [isSignedIn, localItemCount, userCart.data]);
 
   console.log("totalItems", totalItems);
 

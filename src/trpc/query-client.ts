@@ -8,14 +8,21 @@ export function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 30 * 1000,
+        experimental_prefetchInRender: true,
       },
       dehydrate: {
-        shouldDehydrateQuery: (query) =>
-          defaultShouldDehydrateQuery(query) ||
-          query.state.status === "pending",
+          shouldDehydrateQuery: (query) =>{
+            if (query.state.dataUpdatedAt === 0) {
+              query.state.dataUpdatedAt = Date.now();
+            }
+            return (
+              defaultShouldDehydrateQuery(query) ||
+              query.state.status === "pending"
+            );
+          },
       },
-      hydrate: {
-      },
+      hydrate: {},
     },
   });
 }
+
