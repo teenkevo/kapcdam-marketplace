@@ -1,9 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ShoppingCart } from "lucide-react";
-import { useLocalCartStore } from "../../store/use-local-cart-store";
 import { useUser } from "@clerk/nextjs";
 import { CartNavButton, CartNavButtonLocal } from "./cart-nav-button";
 
