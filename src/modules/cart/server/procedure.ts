@@ -181,12 +181,12 @@ export const cartRouter = createTRPCRouter({
           if (type === "product") {
             // For products, match both product ID and variant SKU
             return (
-              cartItem.product?._ref === productId &&
+              cartItem.product?._id === productId &&
               cartItem.selectedVariantSku === selectedVariantSku
             );
           } else {
             // For courses, just match course ID
-            return cartItem.course?._ref === courseId;
+            return cartItem.course?._id === courseId;
           }
         });
 
@@ -548,11 +548,11 @@ export const cartRouter = createTRPCRouter({
             const existingIndex = mergedItems.findIndex((existing) => {
               if (newItem.type === "product") {
                 return (
-                  existing.product?._ref === newItem.product?._ref &&
+                  existing.product?._id === newItem.product?._ref &&
                   existing.selectedVariantSku === newItem.selectedVariantSku
                 );
               }
-              return existing.course?._ref === newItem.course?._ref;
+              return existing.course?._id === newItem.course?._ref;
             });
 
             if (existingIndex !== -1) {

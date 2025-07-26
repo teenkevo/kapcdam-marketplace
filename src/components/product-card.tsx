@@ -15,7 +15,7 @@ import { urlFor } from "@/sanity/lib/image";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { ProductListItem } from "@/modules/products/schemas";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -24,10 +24,13 @@ type ProductCardProps = {
 export function ProductCard({ product }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const user = useUser();
-  const { addLocalCartItem } = useLocalCartStore();
+  const { addLocalCartItem, items: localCartItems } = useLocalCartStore();
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
+  const { data: userCart } = useQuery(trpc.cart.getUserCart.queryOptions());
+
   const addItemToCart = useMutation(
     trpc.cart.addToCart.mutationOptions({
       onSuccess: async () => {
@@ -65,8 +68,29 @@ export function ProductCard({ product }: ProductCardProps) {
     ? Math.max(0, product.variantOptions.length - 1)
     : 0;
 
+  const isInCart = user.isSignedIn
+    ? userCart?.cartItems?.some((item) => {
+        if (item.type === "product") {
+          return (
+            item.product?._id === product._id &&
+            item.selectedVariantSku === (defaultVariant?.sku || null)
+          );
+        }
+        return false;
+      }) || false
+    : // For unauthenticated users, check local cart
+      localCartItems.some((item) => {
+        if (item.type === "product") {
+          return (
+            item.productId === product._id &&
+            item.selectedVariantSku === (defaultVariant?.sku || undefined)
+          );
+        }
+        return false;
+      });
+
   const handleAddToCart = async () => {
-    if (!availableStock || availableStock === 0) return;
+    if (!availableStock || availableStock === 0 || isInCart) return;
 
     setIsAdding(true);
 
@@ -102,6 +126,10 @@ export function ProductCard({ product }: ProductCardProps) {
           title: product.title,
         },
       });
+      toast.success(`${product.title} added to cart!`);
+      setTimeout(() => {
+        setIsAdding(false);
+      }, 500);
     }
   };
 
@@ -110,6 +138,34 @@ export function ProductCard({ product }: ProductCardProps) {
     : `/placeholder.svg?height=300&width=300&query=${encodeURIComponent(
         product.title || ""
       )}`;
+
+  // Button state and text logic
+  const getButtonContent = () => {
+    if (isInCart) {
+      return (
+        <>
+          <Check className="w-4 h-4 mr-2" />
+          In Basket
+        </>
+      );
+    }
+
+    if (isAdding) {
+      return (
+        <>
+          <Check className="w-4 h-4 mr-2" />
+          Adding to cart...
+        </>
+      );
+    }
+
+    return (
+      <>
+        <ShoppingCart className="w-4 h-4 mr-2" />
+        Add to Cart
+      </>
+    );
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -219,21 +275,15 @@ export function ProductCard({ product }: ProductCardProps) {
               <Heart className="w-4 h-4" />
             </Button>
             <Button
-              className="bg-[#C5F82A] text-black hover:bg-[#B4E729] flex-1"
+              className={
+                isInCart
+                  ? "bg-gray-100 text-gray-600 cursor-not-allowed flex-1"
+                  : "bg-[#C5F82A] text-black hover:bg-[#B4E729] flex-1"
+              }
               onClick={handleAddToCart}
-              disabled={!availableStock || isAdding}
+              disabled={!availableStock || isAdding || isInCart}
             >
-              {isAdding ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Added!
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Add to Cart
-                </>
-              )}
+              {getButtonContent()}
             </Button>
           </div>
         </div>
