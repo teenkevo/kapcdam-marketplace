@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-
-
 const CartItemSchema = z.object({
   type: z.enum(["product", "course"]),
   productId: z.string().nullable().optional(),
@@ -16,7 +14,6 @@ const CartSchema = z.object({
   _id: z.string(),
   cartItems: z.array(CartItemSchema).default([]),
   itemCount: z.number().nullable().optional().default(0),
-  subtotal: z.number().nullable().optional().default(0),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   isActive: z.boolean().default(true),

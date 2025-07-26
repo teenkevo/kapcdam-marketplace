@@ -4,14 +4,12 @@ export const CART_ITEMS_QUERY = defineQuery(`
   *[_type == "cart" && user->clerkUserId == $clerkUserId && isActive == true][0] {
     _id,
     itemCount,
-    subtotal,
     createdAt,
     updatedAt,
     isActive,
     cartItems[] {
       type,
       quantity,
-      currentPrice,
       addedAt,
       preferredStartDate,
       selectedVariantSku,
