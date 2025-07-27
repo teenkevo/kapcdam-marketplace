@@ -87,7 +87,6 @@ const Navbar = () => {
                     <ShoppingCartIcon itemCount={5} />
                   </Link>
                   <UserButton />
-                  {/* <LightDarkToggle /> */}
                 </>
               ) : (
                 <>

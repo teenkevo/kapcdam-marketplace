@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { cache } from "react";
 import { Context } from "./context";
 import { auth } from "@clerk/nextjs/server";
-import { getPesapalToken } from "@/modules/payments/server/util";
+import { getPesapalToken } from "@/features/payments/server/util";
 
 export const createTRPCContext = cache(async () => {
   return {

@@ -35,5 +35,6 @@ export const structure: StructureResolver = (S) =>
         .icon(CreditCardIcon),
       S.documentTypeListItem("user").title("Customer Accounts").icon(UserIcon),
       S.documentTypeListItem("cart").title("Shopping Carts"),
+      S.documentTypeListItem("reviews").title("Ratings & Reviews"),
       S.documentTypeListItem("donation").title("Donations"),
     ]);

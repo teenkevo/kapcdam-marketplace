@@ -72,7 +72,17 @@ export const user = defineType({
         }),
       ],
     }),
-
+    defineField({
+      name: "likedProducts",
+      title: "Liked Products",
+      type: "array",
+      of: [
+        defineArrayMember({
+          type: "reference",
+          to: [{ type: "product" }],
+        }),
+      ],
+    }),
     defineField({
       name: "preferences",
       title: "User Preferences",

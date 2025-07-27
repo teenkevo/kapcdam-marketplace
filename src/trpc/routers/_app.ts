@@ -1,14 +1,17 @@
-import { paymentsRouter } from "@/modules/payments/server/procedure";
-import { createTRPCRouter } from "../init";
-import { productsRouter } from "@/modules/products/server/procedure";
-import { userRouter } from "@/modules/auth/server/procedure";
-import { donationsRouter } from "@/modules/donate/server/procedure";
+import { paymentsRouter } from "@/features/payments/server/procedure";
+import { createTRPCRouter, protectedProcedure } from "../init";
+import { productsRouter } from "@/features/products/server/procedure";
+import { userRouter } from "@/features/auth/server/procedure";
+import { donationsRouter } from "@/features/donate/server/procedure";
+import { cartRouter } from "@/features/cart/server/procedure";
+
 
 export const appRouter = createTRPCRouter({
   products: productsRouter,
   payments: paymentsRouter,
   donations: donationsRouter,
   user: userRouter,
+  cart: cartRouter,
 });
 
 export type AppRouter = typeof appRouter;

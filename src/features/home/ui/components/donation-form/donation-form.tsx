@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,16 +21,12 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { monthlyAmounts, oneTimeAmounts } from "@/features/donate/lib/utils";
-import { trpc } from "@/trpc/client";
 
 import DonationFormContent from "./donation-form-content";
 import { useFormValidation } from "@/features/home/lib/hooks/use-form-validation";
 import AmountSelector from "../amount-selector";
 import { useRouter } from "next/navigation";
-import { generateDonationId } from "@/modules/donate/server/procedure";
-import { PesapalOrderRequest } from "@/modules/payments/schema";
-import { formatDateToDDMMYYYY } from "@/modules/payments/utils";
-import { makeDonation } from "@/modules/donate/actions";
+import { makeDonation } from "@/features/donate/server/actions";
 import { toast } from "sonner";
 import RedirectToPayDialog from "@/components/redirect-to-pay-dialog";
 import { BankDonationRecordDialog } from "@/components/bank-donation-record.dialog";
@@ -59,6 +55,7 @@ export default function DonationForm() {
   const [bankDonationRecordDialogOpen, setBankDonationRecordDialogOpen] =
     useState(false);
   const { form, validateAmount } = useFormValidation();
+  const [isPending, setIsPending] = useState<boolean>(false);
 
   useEffect(() => {
     function handleResize() {
@@ -106,13 +103,7 @@ export default function DonationForm() {
     [isCustomSelected, handleCustomSelect]
   );
 
-  // Use the donations router procedures
-  const createDonation = trpc.donations.create.useMutation();
-  const registerIpn = trpc.payments.registerIpn.useMutation();
-  const processPayment = trpc.payments.submitOrder.useMutation();
-
   const onSubmit = async (data: FormData) => {
-    // Validate amount
     const amountValidationError = validateAmount(selectedAmount, customAmount);
     if (amountValidationError) {
       setAmountError(amountValidationError);
@@ -120,6 +111,8 @@ export default function DonationForm() {
     }
 
     const donationAmount = selectedAmount || Number(customAmount);
+
+    setIsPending(true);
 
     try {
       const result = await makeDonation({
@@ -152,24 +145,25 @@ export default function DonationForm() {
       toast.error(
         "There was an error processing your donation. Please try again."
       );
+    } finally {
+      setIsPending(false);
     }
   };
 
   const hasAmount = selectedAmount || customAmount;
   const hasValidAmount =
     hasAmount && (!customAmount || Number(customAmount) > 0);
-  const isProcessing = createDonation.isPending || processPayment.isPending;
 
   const DonateButton = ({ children }: { children: React.ReactNode }) => (
     <Button
       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      disabled={!hasValidAmount || isProcessing}
+      disabled={!hasValidAmount || isPending}
       onClick={() => {
         setReferenceNumber(generateReferenceNumber());
         setIsOpen(true);
       }}
     >
-      {isProcessing ? "Processing..." : children}
+      {isPending ? "Processing..." : children}
     </Button>
   );
 
@@ -200,7 +194,7 @@ export default function DonationForm() {
             </DrawerTrigger>
             <DrawerContent
               className="max-h-[100vh]"
-              hideClose={isProcessing}
+              hideClose={isPending}
               onInteractOutside={(e) => e.preventDefault()}
               onEscapeKeyDown={(e) => e.preventDefault()}
             >
@@ -216,7 +210,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting || isProcessing}
+                  isSubmitting={form.formState.isSubmitting || isPending}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />
@@ -231,7 +225,7 @@ export default function DonationForm() {
             <SheetContent
               side="right"
               className="w-full sm:max-w-md h-full"
-              hideClose={form.formState.isSubmitting || isProcessing}
+              hideClose={form.formState.isSubmitting || isPending}
               onInteractOutside={(e) => e.preventDefault()}
               onEscapeKeyDown={(e) => e.preventDefault()}
             >
@@ -250,7 +244,7 @@ export default function DonationForm() {
                   selectedAmount={selectedAmount}
                   customAmount={customAmount}
                   donationType={donationType}
-                  isSubmitting={form.formState.isSubmitting || isProcessing}
+                  isSubmitting={form.formState.isSubmitting || isPending}
                   onSubmit={onSubmit}
                   amountError={amountError}
                 />

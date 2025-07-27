@@ -105,7 +105,7 @@ export const productVariant = defineType({
     }),
 
     defineField({
-      name: "totalStock",
+      name: "stock",
       title: "Stock Quantity",
       type: "number",
       initialValue: 0,
@@ -121,19 +121,6 @@ export const productVariant = defineType({
       initialValue: false,
     }),
   ],
-  // validation:(Rule) => Rule.custom((_,{document})=>{
-  //   const variants = document?.variants as {sku?:string}[]
-
-  //   const variantSkus = variants.map((v)=>v.sku)
-
-  //   const uniqueSkus = new Set(variantSkus)
-
-  //   if(variantSkus.length > uniqueSkus.size){
-  //     return "Variants should not have the same attributes"
-  //   }
-
-  //   return true
-  // }),
 
   preview: {
     select: {

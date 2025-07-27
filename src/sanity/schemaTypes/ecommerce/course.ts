@@ -1,3 +1,4 @@
+import { PriceInput } from "@/sanity/components/price-input";
 import { defineType, defineField, defineArrayMember } from "sanity";
 
 export const course = defineType({
@@ -114,16 +115,22 @@ export const course = defineType({
     defineField({
       name: "price",
       title: "Course Price (UGX)",
-      type: "number",
+      type: "string",
       description: "Price of the course",
+      components: {
+        input: PriceInput,
+      },
       validation: (rule) =>
         rule.required().min(0).error("Course should have a price"),
     }),
     defineField({
       name: "compareAtPrice",
       title: "Compare At Price (UGX)",
-      type: "number",
+      type: "string",
       description: "Original price before discount (optional)",
+      components: {
+        input: PriceInput,
+      },
       validation: (rule) => rule.min(0),
     }),
     defineField({

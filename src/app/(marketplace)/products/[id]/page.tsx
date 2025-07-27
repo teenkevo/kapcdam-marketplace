@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { products } from "@/components/product-list";
-import { ProductCard } from "@/components/product-card";
+import { ProductList } from "@/features/products/ui/components/product-list";
+import { ProductCard } from "@/features/products/ui/components/product-card";
 import { useState } from "react";
 
 export default function ProductPage() {
@@ -270,9 +270,7 @@ export default function ProductPage() {
       <div>
         <h2 className="text-2xl font-bold mb-6">You may also like</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {products.map((product, index) =>
-            index < 4 ? <ProductCard key={index} product={product} /> : null
-          )}
+          <ProductList />
         </div>
       </div>
     </div>
