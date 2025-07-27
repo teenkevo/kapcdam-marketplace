@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 
-import { Heart, Star } from "lucide-react";
+import { Star } from "lucide-react";
 
 import { urlFor } from "@/sanity/lib/image";
 import { ProductListItem } from "@/features/products/schemas";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
+import LikeProductButton from "./like-product-button";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -153,9 +154,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="outline" className="shrink-0">
-              <Heart className="w-4 h-4" />
-            </Button>
+            <LikeProductButton productId={product._id} />
             <AddToCartButton
               product={{
                 type: "product",

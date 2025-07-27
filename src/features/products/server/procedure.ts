@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, baseProcedure } from "@/trpc/init";
+import { createTRPCRouter, baseProcedure, protectedProcedure } from "@/trpc/init";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import {
@@ -9,6 +9,7 @@ import {
   productsResponseSchema,
   categoriesResponseSchema,
 } from "../schemas";
+import { z } from "zod";
 
 function cleanProductData(data: any) {
   return {
@@ -289,4 +290,82 @@ export const productsRouter = createTRPCRouter({
       });
     }
   }),
+
+  /**
+   * Like a product - adds product to user's likedProducts array
+   */
+  likeProduct: protectedProcedure
+    .input(
+      z.object({
+        productId: z.string().min(1, "Product ID is required"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { productId } = input;
+
+        const user = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: ctx.auth.userId }
+        );
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message:
+              "User not found. Please ensure your account is properly set up.",
+          });
+        }
+
+        // Verify product exists
+        const product = await client.fetch(
+          groq`*[_type == "product" && _id == $productId][0]{ _id }`,
+          { productId }
+        );
+
+        if (!product) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Product not found",
+          });
+        }
+
+        const currentLikedProducts = user.likedProducts || [];
+        const isAlreadyLiked = currentLikedProducts.some(
+          (ref: any) => ref._ref === productId
+        );
+
+        if (isAlreadyLiked) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Product is already liked",
+          });
+        }
+
+        const updatedUser = await client
+          .patch(user._id)
+          .setIfMissing({ likedProducts: [] })
+          .append("likedProducts", [
+            {
+              _type: "reference",
+              _ref: productId,
+            },
+          ])
+          .commit();
+
+        return {
+          success: true,
+          message: "Product liked successfully",
+          likedProductsCount: updatedUser.likedProducts?.length || 0,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to like product",
+        });
+      }
+    }),
 });

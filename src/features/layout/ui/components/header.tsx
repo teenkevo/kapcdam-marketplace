@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
 import { SignInButton, UserButton } from "@clerk/nextjs";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { HydrationBoundary } from "@tanstack/react-query";
 import { LogIn } from "lucide-react";
 
 import {
