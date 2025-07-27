@@ -1,5 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
@@ -8,9 +12,14 @@ import {
   addToCartSchema,
   updateCartItemSchema,
   syncCartSchema,
+  CartDisplayCourseType,
+  CartDisplayProductType,
 } from "../schema";
-import { CART_ITEMS_QUERY } from "./query";
+import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY } from "./query";
 import { revalidatePath } from "next/cache";
+import { product } from "@/sanity/schemaTypes/ecommerce/product";
+import { sanityFetch } from "@/sanity/lib/live";
+import { expandCartVariants } from "../helpers";
 
 export const cartRouter = createTRPCRouter({
   /**
@@ -631,4 +640,31 @@ export const cartRouter = createTRPCRouter({
       }
     }),
 
+  getDisplayData: baseProcedure
+    .input(
+      z.object({
+        productIds: z.array(z.string()),
+        courseIds: z.array(z.string()),
+        selectedSKUs: z.array(z.string()),
+      })
+    )
+    .query(async ({ input }) => {
+      const { data } = await sanityFetch({
+        query: CART_DISPLAY_QUERY,
+        params: {
+          productIds: input.productIds,
+          courseIds: input.courseIds,
+          selectedSKUs: input.selectedSKUs,
+        },
+      });
+
+      if (!data) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "" });
+      }
+
+      return data as {
+        products: CartDisplayProductType[];
+        courses: CartDisplayCourseType[];
+      };
+    }),
 });

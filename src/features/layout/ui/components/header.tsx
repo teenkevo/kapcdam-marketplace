@@ -243,10 +243,6 @@ export default async function Header() {
             )}
             <CartSheet
               totalItems={cartData?.itemCount ?? 0}
-              cartDisplayData={{
-                products: enhancedCartDisplayData,
-                courses: cartDisplayData?.courses ?? [],
-              }}
               userCart={cartData}
             />
             <CartBubble totalItems={cartData?.itemCount ?? 0} />
