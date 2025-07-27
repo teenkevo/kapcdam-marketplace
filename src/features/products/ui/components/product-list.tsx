@@ -2,11 +2,9 @@
 
 import { ProductCard } from "./product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
-import { trpc } from "@/trpc/server";
 import { ProductListItem } from "../../schemas";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
-
 
 
 export function ProductList() {

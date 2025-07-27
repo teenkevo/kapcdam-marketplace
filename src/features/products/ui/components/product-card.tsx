@@ -32,10 +32,6 @@ export function ProductCard({ product }: ProductCardProps) {
     ? defaultVariant?.stock || 0
     : product.totalStock;
 
-  if (availableStock === 0) {
-    return null;
-  }
-
   const displayPrice =
     product.hasVariants && defaultVariant
       ? defaultVariant.price
@@ -63,7 +59,16 @@ export function ProductCard({ product }: ProductCardProps) {
             className="object-cover w-full h-full p-4"
           />
 
-          {/* Low stock indicator */}
+          {/* Out of stock overlay */}
+          {availableStock === 0 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="bg-white px-4 py-2 rounded-lg">
+                <span className="text-black font-semibold">Out of Stock</span>
+              </div>
+            </div>
+          )}
+
+          {/* Low stock indicator - only show if not out of stock */}
           {availableStock <= 5 && availableStock > 0 && (
             <div className="absolute top-2 left-2">
               <Badge variant="destructive" className="text-xs">

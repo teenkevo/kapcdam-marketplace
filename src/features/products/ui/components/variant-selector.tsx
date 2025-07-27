@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Plus, ShoppingCart, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ProductVariant } from "../../schemas";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
+import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
+import { useUser } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 
 type Props = {
   title: string;
@@ -29,14 +33,44 @@ export default function VariantSelector({
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(
     productVariants[0]
   );
+  const [isOpen, setIsOpen] = useState(false);
+
+  const { isInCart } = useLocalCartStore();
+  const { isSignedIn } = useUser();
+  const trpc = useTRPC();
+
+  // Check if any variant is in cart for visual indication
+  const cart = useQuery(trpc.cart.getUserCart.queryOptions());
+
+  const hasVariantInCart = isSignedIn
+    ? cart.data?.cartItems.some(
+        (item) =>
+          item.type === "product" &&
+          item.productId === productId &&
+          productVariants.some((v) => v.sku === item.selectedVariantSku)
+      )
+    : productVariants.some((variant) =>
+        isInCart(productId, undefined, variant.sku)
+      );
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-[#C5F82A] text-black flex-1">
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          Add to cart
-        </Button>
+        <div className="relative flex-1">
+          <Button className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full">
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            Add to cart
+          </Button>
+
+          {hasVariantInCart && (
+            <Badge
+              variant="secondary"
+              className="absolute -top-2 -right-2 h-5 min-w-5 p-1 text-xs flex items-center justify-center bg-blue-500 text-white"
+            >
+              <Plus className="w-2 h-2" />
+            </Badge>
+          )}
+        </div>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -49,7 +83,7 @@ export default function VariantSelector({
                 variant.stock > 0 && (
                   <div
                     key={variant.sku}
-                    className={`p-3 border rounded transition-colors ${
+                    className={`p-3 border rounded transition-colors cursor-pointer ${
                       selectedVariant.sku === variant.sku
                         ? "border-primary bg-primary/5"
                         : "hover:bg-muted/50"

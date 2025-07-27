@@ -1,5 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, baseProcedure, protectedProcedure } from "@/trpc/init";
+import {
+  createTRPCRouter,
+  baseProcedure,
+  protectedProcedure,
+} from "@/trpc/init";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import {
@@ -10,6 +14,15 @@ import {
   categoriesResponseSchema,
 } from "../schemas";
 import { z } from "zod";
+import { sanityFetch } from "@/sanity/lib/live";
+
+const ProductRefSchema = z.object({
+  _ref: z.string(),
+  _type: z.string(),
+  _key: z.string().optional(),
+});
+
+export type ProductRefType = z.infer<typeof ProductRefSchema>;
 
 function cleanProductData(data: any) {
   return {
@@ -368,4 +381,40 @@ export const productsRouter = createTRPCRouter({
         });
       }
     }),
+  unlikeProduct: protectedProcedure
+    .input(z.object({ productId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const { data } = await sanityFetch({
+        query: `*[_type == "user" && clerkUserId == $clerkUserId][0]{
+        _id,
+        likedProducts
+      }`,
+        params: { clerkUserId: ctx.auth.userId },
+      });
+
+      if (!data) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      const updatedLikedProducts = (data.likedProducts || []).filter(
+        (ref: any) => ref._ref !== input.productId
+      );
+
+      await client
+        .patch(data._id)
+        .set({ likedProducts: updatedLikedProducts })
+        .commit();
+
+      return { likedProductsCount: updatedLikedProducts.length };
+    }),
+  getLikedProducts: protectedProcedure.query(
+    async ({ ctx }): Promise<ProductRefType[]> => {
+      const { data } = await sanityFetch({
+        query: `*[_type == "user" && clerkUserId == $clerkUserId][0].likedProducts`,
+        params: { clerkUserId: ctx.auth.userId },
+      });
+
+      return (data || []) as ProductRefType[];
+    }
+  ),
 });
