@@ -28,7 +28,6 @@ export default async function HomeView() {
         <AboutUsSummary />
         <MarketPlaceTeaser />
         <ProductList />
-        <CartBubble totalItems={cartData?.itemCount ?? 0} />
       </main>
     </div>
   );

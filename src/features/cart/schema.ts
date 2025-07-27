@@ -3,7 +3,7 @@ import { z } from "zod";
 const CartDisplayProductSchema = z.object({
   _id: z.string(),
   title: z.string(),
-  price: z.number().nullable().optional(),
+  price: z.string().nullable().optional(),
   hasVariants: z.boolean(),
   totalStock: z.number().nullable().optional(),
   defaultImage: z.string(),
@@ -30,7 +30,7 @@ const CartDisplayProductSchema = z.object({
 const CartDisplayCourseSchema = z.object({
   _id: z.string(),
   title: z.string(),
-  price: z.number(),
+  price: z.string(),
   defaultImage: z.string(),
 });
 

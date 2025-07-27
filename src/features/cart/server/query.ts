@@ -23,15 +23,16 @@ export const CART_ITEMS_QUERY = defineQuery(`
   }
 `);
 
-const CART_DISPLAY_PRODUCT_QUERY = defineQuery(`
-  *[_type == "product" && _id == $productId][0] {
+export const CART_DISPLAY_QUERY = defineQuery(`
+{
+  "products": *[_type == "product" && _id in $productIds] {
     _id,
     title,
     price,
     hasVariants,
     totalStock,
-    defaultImage,
-    variants[] {
+    "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+    "variants": variants[sku in $selectedSKUs] {
       sku,
       price,
       totalStock,
@@ -42,5 +43,12 @@ const CART_DISPLAY_PRODUCT_QUERY = defineQuery(`
         "value": value
       }
     }
+  },
+  "courses": *[_type == "course" && _id in $courseIds] {
+    _id,
+    title,
+    price,
+    "defaultImage": coalesce(images[isDefault == true][0], images[0])
   }
+}
 `);
