@@ -10,6 +10,7 @@ import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ShoppingCart, Plus, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 
 type Props = {
   product: CartItemType;
@@ -18,6 +19,7 @@ type Props = {
 export const AddToLocalCartButton = ({ product }: Props) => {
   const { addLocalCartItem, isInCart } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
+  const { isSyncing } = useCartSync();
 
   const isProductInCart = isInCart(
     product.productId ?? undefined,
@@ -57,12 +59,17 @@ export const AddToLocalCartButton = ({ product }: Props) => {
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full relative"
         onClick={handleAddToCart}
-        disabled={isLoading}
+        disabled={isLoading || isSyncing}
       >
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             Adding...
+          </>
+        ) : isSyncing ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Syncing...
           </>
         ) : (
           <>
@@ -71,15 +78,6 @@ export const AddToLocalCartButton = ({ product }: Props) => {
           </>
         )}
       </Button>
-
-      {isProductInCart && !isLoading && (
-        <Badge
-          variant="secondary"
-          className="absolute -top-2 -right-2 h-5 min-w-5 p-1 text-xs flex items-center justify-center bg-blue-500 text-white"
-        >
-          <Plus className="w-2 h-2" />
-        </Badge>
-      )}
     </div>
   );
 };
@@ -92,6 +90,7 @@ export const AddToServerCartButton = ({
   const [isInCart, setIsInCart] = useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { isSyncing } = useCartSync();
 
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
 
@@ -120,7 +119,11 @@ export const AddToServerCartButton = ({
   const addItemToCart = useMutation(
     trpc.cart.addToCart.mutationOptions({
       onSuccess: async () => {
-        queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
+        // Force refetch for consistency with cart-sheet
+        queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
+        queryClient.refetchQueries({
+          queryKey: ["cart", "getDisplayData"],
+        });
 
         if (isInCart) {
           toast.success("Quantity updated!", {
@@ -145,12 +148,17 @@ export const AddToServerCartButton = ({
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
         onClick={() => addItemToCart.mutate(product)}
-        disabled={addItemToCart.isPending}
+        disabled={addItemToCart.isPending || isSyncing}
       >
         {addItemToCart.isPending ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             Adding...
+          </>
+        ) : isSyncing ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Syncing...
           </>
         ) : (
           <>
@@ -159,15 +167,6 @@ export const AddToServerCartButton = ({
           </>
         )}
       </Button>
-
-      {isInCart && !addItemToCart.isPending && (
-        <Badge
-          variant="secondary"
-          className="absolute -top-2 -right-2 h-5 min-w-5 p-1 text-xs flex items-center justify-center bg-blue-500 text-white"
-        >
-          <Plus className="w-2 h-2" />
-        </Badge>
-      )}
     </div>
   );
 };

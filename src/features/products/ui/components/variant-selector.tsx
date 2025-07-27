@@ -18,6 +18,7 @@ import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 
 type Props = {
   title: string;
@@ -38,6 +39,7 @@ export default function VariantSelector({
   const { isInCart } = useLocalCartStore();
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
+  const { isSyncing } = useCartSync();
 
   // Check if any variant is in cart for visual indication
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
@@ -57,19 +59,22 @@ export default function VariantSelector({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <div className="relative flex-1">
-          <Button className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full">
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to cart
+          <Button
+            className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
+            disabled={isSyncing}
+          >
+            {isSyncing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Add to cart
+              </>
+            )}
           </Button>
-
-          {hasVariantInCart && (
-            <Badge
-              variant="secondary"
-              className="absolute -top-2 -right-2 h-5 min-w-5 p-1 text-xs flex items-center justify-center bg-blue-500 text-white"
-            >
-              <Plus className="w-2 h-2" />
-            </Badge>
-          )}
         </div>
       </DialogTrigger>
       <DialogContent className="max-w-md">
@@ -83,10 +88,10 @@ export default function VariantSelector({
                 variant.stock > 0 && (
                   <div
                     key={variant.sku}
-                    className={`p-3 border rounded transition-colors cursor-pointer ${
+                    className={`p-3 border rounded transition-all cursor-pointer ${
                       selectedVariant.sku === variant.sku
-                        ? "border-primary bg-primary/5"
-                        : "hover:bg-muted/50"
+                        ? "border-[#C5F82A] bg-[#C5F82A]/10 ring-2 ring-[#C5F82A]/30"
+                        : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/20"
                     }`}
                     onClick={() => setSelectedVariant(variant)}
                   >

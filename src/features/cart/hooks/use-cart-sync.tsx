@@ -25,8 +25,11 @@ export function useCartSync() {
             // Clear local cart after successful sync
             clearCart();
 
-            // Invalidate server cart query to refetch updated data
-            queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
+            // Force refetch for consistency with other cart operations
+            queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
+            queryClient.refetchQueries({
+              queryKey: ["cart", "getDisplayData"],
+            });
 
             // Check if items were actually synced (itemsAdded exists)
             if ("itemsAdded" in result && result.itemsAdded > 0) {

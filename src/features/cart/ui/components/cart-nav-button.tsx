@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShoppingCart } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
+import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 
 type Props = {
   totalItems: number;
@@ -68,3 +69,25 @@ export const CartNavButtonFallBack = () => (
     </Badge>
   </Button>
 );
+
+// Wrapper component that handles syncing state for navigation
+export function CartNavButtonWrapper({ totalItems }: Props) {
+  const { isSyncing } = useCartSync();
+
+  if (isSyncing) {
+    return <CartNavButtonFallBack />;
+  }
+
+  return <CartNavButton totalItems={totalItems} />;
+}
+
+// Wrapper component that handles syncing state for local navigation
+export function CartNavButtonLocalWrapper() {
+  const { isSyncing } = useCartSync();
+
+  if (isSyncing) {
+    return <CartNavButtonFallBack />;
+  }
+
+  return <CartNavButtonLocal />;
+}

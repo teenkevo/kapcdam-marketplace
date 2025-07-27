@@ -10,6 +10,8 @@ import {
   CartNavButton,
   CartNavButtonFallBack,
   CartNavButtonLocal,
+  CartNavButtonWrapper,
+  CartNavButtonLocalWrapper,
 } from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { auth } from "@clerk/nextjs/server";
@@ -196,7 +198,10 @@ export default async function Header() {
     },
   });
 
-  const enhancedCartDisplayData = expandCartVariants(cartDisplayData?.products, cartData?.cartItems ?? []);
+  const enhancedCartDisplayData = expandCartVariants(
+    cartDisplayData?.products,
+    cartData?.cartItems ?? []
+  );
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -227,7 +232,9 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButton totalItems={cartData?.itemCount ?? 0} />
+                    <CartNavButtonWrapper
+                      totalItems={cartData?.itemCount ?? 0}
+                    />
                   </Suspense>
                 </HydrationBoundary>
               </>
@@ -238,7 +245,7 @@ export default async function Header() {
                     <LogIn size={20} strokeWidth={1.75} />
                   </Button>
                 </SignInButton>
-                <CartNavButtonLocal />
+                <CartNavButtonLocalWrapper />
               </>
             )}
             <CartSheet

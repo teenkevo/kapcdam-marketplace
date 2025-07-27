@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import {
   Sheet,
@@ -43,23 +43,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
     itemCount: getLocalItemCount,
   } = useLocalCartStore();
 
-  const [cartData, setCartData] = useState<CartItemType[]>([]);
-
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Set cart data based on auth state
-  useEffect(() => {
-    if (isSignedIn) {
-      setCartData(userCart?.cartItems || []);
-    } else {
-      setCartData(localItems);
-    }
-  }, [isSignedIn, localItems, userCart?.cartItems]);
+  // Simplify cart data flow - use single source of truth with memoization
+  const cartData = useMemo(() => {
+    return isSignedIn ? userCart?.cartItems || [] : localItems;
+  }, [isSignedIn, userCart?.cartItems, localItems]);
 
-  // Extract IDs from current cart data
-  const cartIds = () => {
+  // Memoize cartIds calculation for better performance
+  const { productIds, courseIds, selectedSKUs } = useMemo(() => {
     if (!cartData || cartData.length === 0) {
       return { productIds: [], courseIds: [], selectedSKUs: [] };
     }
@@ -80,9 +74,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
       .filter((sku, index, arr) => arr.indexOf(sku) === index);
 
     return { productIds, courseIds, selectedSKUs };
-  };
-
-  const { productIds, courseIds, selectedSKUs } = cartIds();
+  }, [cartData]);
 
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
@@ -94,19 +86,78 @@ export function CartSheet({ totalItems, userCart }: Props) {
   );
 
   // Expand cart variants for display
-  const expandedProducts = cartDisplayData?.products
-    ? expandCartVariants(cartDisplayData.products, cartData)
-    : [];
+  const expandedProducts = useMemo(() => {
+    return cartDisplayData?.products
+      ? expandCartVariants(cartDisplayData.products, cartData)
+      : [];
+  }, [cartDisplayData?.products, cartData]);
 
-  // Server cart mutation
+  // Server cart mutation with optimistic updates
   const updateServerCartMutation = useMutation(
     trpc.cart.updateCartItem.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
-        toast.success("Cart updated successfully!");
+      onMutate: async (variables) => {
+        // Cancel any outgoing refetches to avoid race conditions
+        await queryClient.cancelQueries(trpc.cart.getUserCart.queryOptions());
+        await queryClient.cancelQueries({
+          queryKey: ["cart", "getDisplayData"],
+        });
+
+        // Snapshot the previous value for rollback
+        const previousCart = queryClient.getQueryData(
+          trpc.cart.getUserCart.queryOptions().queryKey
+        );
+
+        // Optimistically update the cache
+        queryClient.setQueryData(
+          trpc.cart.getUserCart.queryOptions().queryKey,
+          (old: any) => {
+            if (!old) return old;
+
+            const updatedItems = [...old.cartItems];
+            if (variables.quantity === 0) {
+              // Remove item
+              updatedItems.splice(variables.itemIndex, 1);
+            } else {
+              // Update quantity
+              updatedItems[variables.itemIndex] = {
+                ...updatedItems[variables.itemIndex],
+                quantity: variables.quantity,
+              };
+            }
+
+            // Recalculate totals
+            const itemCount = updatedItems.reduce(
+              (sum: number, item: any) => sum + item.quantity,
+              0
+            );
+
+            return {
+              ...old,
+              cartItems: updatedItems,
+              itemCount,
+            };
+          }
+        );
+
+        return { previousCart };
       },
-      onError: (error) => {
+      onError: (error, variables, context) => {
+        // Rollback optimistic update on error
+        if (context?.previousCart) {
+          queryClient.setQueryData(
+            trpc.cart.getUserCart.queryOptions().queryKey,
+            context.previousCart
+          );
+        }
         toast.error(`Failed to update cart: ${error.message}`);
+      },
+      onSuccess: () => {
+        // Force refetch to ensure data consistency
+        queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
+        queryClient.refetchQueries({
+          queryKey: ["cart", "getDisplayData"],
+        });
+        toast.success("Cart updated successfully!");
       },
     })
   );
@@ -145,32 +196,34 @@ export function CartSheet({ totalItems, userCart }: Props) {
   };
 
   // Calculate total price from expanded products
-  const totalPrice = cartData.reduce((acc, cartItem) => {
-    if (cartItem.type === "product") {
-      const expandedProduct = expandedProducts.find((p) => {
-        if (cartItem.selectedVariantSku) {
-          return (
-            p.originalProductId === cartItem.productId &&
-            p.VariantSku === cartItem.selectedVariantSku
-          );
-        }
-        return p.originalProductId === cartItem.productId && !p.isVariant;
-      });
+  const totalPrice = useMemo(() => {
+    return cartData.reduce((acc, cartItem) => {
+      if (cartItem.type === "product") {
+        const expandedProduct = expandedProducts.find((p) => {
+          if (cartItem.selectedVariantSku) {
+            return (
+              p.originalProductId === cartItem.productId &&
+              p.VariantSku === cartItem.selectedVariantSku
+            );
+          }
+          return p.originalProductId === cartItem.productId && !p.isVariant;
+        });
 
-      const price = expandedProduct ? parseInt(expandedProduct.price) : 0;
-      return acc + price * cartItem.quantity;
-    }
+        const price = expandedProduct ? parseInt(expandedProduct.price) : 0;
+        return acc + price * cartItem.quantity;
+      }
 
-    if (cartItem.type === "course") {
-      const course = cartDisplayData?.courses.find(
-        (c) => c._id === cartItem.courseId
-      );
-      const price = course ? parseInt(course.price) : 0;
-      return acc + price * cartItem.quantity;
-    }
+      if (cartItem.type === "course") {
+        const course = cartDisplayData?.courses.find(
+          (c) => c._id === cartItem.courseId
+        );
+        const price = course ? parseInt(course.price) : 0;
+        return acc + price * cartItem.quantity;
+      }
 
-    return acc;
-  }, 0);
+      return acc;
+    }, 0);
+  }, [cartData, expandedProducts, cartDisplayData?.courses]);
 
   // Handle quantity updates
   const handleUpdateQuantity = (
@@ -245,9 +298,12 @@ export function CartSheet({ totalItems, userCart }: Props) {
               const cartItem = findCartItemForProduct(expandedProduct);
               if (!cartItem) return null;
 
+              // Enhanced key for better re-rendering
+              const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
+
               return (
                 <div
-                  key={expandedProduct._id}
+                  key={itemKey}
                   className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                 >
                   <Image
@@ -328,9 +384,12 @@ export function CartSheet({ totalItems, userCart }: Props) {
               );
               if (!cartItem) return null;
 
+              // Enhanced key for courses
+              const courseKey = `course-${course._id}-${cartItem.quantity}`;
+
               return (
                 <div
-                  key={course._id}
+                  key={courseKey}
                   className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                 >
                   <Image
