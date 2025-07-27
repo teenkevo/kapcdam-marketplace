@@ -3,6 +3,7 @@ import "../globals.css";
 import Header from "@/features/layout/ui/components/header";
 import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
 import Footer from "@/features/layout/ui/components/footer";
+import { SanityLive } from "@/sanity/lib/live";
 
 export const metadata: Metadata = {
   title:
@@ -21,6 +22,7 @@ export default function MarketplaceLayout({
       <Header />
       <main>{children}</main>
       <Footer />
+      <SanityLive />
     </MegaMenuProvider>
   );
 }

@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -34,7 +34,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={roboto.className}>
           <Toaster position="top-right" />
-          <SanityLive/>
+         
           {children}
         </body>
       </html>

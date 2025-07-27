@@ -1,7 +1,10 @@
 import { createClient } from "next-sanity";
-
 import { apiVersion, dataset, projectId } from "../env";
-import { token } from "./token";
+
+// const token = process.env.SANITY_API_READ_TOKEN;
+// if (!token) {
+//   throw new Error("Missing SANITY_API_READ_TOKEN");
+// }
 
 export const client = createClient({
   projectId,
@@ -9,5 +12,5 @@ export const client = createClient({
   apiVersion,
   useCdn: false,
   perspective: "published",
-  token,
+  // token,
 });
