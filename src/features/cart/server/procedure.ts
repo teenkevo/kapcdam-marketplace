@@ -17,9 +17,7 @@ import {
 } from "../schema";
 import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY } from "./query";
 import { revalidatePath } from "next/cache";
-import { product } from "@/sanity/schemaTypes/ecommerce/product";
 import { sanityFetch } from "@/sanity/lib/live";
-import { expandCartVariants } from "../helpers";
 
 export const cartRouter = createTRPCRouter({
   /**
@@ -195,13 +193,16 @@ export const cartRouter = createTRPCRouter({
 
         // Check if item already exists in cart
         const existingItemIndex = cart.cartItems?.findIndex((cartItem: any) => {
-          if (type === "product") {
-            return (
-              cartItem.product?._ref === productId &&
-              cartItem.selectedVariantSku === selectedVariantSku
-            );
+          if (type === "product" && productId) {
+            if (selectedVariantSku) {
+              return (
+                cartItem.product._ref === productId &&
+                cartItem.selectedVariantSku === selectedVariantSku
+              );
+            }
+            return cartItem.product._ref === productId;
           } else {
-            return cartItem.course?._ref === courseId;
+            return cartItem.course._ref === courseId;
           }
         });
 
