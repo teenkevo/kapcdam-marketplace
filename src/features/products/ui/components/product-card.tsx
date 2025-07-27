@@ -12,6 +12,7 @@ import { urlFor } from "@/sanity/lib/image";
 import { ProductListItem } from "@/features/products/schemas";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 import LikeProductButton from "./like-product-button";
+import VariantSelector from "./variant-selector";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -83,12 +84,12 @@ export function ProductCard({ product }: ProductCardProps) {
 
         <div className="p-4 space-y-4">
           <div className="flex items-start justify-between">
-            <div className="flex-1 flex justify-between items-center">
+            <div className="flex-1 flex justify-between items-start">
               <h3 className="font-semibold text-sm leading-tight min-h-[2.5rem] line-clamp-2">
                 {product.title}
               </h3>
               {product.category?.name && (
-                <Badge variant="secondary" className="mt-1 text-xs h-fit">
+                <Badge variant="secondary" className="text-xs h-fit">
                   {product.category.name}
                 </Badge>
               )}
@@ -155,15 +156,23 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-center gap-2">
             <LikeProductButton productId={product._id} />
-            <AddToCartButton
-              product={{
-                type: "product",
-                productId: product._id,
-                selectedVariantSku: defaultVariant?.sku,
-                quantity: 1,
-                addedAt: new Date(),
-              }}
-            />
+            {product.hasVariants ? (
+              <VariantSelector
+                productId={product._id}
+                productVariants={product.variantOptions}
+                title={product.title}
+              />
+            ) : (
+              <AddToCartButton
+                product={{
+                  type: "product",
+                  productId: product._id,
+                  selectedVariantSku: defaultVariant?.sku,
+                  quantity: 1,
+                  addedAt: new Date(),
+                }}
+              />
+            )}
           </div>
         </div>
       </CardContent>
