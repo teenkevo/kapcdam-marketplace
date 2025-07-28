@@ -23,7 +23,7 @@ import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { CartItemType, CartType } from "@/features/cart/schema";
+import {CartType } from "@/features/cart/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 

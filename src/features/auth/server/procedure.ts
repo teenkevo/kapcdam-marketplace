@@ -8,11 +8,11 @@ import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import { createClerkClient } from "@clerk/nextjs/server";
+import { userProfileSchema, userWebhookSchema } from "../schemas";
 import {
   addressSchema,
-  userProfileSchema,
-  userWebhookSchema,
-} from "../schemas";
+  userWithAddressesSchema,
+} from "@/features/checkout/schemas/checkout-form";
 
 export const userRouter = createTRPCRouter({
   syncUserWebhook: baseProcedure
@@ -131,6 +131,41 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
+  getUserWithAddresses: protectedProcedure.query(async ({ ctx }) => {
+    const { auth } = ctx;
+    try {
+      const user = await client.fetch(
+        groq`*[_type == "user" && clerkUserId == $clerkUserId][0]{
+            _id,
+            clerkUserId,
+            firstName,
+            lastName,
+            email,
+            phone,
+            addresses
+          }`,
+        { clerkUserId: auth.userId }
+      );
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User profile not found",
+        });
+      }
+
+      return user;
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to get user profile",
+      });
+    }
+  }),
+
   addAddress: protectedProcedure
     .input(addressSchema)
     .mutation(async ({ input, ctx }) => {
@@ -172,6 +207,129 @@ export const userRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to add address",
+        });
+      }
+    }),
+
+  updateAddressByIndex: protectedProcedure
+    .input(
+      z.object({
+        addressIndex: z.number(),
+        address: addressSchema,
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { auth } = ctx;
+
+      try {
+        const currentUser = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: auth.userId }
+        );
+
+        if (!currentUser) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        const currentAddresses = currentUser.addresses || [];
+
+        if (
+          input.addressIndex < 0 ||
+          input.addressIndex >= currentAddresses.length
+        ) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Address not found",
+          });
+        }
+
+        let updatedAddresses = [...currentAddresses];
+
+        if (input.address.isDefault) {
+          // Clear default from all other addresses
+          updatedAddresses = updatedAddresses.map((addr: any, index) =>
+            index === input.addressIndex
+              ? { ...addr, ...input.address }
+              : { ...addr, isDefault: false }
+          );
+        } else {
+          updatedAddresses[input.addressIndex] = {
+            ...updatedAddresses[input.addressIndex],
+            ...input.address,
+          };
+        }
+
+        const updatedUser = await client
+          .patch(currentUser._id)
+          .set({ addresses: updatedAddresses })
+          .commit();
+
+        return updatedUser;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update address",
+        });
+      }
+    }),
+
+  setDefaultAddress: protectedProcedure
+    .input(z.object({ addressIndex: z.number() }))
+    .output(userWithAddressesSchema)
+    .mutation(async ({ input, ctx }) => {
+      const { auth } = ctx;
+
+      try {
+        const currentUser = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: auth.userId }
+        );
+
+        if (!currentUser) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        const currentAddresses = currentUser.addresses || [];
+
+        if (
+          input.addressIndex < 0 ||
+          input.addressIndex >= currentAddresses.length
+        ) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Address not found",
+          });
+        }
+
+        const updatedAddresses = currentAddresses.map(
+          (addr: any, index: number) => ({
+            ...addr,
+            isDefault: index === input.addressIndex,
+          })
+        );
+
+        const updatedUser = await client
+          .patch(currentUser._id)
+          .set({ addresses: updatedAddresses })
+          .commit();
+
+        return userWithAddressesSchema.parse(updatedUser);
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to set default address",
         });
       }
     }),

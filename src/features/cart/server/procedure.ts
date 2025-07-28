@@ -213,7 +213,7 @@ export const cartRouter = createTRPCRouter({
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
             quantity: updatedItems[existingItemIndex].quantity + quantity,
-            currentPrice,
+            // currentPrice,
             lastUpdated: new Date().toISOString(),
           };
         } else {
@@ -221,7 +221,7 @@ export const cartRouter = createTRPCRouter({
             _key: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             type,
             quantity,
-            currentPrice,
+            // currentPrice,
             addedAt: new Date().toISOString(),
             lastUpdated: new Date().toISOString(),
             ...(type === "product" && {
@@ -230,7 +230,7 @@ export const cartRouter = createTRPCRouter({
             }),
             ...(type === "course" && {
               course: { _type: "reference", _ref: courseId },
-              preferredStartDate: preferredStartDate?.toISOString() || null,
+              preferredStartDate: preferredStartDate || null,
             }),
           };
           updatedItems.push(newItem);
@@ -540,7 +540,7 @@ export const cartRouter = createTRPCRouter({
               type: localItem.type,
               quantity: localItem.quantity,
               currentPrice,
-              addedAt: localItem.addedAt.toISOString(),
+              addedAt: localItem.addedAt,
               lastUpdated: new Date().toISOString(),
               ...(localItem.type === "product" && {
                 product: { _type: "reference", _ref: localItem.productId },
@@ -548,8 +548,7 @@ export const cartRouter = createTRPCRouter({
               }),
               ...(localItem.type === "course" && {
                 course: { _type: "reference", _ref: localItem.courseId },
-                preferredStartDate:
-                  localItem.preferredStartDate?.toISOString() || null,
+                preferredStartDate: localItem.preferredStartDate || null,
               }),
             };
           })

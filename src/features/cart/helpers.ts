@@ -1,5 +1,7 @@
 import { CartDisplayProductType, CartItemType } from "./schema";
 
+
+
 export function getDisplayTitle(
   title: string,
   type: "product" | "course",

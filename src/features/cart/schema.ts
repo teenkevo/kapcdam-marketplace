@@ -40,16 +40,16 @@ const CartItemSchema = z.object({
   courseId: z.string().nullable().optional(),
   selectedVariantSku: z.string().nullable().optional(),
   quantity: z.number().min(1),
-  addedAt: z.coerce.date(),
-  preferredStartDate: z.coerce.date().nullable().optional(),
+  addedAt: z.string(),
+  preferredStartDate: z.string().nullable().optional(),
 });
 
 const CartSchema = z.object({
   _id: z.string(),
   cartItems: z.array(CartItemSchema).default([]),
   itemCount: z.number().nullable().optional().default(0),
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
   isActive: z.boolean().default(true),
 });
 

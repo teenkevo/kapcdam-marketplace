@@ -50,7 +50,7 @@ export const useLocalCartStore = create<LocalCartState>()(
           set((state) => {
             const itemWithTimestamp = {
               ...newItem,
-              addedAt: new Date(),
+              addedAt: `${new Date()}`,
             };
 
             // Check if item already exists - handle variants properly
@@ -163,8 +163,6 @@ export const useLocalCartStore = create<LocalCartState>()(
         hasItems: () => {
           return get().items.length > 0;
         },
-
-   
 
         isInCart: (productId, courseId, selectedVariantSku) => {
           return get().items.some((item) => {
