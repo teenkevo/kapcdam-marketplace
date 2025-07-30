@@ -24,7 +24,7 @@ import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import {CartType } from "@/features/cart/schema";
+import { CartType } from "@/features/cart/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 
@@ -199,7 +199,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Calculate total price from expanded products
   const totalPrice = useMemo(() => {
-    return cartData.reduce((acc, cartItem) => {
+    const total = cartData.reduce((acc, cartItem) => {
       if (cartItem.type === "product") {
         const expandedProduct = expandedProducts.find((p) => {
           if (cartItem.selectedVariantSku) {
@@ -211,20 +211,26 @@ export function CartSheet({ totalItems, userCart }: Props) {
           return p.originalProductId === cartItem.productId && !p.isVariant;
         });
 
-        const price = expandedProduct ? parseInt(expandedProduct.price) : 0;
-        return acc + price * cartItem.quantity;
+        const price = expandedProduct
+          ? Math.max(0, parseInt(expandedProduct.price) || 0)
+          : 0;
+        const quantity = Math.max(0, cartItem.quantity || 0);
+        return acc + price * quantity;
       }
 
       if (cartItem.type === "course") {
         const course = cartDisplayData?.courses.find(
           (c) => c._id === cartItem.courseId
         );
-        const price = course ? parseInt(course.price) : 0;
-        return acc + price * cartItem.quantity;
+        const price = course ? Math.max(0, parseInt(course.price) || 0) : 0;
+        const quantity = Math.max(0, cartItem.quantity || 0);
+        return acc + price * quantity;
       }
 
       return acc;
     }, 0);
+
+    return Math.max(0, total); // Ensure total is never negative
   }, [cartData, expandedProducts, cartDisplayData?.courses]);
 
   // Handle quantity updates
@@ -232,6 +238,9 @@ export function CartSheet({ totalItems, userCart }: Props) {
     expandedProduct: ExpandedProduct,
     newQuantity: number
   ) => {
+    // Ensure quantity is between 1 and 99
+    const safeQuantity = Math.max(1, Math.min(99, newQuantity));
+
     if (isSignedIn && userCart?._id) {
       // Server cart update
       const itemIndex = findCartItemIndex(expandedProduct);
@@ -240,7 +249,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
       updateServerCartMutation.mutate({
         cartId: userCart._id,
         itemIndex,
-        quantity: newQuantity,
+        quantity: safeQuantity,
       });
     } else {
       // Local cart update
@@ -248,7 +257,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
         expandedProduct.originalProductId,
         "", // courseId not needed for products
         expandedProduct.VariantSku,
-        newQuantity
+        safeQuantity
       );
     }
   };
@@ -346,7 +355,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         thousandSeparator={true}
                         displayType="text"
                         prefix="UGX "
-                        value={expandedProduct.price}
+                        value={Math.max(
+                          0,
+                          parseInt(expandedProduct.price) || 0
+                        )}
                         className="text-sm font-semibold"
                       />
                     </div>
@@ -361,7 +373,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                           cartItem.quantity - 1
                         )
                       }
-                      disabled={updateServerCartMutation.isPending}
+                      disabled={
+                        updateServerCartMutation.isPending ||
+                        cartItem.quantity <= 1
+                      }
                       className="h-8 w-8 p-0"
                     >
                       <Minus className="h-3 w-3" />
@@ -378,7 +393,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                           cartItem.quantity + 1
                         )
                       }
-                      disabled={updateServerCartMutation.isPending}
+                      disabled={
+                        updateServerCartMutation.isPending ||
+                        cartItem.quantity >= 99
+                      }
                       className="h-8 w-8 p-0"
                     >
                       <Plus className="h-3 w-3" />
@@ -429,7 +447,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         thousandSeparator={true}
                         displayType="text"
                         prefix="UGX "
-                        value={course.price}
+                        value={Math.max(0, parseInt(course.price) || 0)}
                         className="text-sm font-semibold"
                       />
                     </div>
@@ -439,6 +457,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       size="sm"
                       variant="outline"
                       onClick={() => {
+                        const newQuantity = Math.max(1, cartItem.quantity - 1);
                         if (isSignedIn && userCart?._id) {
                           // Server cart update for courses
                           const itemIndex = cartData.findIndex(
@@ -450,7 +469,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             updateServerCartMutation.mutate({
                               cartId: userCart._id,
                               itemIndex,
-                              quantity: cartItem.quantity - 1,
+                              quantity: newQuantity,
                             });
                           }
                         } else {
@@ -459,11 +478,14 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             "", // productId not needed for courses
                             course._id,
                             undefined,
-                            cartItem.quantity - 1
+                            newQuantity
                           );
                         }
                       }}
-                      disabled={updateServerCartMutation.isPending}
+                      disabled={
+                        updateServerCartMutation.isPending ||
+                        cartItem.quantity <= 1
+                      }
                       className="h-8 w-8 p-0"
                     >
                       <Minus className="h-3 w-3" />
@@ -475,6 +497,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       size="sm"
                       variant="outline"
                       onClick={() => {
+                        const newQuantity = Math.min(99, cartItem.quantity + 1); // Cap at 99
                         if (isSignedIn && userCart?._id) {
                           // Server cart update for courses
                           const itemIndex = cartData.findIndex(
@@ -486,7 +509,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             updateServerCartMutation.mutate({
                               cartId: userCart._id,
                               itemIndex,
-                              quantity: cartItem.quantity + 1,
+                              quantity: newQuantity,
                             });
                           }
                         } else {
@@ -495,11 +518,14 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             "", // productId not needed for courses
                             course._id,
                             undefined,
-                            cartItem.quantity + 1
+                            newQuantity
                           );
                         }
                       }}
-                      disabled={updateServerCartMutation.isPending}
+                      disabled={
+                        updateServerCartMutation.isPending ||
+                        cartItem.quantity >= 99
+                      }
                       className="h-8 w-8 p-0"
                     >
                       <Plus className="h-3 w-3" />
@@ -552,7 +578,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
               thousandSeparator={true}
               displayType="text"
               prefix="UGX "
-              value={totalPrice}
+              value={Math.max(0, totalPrice)}
               className="text-lg font-bold"
             />
           </div>

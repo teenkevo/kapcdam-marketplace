@@ -9,7 +9,7 @@ import {
 export interface CheckoutFormState {
   isValid: boolean;
   formData: CheckoutFormData | null;
-  selectedAddress: AddressInput | null;
+  selectedAddress: AddressInput | null; 
   shippingCost: number;
 }
 
@@ -38,8 +38,7 @@ export function useCheckoutForm() {
           return data.selectedDeliveryZone.fee;
         }
 
-       
-        return 50000; 
+        return 50000;
       };
 
       const shippingCost = calculateShippingCost();
@@ -47,7 +46,6 @@ export function useCheckoutForm() {
       return {
         ...prev,
         formData: data,
-        selectedAddress: data.selectedAddress,
         shippingCost,
       };
     });
@@ -57,7 +55,6 @@ export function useCheckoutForm() {
     setFormState((prev) => ({
       ...prev,
       selectedAddress: address,
-     
     }));
   }, []);
 

@@ -24,6 +24,7 @@ export const structure: StructureResolver = (S) =>
       ),
       S.documentTypeListItem("category").title("Product Categories"),
       S.documentTypeListItem("product").title("Products").icon(PackageIcon),
+      S.documentTypeListItem("discountCodes").title("Discount Coupons"),
       S.documentTypeListItem("course").title("Courses").icon(BookIcon),
       S.documentTypeListItem("team").title("Team Members").icon(UsersIcon),
       S.documentTypeListItem("deliveryZone")
@@ -38,7 +39,9 @@ export const structure: StructureResolver = (S) =>
         .title("Order Items")
         .icon(CreditCardIcon),
       S.documentTypeListItem("user").title("Customer Accounts").icon(UserIcon),
-      S.documentTypeListItem("address").title("Customer Addresses").icon(UserIcon),
+      S.documentTypeListItem("address")
+        .title("Customer Addresses")
+        .icon(UserIcon),
       S.documentTypeListItem("cart").title("Shopping Carts"),
       S.documentTypeListItem("reviews").title("Ratings & Reviews"),
       S.documentTypeListItem("donation").title("Donations"),

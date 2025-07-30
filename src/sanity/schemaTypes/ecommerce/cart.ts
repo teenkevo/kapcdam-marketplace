@@ -134,7 +134,6 @@ export const cart = defineType({
             prepare({
               type,
               quantity,
-              currentPrice,
               productTitle,
               selectedVariantSku,
               courseTitle,
@@ -149,14 +148,11 @@ export const cart = defineType({
               }
 
               const itemType = type === "product" ? "(Product)" : "(Course)";
-              const priceFormatted = currentPrice
-                ? `${currentPrice.toLocaleString()} UGX`
-                : "No price";
               const quantityInfo = quantity ? ` (${quantity}x)` : "";
 
               return {
                 title: `${itemType} ${itemName || "Unknown Item"}${quantityInfo}`,
-                subtitle: `${priceFormatted}`,
+                subtitle: `Added to cart`,
               };
             },
           },
@@ -224,17 +220,32 @@ export const cart = defineType({
       userName: "user.firstName",
       itemCount: "itemCount",
       isActive: "isActive",
+      convertedToOrder: "convertedToOrder",
+      createdAt: "createdAt",
     },
-    prepare({ userEmail, userName, itemCount, isActive }) {
+    prepare({ userEmail, userName, itemCount, isActive, convertedToOrder, createdAt }) {
+      const userDisplay = userName || userEmail || "Unknown User";
+      
+      // Short date format for distinguishing multiple carts from same user
+      const shortDate = createdAt 
+        ? new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : "";
+
       const itemsText = itemCount === 1 ? "item" : "items";
       const itemCountText = itemCount ? `${itemCount} ${itemsText}` : "Empty";
-      const userDisplay = userName || userEmail || "Unknown User";
-
-      const status = !isActive ? " (Inactive)" : "";
+      
+      let status;
+      if (convertedToOrder) {
+        status = "Converted";
+      } else if (!isActive) {
+        status = "Inactive";
+      } else {
+        status = "Active";
+      }
 
       return {
-        title: `${userDisplay}${status}`,
-        subtitle: `${itemCountText}`,
+        title: `${userDisplay} - ${shortDate}`,
+        subtitle: `${itemCountText} • ${status}`,
         media: null,
       };
     },

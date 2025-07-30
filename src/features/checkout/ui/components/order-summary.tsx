@@ -98,17 +98,29 @@ export function OrderSummary({
   const updateServerCartMutation = useMutation(
     trpcClient.cart.updateCartItem.mutationOptions({
       onMutate: async (variables) => {
+        // Cancel outgoing queries to prevent race conditions
         await queryClient.cancelQueries(
           trpcClient.cart.getUserCart.queryOptions()
         );
-        await queryClient.cancelQueries({
-          queryKey: ["cart", "getDisplayData"],
-        });
+        await queryClient.cancelQueries(
+          trpcClient.cart.getDisplayData.queryOptions({
+            productIds,
+            courseIds,
+            selectedSKUs,
+          })
+        );
+        // Also cancel getCartById queries used in checkout
+        if (userCart?._id) {
+          await queryClient.cancelQueries(
+            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
+          );
+        }
 
         const previousCart = queryClient.getQueryData(
           trpcClient.cart.getUserCart.queryOptions().queryKey
         );
 
+        // Optimistically update getUserCart cache
         queryClient.setQueryData(
           trpcClient.cart.getUserCart.queryOptions().queryKey,
           (old: any) => {
@@ -137,9 +149,42 @@ export function OrderSummary({
           }
         );
 
+        // Also optimistically update getCartById cache if it exists
+        if (userCart?._id) {
+          queryClient.setQueryData(
+            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
+              .queryKey,
+            (old: any) => {
+              if (!old) return old;
+
+              const updatedItems = [...old.cartItems];
+              if (variables.quantity === 0) {
+                updatedItems.splice(variables.itemIndex, 1);
+              } else {
+                updatedItems[variables.itemIndex] = {
+                  ...updatedItems[variables.itemIndex],
+                  quantity: variables.quantity,
+                };
+              }
+
+              const itemCount = updatedItems.reduce(
+                (sum: number, item: any) => sum + item.quantity,
+                0
+              );
+
+              return {
+                ...old,
+                cartItems: updatedItems,
+                itemCount,
+              };
+            }
+          );
+        }
+
         return { previousCart };
       },
       onError: (error, variables, context) => {
+        // Rollback optimistic updates on error
         if (context?.previousCart) {
           queryClient.setQueryData(
             trpcClient.cart.getUserCart.queryOptions().queryKey,
@@ -149,10 +194,21 @@ export function OrderSummary({
         toast.error(`Failed to update cart: ${error.message}`);
       },
       onSuccess: () => {
+        // Refetch all relevant cart queries to ensure consistency
         queryClient.refetchQueries(trpcClient.cart.getUserCart.queryOptions());
-        queryClient.refetchQueries({
-          queryKey: ["cart", "getDisplayData"],
-        });
+        queryClient.refetchQueries(
+          trpcClient.cart.getDisplayData.queryOptions({
+            productIds,
+            courseIds,
+            selectedSKUs,
+          })
+        );
+        // Refetch getCartById query used in checkout
+        if (userCart?._id) {
+          queryClient.refetchQueries(
+            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
+          );
+        }
         toast.success("Cart updated successfully!");
       },
     })
@@ -750,8 +806,9 @@ export function OrderSummary({
                   <NumericFormat
                     thousandSeparator={true}
                     displayType="text"
-                    prefix="-UGX "
-                    value={itemDiscountTotal}
+                    prefix="UGX "
+                    value={-Math.abs(itemDiscountTotal)}
+                    allowNegative={true}
                     className="font-medium text-green-600"
                   />
                 </div>
@@ -781,7 +838,7 @@ export function OrderSummary({
                         setCouponCode(e.target.value.toUpperCase())
                       }
                       placeholder="Enter coupon code"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:bg-lime-400 focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent"
                       onKeyDown={(e) =>
                         e.key === "Enter" && handleApplyCoupon()
                       }
@@ -791,7 +848,7 @@ export function OrderSummary({
                       disabled={
                         validateCouponMutation.isPending || !couponCode.trim()
                       }
-                      className="px-4 py-2 bg-lime-600 text-white text-sm rounded-md hover:bg-lime-700 disabled:opacity-50"
+                      className="px-4 py-2 bg-lime-500 text-white text-sm rounded-md hover:bg-lime-600 disabled:opacity-50"
                     >
                       {validateCouponMutation.isPending
                         ? "Applying..."
@@ -834,8 +891,9 @@ export function OrderSummary({
                   <NumericFormat
                     thousandSeparator={true}
                     displayType="text"
-                    prefix="-UGX "
-                    value={appliedCoupon.discount.amount}
+                    prefix="UGX "
+                    value={-Math.abs(appliedCoupon.discount.amount)}
+                    allowNegative={true}
                     className="font-medium text-green-600"
                   />
                 </div>

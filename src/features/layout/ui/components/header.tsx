@@ -7,9 +7,7 @@ import { HydrationBoundary } from "@tanstack/react-query";
 import { LogIn } from "lucide-react";
 
 import {
-  CartNavButton,
   CartNavButtonFallBack,
-  CartNavButtonLocal,
   CartNavButtonWrapper,
   CartNavButtonLocalWrapper,
 } from "@/features/cart/ui/components/cart-nav-button";
