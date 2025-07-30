@@ -4,7 +4,7 @@ export const user = defineType({
   name: "user",
   title: "Customer User",
   type: "document",
-  readOnly: true,
+  // readOnly: true,
   description:
     "Customer users for KAPCDAM e-commerce platform. Authentication handled by Clerk.",
   fields: [
@@ -60,18 +60,6 @@ export const user = defineType({
           .error("Enter a valid phone number"),
     }),
 
-    defineField({
-      name: "addresses",
-      title: "Addresses",
-      type: "array",
-      description:
-        "Customer delivery addresses. At least one address required with exactly one default.",
-      of: [
-        defineArrayMember({
-          type: "address",
-        }),
-      ],
-    }),
     defineField({
       name: "likedProducts",
       title: "Liked Products",

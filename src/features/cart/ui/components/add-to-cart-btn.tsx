@@ -8,7 +8,7 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { ShoppingCart, Plus, Loader2 } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 
@@ -90,7 +90,7 @@ export const AddToServerCartButton = ({
   const [isInCart, setIsInCart] = useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { isSyncing } = useCartSync();
+
 
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
 
@@ -148,17 +148,12 @@ export const AddToServerCartButton = ({
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
         onClick={() => addItemToCart.mutate(product)}
-        disabled={addItemToCart.isPending || isSyncing}
+        disabled={addItemToCart.isPending}
       >
         {addItemToCart.isPending ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             Adding...
-          </>
-        ) : isSyncing ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Syncing...
           </>
         ) : (
           <>

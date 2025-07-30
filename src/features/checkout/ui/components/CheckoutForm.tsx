@@ -25,7 +25,6 @@ import {
   type CheckoutFormData,
   type CheckoutFormInput,
   type AddressInput,
-  type UserWithAddresses,
 } from "../../schemas/checkout-form";
 import UserForm from "./user-form";
 import CheckOutAddress from "./AddressForm";
@@ -61,12 +60,10 @@ export default function CheckoutForm({
   const form = useForm<{
     deliveryMethod: "pickup" | "local_delivery";
     paymentMethod: "pesapal" | "cod";
-    orderNotes: string;
   }>({
     defaultValues: {
       deliveryMethod: "local_delivery",
       paymentMethod: "pesapal",
-      orderNotes: "",
     },
     mode: "onChange",
   });
@@ -74,7 +71,6 @@ export default function CheckoutForm({
   // Watch form changes with stable dependencies
   const deliveryMethod = form.watch("deliveryMethod");
   const paymentMethod = form.watch("paymentMethod");
-  const orderNotes = form.watch("orderNotes");
   const isValid = form.formState.isValid;
 
   // Process form data changes
@@ -83,20 +79,21 @@ export default function CheckoutForm({
     const isFormValid =
       isValid &&
       !!selectedAddress &&
+      !!selectedAddress._id && // Ensure address has an ID
       (deliveryMethod === "pickup" || !!selectedDeliveryZone);
 
     onFormValidChange(isFormValid);
 
-    if (isFormValid && selectedAddress) {
+    if (isFormValid && selectedAddress && selectedAddress._id) {
       const formData: CheckoutFormData = {
-        selectedAddress,
+        selectedAddress: { addressId: selectedAddress._id }, // Transform to addressId format
         deliveryMethod,
         paymentMethod,
         selectedDeliveryZone:
           deliveryMethod === "pickup" ? null : selectedDeliveryZone,
-        orderNotes,
       };
 
+      console.log("Checkout form data:", formData); // Debug log
       onFormDataChange(formData);
       onShippingAddressChange(selectedAddress);
     }
@@ -106,7 +103,6 @@ export default function CheckoutForm({
     deliveryMethod,
     paymentMethod,
     selectedDeliveryZone,
-    orderNotes,
     onFormValidChange,
     onFormDataChange,
     onShippingAddressChange,

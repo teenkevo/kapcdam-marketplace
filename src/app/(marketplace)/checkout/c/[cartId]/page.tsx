@@ -1,13 +1,14 @@
 import CheckoutView from "@/features/checkout/ui/views/checkout-view";
 
 interface CheckOutPageProps {
-  params: {
+  params: Promise<{
     cartId: string;
-  };
+  }>;
 }
 
-const CheckOutPage = ({ params }: CheckOutPageProps) => {
-  return <CheckoutView cartId={params.cartId} />;
+const CheckOutPage = async ({ params }: CheckOutPageProps) => {
+  const cartId = (await params).cartId;
+  return <CheckoutView cartId={cartId} />;
 };
 
 export default CheckOutPage;

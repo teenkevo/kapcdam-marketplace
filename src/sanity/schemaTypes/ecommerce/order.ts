@@ -166,9 +166,8 @@ export const order = defineType({
       description: "How the customer chose to pay",
       options: {
         list: [
-          { title: "Mobile Money", value: "mobile_money" },
-          { title: "Bank Transfer", value: "bank_transfer" },
-          { title: "Cash on Delivery", value: "cash_on_delivery" },
+          { title: "Pesapal", value: "pesapal" },
+          { title: "Cash on Delivery", value: "cod" },
         ],
         layout: "dropdown",
       },
@@ -232,8 +231,9 @@ export const order = defineType({
     defineField({
       name: "shippingAddress",
       title: "Shipping Address",
-      type: "address",
-      description: "Customer delivery address",
+      type: "reference",
+      description: "Reference to customer delivery address",
+      to: [{ type: "address" }],
       validation: (rule) =>
         rule.required().error("Shipping address is required"),
       readOnly: true,

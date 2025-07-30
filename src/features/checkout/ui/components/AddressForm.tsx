@@ -26,29 +26,14 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import z from "zod";
 import { Card, CardHeader } from "@/components/ui/card";
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
-import { nanoid } from "nanoid";
-import { type AddressInput } from "../../schemas/checkout-form";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Plus, Edit } from "lucide-react";
+import { type AddressInput, addressSchema } from "../../schemas/checkout-form";
 import { AddressSkeleton } from "./checkout-skeleton";
+import { toast } from "sonner";
 
-export const addressFormSchema = z.object({
-  id: z.string(),
-  label: z.enum(["home", "work", "other"], {
-    required_error: "Address label is required",
-  }),
-  fullName: z.string(),
-  phone: z
-    .string()
-    .min(1, "Phone number is required")
-    .regex(/^[+]?[0-9\s\-\(\)]{7,15}$/, "Enter a valid phone number"),
-  address: z.string().min(1, "Address is required"),
-  landmark: z.string().optional(),
-  city: z.string().optional(),
-  country: z.string().default("Uganda"),
-  deliveryInstructions: z.string().optional(),
-  isDefault: z.boolean().default(false),
-});
+// Use the shared address schema
+export const addressFormSchema = addressSchema;
 
 type NewAddressFormProps = {
   editingAddress?: z.infer<typeof addressFormSchema> | null;
@@ -61,56 +46,104 @@ export function NewAddressForm({
 }: NewAddressFormProps) {
   const form = useForm<z.infer<typeof addressFormSchema>>({
     resolver: zodResolver(addressFormSchema),
-    defaultValues: editingAddress || {
-      id: "", // Will be generated during submission
-      label: "home",
-      fullName: "",
-      phone: "",
-      address: "",
-      landmark: "",
-      city: "",
-      country: "Uganda",
-      deliveryInstructions: "",
-      isDefault: false,
-    },
+    defaultValues: editingAddress
+      ? {
+          ...editingAddress,
+          landmark: editingAddress.landmark || "",
+          city: editingAddress.city || "",
+          deliveryInstructions: editingAddress.deliveryInstructions || "",
+        }
+      : {
+          label: "home",
+          fullName: "",
+          phone: "",
+          address: "",
+          landmark: "",
+          city: "",
+          country: "Uganda",
+          deliveryInstructions: "",
+          isDefault: false,
+        },
   });
 
   // Update form values when editingAddress changes
   useEffect(() => {
     if (editingAddress) {
-      form.reset(editingAddress);
+      form.reset({
+        ...editingAddress,
+        landmark: editingAddress.landmark || "",
+        city: editingAddress.city || "",
+        deliveryInstructions: editingAddress.deliveryInstructions || "",
+      });
     }
   }, [editingAddress, form]);
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { mutate: addAddress, isPending } = useMutation(
-    trpc.user.addAddress.mutationOptions()
+
+  // Use create or update mutation based on whether we're editing
+  const { mutate: createAddress, isPending: isCreating } = useMutation(
+    trpc.addresses.createAddress.mutationOptions()
   );
+
+  const { mutate: updateAddress, isPending: isUpdating } = useMutation(
+    trpc.addresses.updateAddress.mutationOptions()
+  );
+
+  const isPending = isCreating || isUpdating;
 
   const handleFormSubmit = (data: z.infer<typeof addressFormSchema>) => {
     try {
       console.log("Form submission data:", data);
       console.log("Editing address:", editingAddress);
 
-      // Use existing ID for edit mode, or generate new ID for add mode
-      const addressData = {
+      // Transform empty strings to undefined for TRPC compatibility
+      const transformedData = {
         ...data,
-        id: editingAddress ? editingAddress.id : nanoid(10),
+        landmark: data.landmark || undefined,
+        city: data.city || undefined,
+        deliveryInstructions: data.deliveryInstructions || undefined,
       };
 
-      addAddress(addressData, {
-        onSuccess: (result: any) => {
-          console.log("Address operation successful:", result);
-          queryClient.invalidateQueries(
-            trpc.user.getUserAddresses.queryOptions()
-          );
-          onSubmitSuccess?.();
-        },
-        onError: (error: any) => {
-          console.error("Address operation error:", error);
-        },
-      });
+      if (editingAddress?._id) {
+        // Update existing address
+        updateAddress(
+          {
+            addressId: editingAddress._id,
+            ...transformedData,
+          },
+          {
+            onSuccess: (result: any) => {
+              console.log("Address update successful:", result);
+              toast.success("Address updated successfully!");
+              queryClient.invalidateQueries(
+                trpc.addresses.getUserAddresses.queryOptions()
+              );
+              onSubmitSuccess?.();
+            },
+            onError: (error: any) => {
+              console.error("Address update error:", error);
+              toast.error("Failed to update address. Please try again.");
+            },
+          }
+        );
+      } else {
+        // Create new address
+        createAddress(transformedData, {
+          onSuccess: (result: any) => {
+            console.log("Address creation successful:", result);
+            toast.success("Address created successfully!");
+            queryClient.invalidateQueries(
+              trpc.addresses.getUserAddresses.queryOptions()
+            );
+            onSubmitSuccess?.();
+          },
+          onError: (error: any) => {
+            console.error("Address creation error:", error);
+            toast.error("Failed to create address. Please try again.");
+          },
+        });
+      }
     } catch (error) {
       console.error("Form submission error:", error);
     }
@@ -148,6 +181,25 @@ export function NewAddressForm({
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Full Name */}
+          <FormField
+            control={form.control}
+            name="fullName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel required>Full Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter full name for delivery"
+                    disabled={isPending}
+                    {...field}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -206,6 +258,7 @@ export function NewAddressForm({
                     disabled={isPending}
                     rows={1}
                     {...field}
+                    value={field.value || ""}
                   />
                 </FormControl>
                 <FormMessage />
@@ -225,6 +278,7 @@ export function NewAddressForm({
                     placeholder="City or locality"
                     disabled={isPending}
                     {...field}
+                    value={field.value || ""}
                   />
                 </FormControl>
                 <FormMessage />
@@ -260,6 +314,7 @@ export function NewAddressForm({
                     disabled={isPending}
                     rows={2}
                     {...field}
+                    value={field.value || ""}
                   />
                 </FormControl>
                 <FormMessage />
@@ -382,67 +437,87 @@ export default function CheckOutAddress({
   const [tempSelectedAddress, setTempSelectedAddress] =
     useState<AddressInput | null>(null);
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { data: userAddresses, isLoading } = useQuery(
-    trpc.user.getUserAddresses.queryOptions()
+    trpc.addresses.getUserAddresses.queryOptions()
   ) as {
-    data: { addresses: z.infer<typeof addressFormSchema>[] } | undefined;
+    data: Array<z.infer<typeof addressFormSchema>> | undefined;
     isLoading: boolean;
   };
 
-  console.log(userAddresses);
+  // Use refs to track the current values to avoid dependency issues
+  const selectedAddressRef = useRef(selectedAddress);
+  const tempSelectedAddressRef = useRef(tempSelectedAddress);
+
+  // Update refs when state changes
+  selectedAddressRef.current = selectedAddress;
+  tempSelectedAddressRef.current = tempSelectedAddress;
+
+  console.log("User Addresses", userAddresses);
+
+  // Memoized function to create address data object
+  const createAddressData = useCallback(
+    (addr: any) => ({
+      _id: addr._id,
+      fullName: addr.fullName,
+      address: addr.address,
+      landmark: addr.landmark || "",
+      city: addr.city || "",
+      country: addr.country,
+      label: addr.label,
+      phone: addr.phone,
+      deliveryInstructions: addr.deliveryInstructions || "",
+      isDefault: addr.isDefault,
+    }),
+    []
+  );
 
   // Set default address when query completes
   useEffect(() => {
-    if (userAddresses?.addresses && !selectedAddress) {
-      const defaultAddr = userAddresses?.addresses?.filter(
-        (address) => address.isDefault
-      )[0];
+    if (userAddresses && !selectedAddressRef.current) {
+      const defaultAddr = userAddresses.find((address) => address.isDefault);
 
-      const addressData = {
-        id: defaultAddr.id,
-        fullName: defaultAddr.fullName,
-        address: defaultAddr.address,
-        landmark: defaultAddr.landmark || "",
-        city: defaultAddr.city || "",
-        country: defaultAddr.country,
-        label: defaultAddr.label,
-        phone: defaultAddr.phone,
-        isDefault: defaultAddr.isDefault,
-      };
-
-      setSelectedAddress(addressData);
-      setTempSelectedAddress(addressData);
+      if (defaultAddr) {
+        const addressData = createAddressData(defaultAddr);
+        setSelectedAddress(addressData);
+        setTempSelectedAddress(addressData);
+      }
     }
-  }, [userAddresses, selectedAddress, setSelectedAddress]);
+  }, [userAddresses, createAddressData, setSelectedAddress]);
 
   // Update tempSelectedAddress when selectedAddress changes
   useEffect(() => {
-    if (selectedAddress && !tempSelectedAddress) {
-      setTempSelectedAddress(selectedAddress);
+    if (selectedAddressRef.current && !tempSelectedAddressRef.current) {
+      setTempSelectedAddress(selectedAddressRef.current);
     }
-  }, [selectedAddress, tempSelectedAddress]);
+  }, [selectedAddress]);
 
+  // Update tempSelectedAddress when userAddresses change (for real-time updates)
   useEffect(() => {
-    if (userAddresses?.addresses && tempSelectedAddress) {
-      const updatedAddress = userAddresses.addresses.find(
-        (addr) => addr.id === tempSelectedAddress.id
+    if (userAddresses && tempSelectedAddressRef.current) {
+      const updatedAddress = userAddresses.find(
+        (addr) => addr._id === tempSelectedAddressRef.current?._id
       );
 
       if (updatedAddress) {
-        setTempSelectedAddress({
-          id: updatedAddress.id,
-          fullName: updatedAddress.fullName,
-          address: updatedAddress.address,
-          landmark: updatedAddress.landmark || "",
-          city: updatedAddress.city || "",
-          country: updatedAddress.country,
-          label: updatedAddress.label,
-          phone: updatedAddress.phone,
-          isDefault: updatedAddress.isDefault,
-        });
+        const newAddressData = createAddressData(updatedAddress);
+
+        // Only update if the data has actually changed
+        const current = tempSelectedAddressRef.current;
+        const hasChanged =
+          current.fullName !== newAddressData.fullName ||
+          current.address !== newAddressData.address ||
+          current.landmark !== newAddressData.landmark ||
+          current.city !== newAddressData.city ||
+          current.phone !== newAddressData.phone ||
+          current.isDefault !== newAddressData.isDefault;
+
+        if (hasChanged) {
+          setTempSelectedAddress(newAddressData);
+        }
       }
     }
-  }, [userAddresses?.addresses, tempSelectedAddress?.id, tempSelectedAddress]);
+  }, [userAddresses, createAddressData]);
 
   const handleSaveAddress = () => {
     if (tempSelectedAddress) {
@@ -460,7 +535,7 @@ export default function CheckOutAddress({
 
   const handleAddressSelect = (address: z.infer<typeof addressFormSchema>) => {
     setTempSelectedAddress({
-      id: address.id,
+      _id: address._id,
       fullName: address.fullName,
       address: address.address,
       landmark: address.landmark || "",
@@ -468,6 +543,7 @@ export default function CheckOutAddress({
       country: address.country,
       label: address.label,
       phone: address.phone,
+      deliveryInstructions: address.deliveryInstructions || "",
       isDefault: address.isDefault,
     });
   };
@@ -475,7 +551,7 @@ export default function CheckOutAddress({
   const handleEditAddressFromSelector = (
     address: z.infer<typeof addressFormSchema>
   ) => {
-    if (userAddresses?.addresses) {
+    if (userAddresses) {
       setEditingAddress(address);
       setShowEditForm(true);
     }
@@ -490,7 +566,7 @@ export default function CheckOutAddress({
     return <AddressSkeleton />;
   }
 
-  if (!userAddresses?.addresses || !selectedAddress) {
+  if (!userAddresses || userAddresses.length === 0) {
     return <NewAddressForm />;
   }
 
@@ -538,70 +614,75 @@ export default function CheckOutAddress({
 
               {/* Address Cards */}
               <div className="space-y-2">
-                {userAddresses?.addresses?.map(
-                  (address: z.infer<typeof addressFormSchema>) => (
-                    <div
-                      key={address.id}
-                      className={`p-3 border rounded transition-all cursor-pointer ${
-                        tempSelectedAddress?.id === address.id
-                          ? "border-[#C5F82A] bg-[#C5F82A]/10 ring-2 ring-[#C5F82A]/30"
-                          : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/20"
-                      }`}
-                      onClick={() => handleAddressSelect(address)}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium text-sm capitalize">
-                            {address.label} Address
-                            {address.isDefault && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                                Default
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium">
-                            {address.fullName}
-                          </div>
+                {userAddresses.map((address) => (
+                  <div
+                    key={address._id}
+                    className={`p-3 border rounded transition-all cursor-pointer ${
+                      tempSelectedAddress?._id === address._id
+                        ? "border-[#C5F82A] bg-[#C5F82A]/10 ring-2 ring-[#C5F82A]/30"
+                        : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/20"
+                    }`}
+                    onClick={() =>
+                      handleAddressSelect(
+                        address as z.infer<typeof addressFormSchema>
+                      )
+                    }
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-sm capitalize">
+                          {address.label} Address
+                          {address.isDefault && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                              Default
+                            </span>
+                          )}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {[
-                            address.address,
-                            address.landmark,
-                            address.city,
-                            address.country,
-                          ]
-                            .filter(
-                              (part): part is string =>
-                                part !== undefined &&
-                                part !== null &&
-                                part.trim() !== ""
-                            )
-                            .map((part) => part.trim())
-                            .join(", ")}
-                        </div>
-                        {address.phone && (
-                          <div className="text-sm text-muted-foreground">
-                            Phone: {address.phone}
-                          </div>
-                        )}
-                        {/* Edit button for each address card */}
-                        <div className="pt-2 border-t border-gray-200">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent card selection
-                              handleEditAddressFromSelector(address);
-                            }}
-                            className="h-auto p-0 text-sm text-gray-600 hover:text-gray-800"
-                          >
-                            Edit address
-                          </Button>
+                        <div className="text-sm font-medium">
+                          {address.fullName}
                         </div>
                       </div>
+                      <div className="text-sm text-muted-foreground">
+                        {[
+                          address.address,
+                          address.landmark,
+                          address.city,
+                          address.country,
+                        ]
+                          .filter(
+                            (part): part is string =>
+                              part !== undefined &&
+                              part !== null &&
+                              part.trim() !== ""
+                          )
+                          .map((part) => part.trim())
+                          .join(", ")}
+                      </div>
+                      {address.phone && (
+                        <div className="text-sm text-muted-foreground">
+                          Phone: {address.phone}
+                        </div>
+                      )}
+                      {/* Action buttons for each address card */}
+                      <div className="pt-2 border-t border-gray-200 flex items-center justify-end">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card selection
+                            handleEditAddressFromSelector(
+                              address as z.infer<typeof addressFormSchema>
+                            );
+                          }}
+                          className="h-auto p-0 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                        >
+                          <Edit className="w-3 h-3" />
+                          Edit
+                        </Button>
+                      </div>
                     </div>
-                  )
-                )}
+                  </div>
+                ))}
 
                 {/* Add New Address Card */}
                 <div

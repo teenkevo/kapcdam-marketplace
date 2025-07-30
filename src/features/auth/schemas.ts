@@ -1,10 +1,5 @@
-import { Address, User } from "@root/sanity.types";
+import { User } from "@root/sanity.types";
 import z from "zod";
-
-type addressTypeProjection = Pick<
-  Address,
-  "label" | "isDefault" | "phone" | "landmark" | "city" | "deliveryInstructions"
->;
 
 type userTypeProjection = Pick<
   User,
@@ -12,7 +7,6 @@ type userTypeProjection = Pick<
   | "firstName"
   | "lastName"
   | "phone"
-  | "addresses"
   | "preferences"
 >;
 
@@ -23,6 +17,5 @@ type userTypeWebhook = Pick<
   eventType: "user.created" | "user.updated";
 };
 
-export const addressSchema = z.custom<addressTypeProjection>();
 export const userProfileSchema = z.custom<userTypeProjection>();
 export const userWebhookSchema = z.custom<userTypeWebhook>();

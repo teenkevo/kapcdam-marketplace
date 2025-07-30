@@ -20,6 +20,13 @@ type Props = {
   primaryActionText?: string;
   primaryActionDisabled?: boolean;
   className?: string;
+  onCouponChange?: (
+    coupon: {
+      code: string;
+      discountAmount: number;
+      originalPercentage: number;
+    } | null
+  ) => void;
 };
 
 export function OrderSummary({
@@ -29,6 +36,7 @@ export function OrderSummary({
   primaryActionText = "Place Order",
   primaryActionDisabled = false,
   className = "",
+  onCouponChange,
 }: Props) {
   const {
     items: localItems,
@@ -316,13 +324,22 @@ export function OrderSummary({
     trpcClient.coupons.validateCoupon.mutationOptions({
       onSuccess: (result) => {
         if (result.valid && result.discount) {
-          setAppliedCoupon({
+          const couponData = {
             code: couponCode,
             discount: result.discount,
-          });
+          };
+          setAppliedCoupon(couponData);
           setCouponCode("");
           setShowCouponInput(false);
           setCouponError(null);
+
+          // Notify parent component about the applied coupon
+          onCouponChange?.({
+            code: couponData.code,
+            discountAmount: couponData.discount.amount,
+            originalPercentage: couponData.discount.percentage,
+          });
+
           toast.success(
             `Coupon "${result.discount.code}" applied successfully!`
           );
@@ -359,6 +376,10 @@ export function OrderSummary({
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponError(null);
+
+    // Notify parent component that coupon was removed
+    onCouponChange?.(null);
+
     toast.success("Coupon removed");
   };
 
@@ -760,8 +781,8 @@ export function OrderSummary({
                         setCouponCode(e.target.value.toUpperCase())
                       }
                       placeholder="Enter coupon code"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyPress={(e) =>
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:bg-lime-400 focus:border-transparent"
+                      onKeyDown={(e) =>
                         e.key === "Enter" && handleApplyCoupon()
                       }
                     />
@@ -770,7 +791,7 @@ export function OrderSummary({
                       disabled={
                         validateCouponMutation.isPending || !couponCode.trim()
                       }
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      className="px-4 py-2 bg-lime-600 text-white text-sm rounded-md hover:bg-lime-700 disabled:opacity-50"
                     >
                       {validateCouponMutation.isPending
                         ? "Applying..."

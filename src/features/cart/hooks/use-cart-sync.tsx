@@ -20,31 +20,32 @@ export function useCartSync() {
   const syncCartMutation = useMutation(
     trpc.cart.syncCartToUser.mutationOptions({
       onSuccess: (result) => {
-        startTransition(() => {
-          if (result.success) {
-            // Clear local cart after successful sync
-            clearCart();
+        if (result.success) {
+          // Clear local cart after successful sync
+          clearCart();
 
+          startTransition(() => {
             // Force refetch for consistency with other cart operations
             queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
             queryClient.refetchQueries({
               queryKey: ["cart", "getDisplayData"],
             });
+          });
 
-            // Check if items were actually synced (itemsAdded exists)
-            if ("itemsAdded" in result && result.itemsAdded > 0) {
-              const itemsText = result.itemsAdded === 1 ? "item" : "items";
-              toast.success(
-                `${result.itemsAdded} ${itemsText} synced to your account!`
-              );
-            } else {
-              // Handle case where no items were synced
-              toast.success("Cart synced successfully!");
-            }
+          // Show success message without transition to avoid keeping isPending active
+          if ("itemsAdded" in result && result.itemsAdded > 0) {
+            const itemsText = result.itemsAdded === 1 ? "item" : "items";
+            toast.success(
+              `${result.itemsAdded} ${itemsText} synced to your account!`
+            );
+          } else {
+            // Handle case where no items were synced
+            toast.success("Cart synced successfully!");
           }
-        });
+        }
       },
       onError: (error) => {
+        hasAttemptedSync.current = false; // Reset on error to allow retry
         const errorMessage = getCartErrorMessage(error);
         toast.error(`Failed to sync cart: ${errorMessage}`);
       },
@@ -53,10 +54,15 @@ export function useCartSync() {
 
   // Auto-sync effect
   useEffect(() => {
+    const hasLocalItems = hasItems();
+    const itemsLength = items.length;
+
+    // Only sync if user just signed in and has local items
     if (
       isLoaded &&
       userId &&
-      hasItems() &&
+      hasLocalItems &&
+      itemsLength > 0 &&
       !hasAttemptedSync.current &&
       !syncCartMutation.isPending
     ) {
@@ -67,20 +73,22 @@ export function useCartSync() {
       });
     }
 
+    // Reset sync attempt when user logs out
     if (isLoaded && !userId) {
       hasAttemptedSync.current = false;
     }
   }, [
     isLoaded,
     userId,
-    hasItems,
+    items.length, // Use length instead of items array or hasItems() function
     syncCartMutation.isPending,
-    items,
-    syncCartMutation,
   ]);
 
   return {
-    isSyncing: syncCartMutation.isPending || isPending,
+    isSyncing:
+      isLoaded && userId && hasItems()
+        ? syncCartMutation.isPending || isPending
+        : false, // Don't show syncing if no local items or not signed in
     isError: syncCartMutation.isError,
     error: syncCartMutation.error,
     canSync: isLoaded && userId && hasItems() && !syncCartMutation.isPending,

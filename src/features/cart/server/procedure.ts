@@ -15,7 +15,11 @@ import {
   CartDisplayCourseType,
   CartDisplayProductType,
 } from "../schema";
-import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY, CART_BY_ID_QUERY } from "./query";
+import {
+  CART_DISPLAY_QUERY,
+  CART_ITEMS_QUERY,
+  CART_BY_ID_QUERY,
+} from "./query";
 import { revalidatePath } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/live";
 
@@ -134,7 +138,6 @@ export const cartRouter = createTRPCRouter({
             user: { _type: "reference", _ref: user._id },
             cartItems: [],
             itemCount: 0,
-            subtotal: 0,
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -143,9 +146,7 @@ export const cartRouter = createTRPCRouter({
           cart = await client.create(newCart);
         }
 
-        // Get current price for the item
-        let currentPrice = 0;
-
+        // Validate product/course availability and stock
         if (type === "product" && productId) {
           const product = await client.fetch(
             groq`*[_type == "product" && _id == $productId][0] {
@@ -190,8 +191,6 @@ export const cartRouter = createTRPCRouter({
               });
             }
 
-            // Set the current price to the price of the selected variant
-            currentPrice = parseInt(selectedVariant.price);
             if (parseInt(selectedVariant.stock) < quantity) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -199,15 +198,6 @@ export const cartRouter = createTRPCRouter({
               });
             }
           } else {
-            if (!product.price) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "Product price not found",
-              });
-            }
-
-            currentPrice = parseInt(product.price);
-
             if (product.totalStock && product.totalStock < quantity) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
@@ -217,7 +207,7 @@ export const cartRouter = createTRPCRouter({
           }
         } else if (type === "course" && courseId) {
           const course = await client.fetch(
-            groq`*[_type == "course" && _id == $courseId][0]{ price }`,
+            groq`*[_type == "course" && _id == $courseId][0]{ _id }`,
             { courseId }
           );
 
@@ -227,8 +217,6 @@ export const cartRouter = createTRPCRouter({
               message: "Course not found",
             });
           }
-
-          currentPrice = parseInt(course.price);
         }
 
         // Check if item already exists in cart
@@ -253,7 +241,6 @@ export const cartRouter = createTRPCRouter({
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
             quantity: updatedItems[existingItemIndex].quantity + quantity,
-            // currentPrice,
             lastUpdated: new Date().toISOString(),
           };
         } else {
@@ -261,7 +248,6 @@ export const cartRouter = createTRPCRouter({
             _key: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             type,
             quantity,
-            // currentPrice,
             addedAt: new Date().toISOString(),
             lastUpdated: new Date().toISOString(),
             ...(type === "product" && {
@@ -276,23 +262,18 @@ export const cartRouter = createTRPCRouter({
           updatedItems.push(newItem);
         }
 
-        // Calculate totals
+        // Calculate item count
         const itemCount = updatedItems.reduce(
           (sum, item) => sum + item.quantity,
           0
         );
-        const subtotal = updatedItems.reduce(
-          (sum, item) => sum + item.currentPrice * item.quantity,
-          0
-        );
 
-        // Update cart in Sanity
+        // Update cart in Sanity (remove subtotal as it should be calculated dynamically)
         const updatedCart = await client
           .patch(cart._id)
           .set({
             cartItems: updatedItems,
             itemCount,
-            subtotal,
             updatedAt: new Date().toISOString(),
           })
           .commit();
@@ -359,13 +340,9 @@ export const cartRouter = createTRPCRouter({
           };
         }
 
-        // Recalculate totals
+        // Recalculate item count
         const itemCount = updatedItems.reduce(
           (sum, item) => sum + item.quantity,
-          0
-        );
-        const subtotal = updatedItems.reduce(
-          (sum, item) => sum + item.currentPrice * item.quantity,
           0
         );
 
@@ -374,7 +351,6 @@ export const cartRouter = createTRPCRouter({
           .set({
             cartItems: updatedItems,
             itemCount,
-            subtotal,
             updatedAt: new Date().toISOString(),
           })
           .commit();
@@ -420,7 +396,6 @@ export const cartRouter = createTRPCRouter({
           .set({
             cartItems: [],
             itemCount: 0,
-            subtotal: 0,
             updatedAt: new Date().toISOString(),
           })
           .commit();
@@ -472,12 +447,10 @@ export const cartRouter = createTRPCRouter({
           { clerkUserId: ctx.auth.userId }
         );
 
-        // Convert local cart items to Sanity format and get current prices
+        // Convert local cart items to Sanity format and validate availability
         const processedItems = await Promise.all(
           localCartItems.map(async (localItem, index) => {
-            let currentPrice = 0;
-
-            // Get current price for the item
+            // Validate item availability and stock
             if (localItem.type === "product" && localItem.productId) {
               const product = await client.fetch(
                 groq`*[_type == "product" && _id == $productId][0]{
@@ -519,8 +492,6 @@ export const cartRouter = createTRPCRouter({
                   });
                 }
 
-                currentPrice = parseInt(product.selectedVariant.price);
-
                 // Optional: Check stock
                 if (product.selectedVariant.stock < localItem.quantity) {
                   throw new TRPCError({
@@ -529,14 +500,6 @@ export const cartRouter = createTRPCRouter({
                   });
                 }
               } else {
-                if (!product.price) {
-                  throw new TRPCError({
-                    code: "BAD_REQUEST",
-                    message: "Product price not found",
-                  });
-                }
-                currentPrice = parseInt(product.price);
-
                 if (
                   product.totalStock &&
                   product.totalStock < localItem.quantity
@@ -549,13 +512,7 @@ export const cartRouter = createTRPCRouter({
               }
             } else if (localItem.type === "course" && localItem.courseId) {
               const course = await client.fetch(
-                groq`*[_type == "course" && _id == $courseId][0]{ price }`,
-                { courseId: localItem.courseId }
-              );
-              currentPrice = course ? parseInt(course.price) : 0;
-            } else if (localItem.type === "course" && localItem.courseId) {
-              const course = await client.fetch(
-                groq`*[_type == "course" && _id == $courseId][0]{ price }`,
+                groq`*[_type == "course" && _id == $courseId][0]{ _id }`,
                 { courseId: localItem.courseId }
               );
 
@@ -565,21 +522,12 @@ export const cartRouter = createTRPCRouter({
                   message: "Course not found",
                 });
               }
-
-              if (!course.price) {
-                throw new TRPCError({
-                  code: "BAD_REQUEST",
-                  message: "Course price not found",
-                });
-              }
-
-              currentPrice = parseInt(course.price);
             }
+
             return {
               _key: `synced-item-${Date.now()}-${index}`,
               type: localItem.type,
               quantity: localItem.quantity,
-              currentPrice,
               addedAt: localItem.addedAt,
               lastUpdated: new Date().toISOString(),
               ...(localItem.type === "product" && {
@@ -603,16 +551,20 @@ export const cartRouter = createTRPCRouter({
             const existingIndex = mergedItems.findIndex((existing) => {
               if (newItem.type === "product") {
                 return (
-                  existing.product?._id === newItem.product?._ref &&
+                  existing.product?._ref === newItem.product?._ref &&
                   existing.selectedVariantSku === newItem.selectedVariantSku
                 );
               }
-              return existing.course?._id === newItem.course?._ref;
+              return existing.course?._ref === newItem.course?._ref;
             });
 
             if (existingIndex !== -1) {
-              // Update quantity of existing item
-              mergedItems[existingIndex].quantity += newItem.quantity;
+              // Update quantity to the higher value as per user requirement
+              const newQuantity = Math.max(
+                mergedItems[existingIndex].quantity,
+                newItem.quantity
+              );
+              mergedItems[existingIndex].quantity = newQuantity;
               mergedItems[existingIndex].lastUpdated = new Date().toISOString();
             } else {
               // Add new item
@@ -620,13 +572,9 @@ export const cartRouter = createTRPCRouter({
             }
           });
 
-          // Calculate new totals
+          // Calculate new item count
           const mergedItemCount = mergedItems.reduce(
             (sum, item) => sum + item.quantity,
-            0
-          );
-          const mergedSubtotal = mergedItems.reduce(
-            (sum, item) => sum + item.currentPrice * item.quantity,
             0
           );
 
@@ -636,7 +584,6 @@ export const cartRouter = createTRPCRouter({
             .set({
               cartItems: mergedItems,
               itemCount: mergedItemCount,
-              subtotal: mergedSubtotal,
               updatedAt: new Date().toISOString(),
             })
             .commit();
@@ -645,17 +592,12 @@ export const cartRouter = createTRPCRouter({
             (sum, item) => sum + item.quantity,
             0
           );
-          const subtotal = processedItems.reduce(
-            (sum, item) => sum + item.currentPrice * item.quantity,
-            0
-          );
 
           const newCart = {
             _type: "cart",
             user: { _type: "reference", _ref: user._id },
             cartItems: processedItems,
             itemCount,
-            subtotal,
             isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
