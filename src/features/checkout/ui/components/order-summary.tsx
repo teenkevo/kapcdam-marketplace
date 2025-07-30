@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useMemo, useState } from "react";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NumericFormat } from "react-number-format";
 import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from "lucide-react";
@@ -37,7 +37,8 @@ export function OrderSummary({
   } = useLocalCartStore();
 
   const { isSignedIn } = useUser();
-  const trpc = useTRPC();
+  const { userId } = useAuth();
+  const trpcClient = useTRPC();
   const queryClient = useQueryClient();
 
   // Simplify cart data flow - use single source of truth with memoization
@@ -71,7 +72,7 @@ export function OrderSummary({
 
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
-    trpc.cart.getDisplayData.queryOptions({
+    trpcClient.cart.getDisplayData.queryOptions({
       productIds,
       courseIds,
       selectedSKUs,
@@ -87,19 +88,21 @@ export function OrderSummary({
 
   // Server cart mutation with optimistic updates
   const updateServerCartMutation = useMutation(
-    trpc.cart.updateCartItem.mutationOptions({
+    trpcClient.cart.updateCartItem.mutationOptions({
       onMutate: async (variables) => {
-        await queryClient.cancelQueries(trpc.cart.getUserCart.queryOptions());
+        await queryClient.cancelQueries(
+          trpcClient.cart.getUserCart.queryOptions()
+        );
         await queryClient.cancelQueries({
           queryKey: ["cart", "getDisplayData"],
         });
 
         const previousCart = queryClient.getQueryData(
-          trpc.cart.getUserCart.queryOptions().queryKey
+          trpcClient.cart.getUserCart.queryOptions().queryKey
         );
 
         queryClient.setQueryData(
-          trpc.cart.getUserCart.queryOptions().queryKey,
+          trpcClient.cart.getUserCart.queryOptions().queryKey,
           (old: any) => {
             if (!old) return old;
 
@@ -131,14 +134,14 @@ export function OrderSummary({
       onError: (error, variables, context) => {
         if (context?.previousCart) {
           queryClient.setQueryData(
-            trpc.cart.getUserCart.queryOptions().queryKey,
+            trpcClient.cart.getUserCart.queryOptions().queryKey,
             context.previousCart
           );
         }
         toast.error(`Failed to update cart: ${error.message}`);
       },
       onSuccess: () => {
-        queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
+        queryClient.refetchQueries(trpcClient.cart.getUserCart.queryOptions());
         queryClient.refetchQueries({
           queryKey: ["cart", "getDisplayData"],
         });
@@ -180,35 +183,72 @@ export function OrderSummary({
     });
   };
 
-  // Calculate total price from expanded products
-  const totalPrice = useMemo(() => {
-    return cartData.reduce((acc, cartItem) => {
-      if (cartItem.type === "product") {
-        const expandedProduct = expandedProducts.find((p) => {
-          if (cartItem.selectedVariantSku) {
-            return (
-              p.originalProductId === cartItem.productId &&
-              p.VariantSku === cartItem.selectedVariantSku
-            );
-          }
-          return p.originalProductId === cartItem.productId && !p.isVariant;
-        });
+  // Helper function to calculate product/course discount from existing discount info
+  const calculateItemDiscount = (
+    originalPrice: number,
+    discountInfo?: { value: number; isActive: boolean }
+  ) => {
+    if (!discountInfo?.isActive || !discountInfo?.value) return 0;
+    // Product/course discounts are percentage-based
+    return Math.round((originalPrice * discountInfo.value) / 100);
+  };
 
-        const price = expandedProduct ? parseInt(expandedProduct.price) : 0;
-        return acc + price * cartItem.quantity;
-      }
+  // Calculate totals with item-level discounts from product/course discount info
+  const { subtotalBeforeDiscount, itemDiscountTotal, finalSubtotal } =
+    useMemo(() => {
+      let subtotalBeforeDiscount = 0;
+      let itemDiscountTotal = 0;
 
-      if (cartItem.type === "course") {
-        const course = cartDisplayData?.courses.find(
-          (c) => c._id === cartItem.courseId
+      cartData.forEach((cartItem) => {
+        let itemPrice = 0;
+        let discountInfo = null;
+
+        if (cartItem.type === "product") {
+          const expandedProduct = expandedProducts.find((p) => {
+            if (cartItem.selectedVariantSku) {
+              return (
+                p.originalProductId === cartItem.productId &&
+                p.VariantSku === cartItem.selectedVariantSku
+              );
+            }
+            return p.originalProductId === cartItem.productId && !p.isVariant;
+          });
+          itemPrice = expandedProduct ? parseInt(expandedProduct.price) : 0;
+
+          // Get discount info from the product data
+          const productData = cartDisplayData?.products.find(
+            (p) => p._id === cartItem.productId
+          );
+          discountInfo = productData?.discountInfo;
+        }
+
+        if (cartItem.type === "course") {
+          const course = cartDisplayData?.courses.find(
+            (c) => c._id === cartItem.courseId
+          );
+          itemPrice = course ? parseInt(course.price) : 0;
+          discountInfo = course?.discountInfo;
+        }
+
+        const lineTotal = itemPrice * cartItem.quantity;
+        const lineDiscount = calculateItemDiscount(
+          lineTotal,
+          discountInfo || undefined
         );
-        const price = course ? parseInt(course.price) : 0;
-        return acc + price * cartItem.quantity;
-      }
 
-      return acc;
-    }, 0);
-  }, [cartData, expandedProducts, cartDisplayData?.courses]);
+        subtotalBeforeDiscount += lineTotal;
+        itemDiscountTotal += lineDiscount;
+      });
+
+      const finalSubtotal = subtotalBeforeDiscount - itemDiscountTotal;
+
+      return { subtotalBeforeDiscount, itemDiscountTotal, finalSubtotal };
+    }, [
+      cartData,
+      expandedProducts,
+      cartDisplayData?.courses,
+      cartDisplayData?.products,
+    ]);
 
   // Handle quantity updates
   const handleUpdateQuantity = (
@@ -259,11 +299,73 @@ export function OrderSummary({
     return cartData.reduce((total, item) => total + item.quantity, 0);
   }, [cartData]);
 
-  // Calculate totals
-  const subtotal = totalPrice;
+  // State for coupon handling
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discount: {
+      percentage: number;
+      amount: number;
+      description?: string | null;
+    };
+  } | null>(null);
+  const [showCouponInput, setShowCouponInput] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  const validateCouponMutation = useMutation(
+    trpcClient.coupons.validateCoupon.mutationOptions({
+      onSuccess: (result) => {
+        if (result.valid && result.discount) {
+          setAppliedCoupon({
+            code: couponCode,
+            discount: result.discount,
+          });
+          setCouponCode("");
+          setShowCouponInput(false);
+          setCouponError(null);
+          toast.success(
+            `Coupon "${result.discount.code}" applied successfully!`
+          );
+        } else {
+          setCouponError(result.error || "Invalid coupon code");
+        }
+      },
+      onError: (error) => {
+        setCouponError(error.message);
+      },
+    })
+  );
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setCouponError(null);
+    validateCouponMutation.mutate({
+      code: couponCode.trim(),
+      orderTotal: finalSubtotal,
+      userId: userId || undefined,
+      cartItems: cartData.map((item) => ({
+        type: item.type,
+        productId: item.productId || undefined,
+        courseId: item.courseId || undefined,
+        quantity: item.quantity,
+      })),
+    });
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+    toast.success("Coupon removed");
+  };
+
+  // Calculate final totals
   const tax = 0; // No tax for now
-  const discount = 0; // No discount for now
-  const finalTotal = subtotal + shippingCost + tax - discount;
+  const couponDiscount = appliedCoupon?.discount.amount || 0;
+  const finalTotal = finalSubtotal + shippingCost + tax - couponDiscount;
 
   return (
     <div
@@ -323,14 +425,62 @@ export function OrderSummary({
                       <p className="text-sm text-gray-500">
                         Kapcdam Marketplace
                       </p>
-                      <div className="flex items-center">
-                        <NumericFormat
-                          thousandSeparator={true}
-                          displayType="text"
-                          prefix="UGX "
-                          value={expandedProduct.price}
-                          className="text-sm font-semibold"
-                        />
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const productData = cartDisplayData?.products.find(
+                            (p) => p._id === cartItem.productId
+                          );
+                          const hasDiscount =
+                            productData?.hasDiscount &&
+                            productData?.discountInfo?.isActive;
+
+                          if (hasDiscount && productData?.discountInfo) {
+                            const originalPrice = parseInt(
+                              expandedProduct.price
+                            );
+                            const discountAmount = calculateItemDiscount(
+                              originalPrice,
+                              productData.discountInfo
+                            );
+                            const discountedPrice =
+                              originalPrice - discountAmount;
+
+                            return (
+                              <>
+                                {/* Original price crossed out */}
+                                <NumericFormat
+                                  thousandSeparator={true}
+                                  displayType="text"
+                                  prefix="UGX "
+                                  value={expandedProduct.price}
+                                  className="text-xs text-gray-400 line-through"
+                                />
+                                {/* Discounted price */}
+                                <NumericFormat
+                                  thousandSeparator={true}
+                                  displayType="text"
+                                  prefix="UGX "
+                                  value={discountedPrice}
+                                  className="text-sm font-semibold text-green-600"
+                                />
+                                {/* Discount badge */}
+                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                                  -{productData.discountInfo.value}%
+                                </span>
+                              </>
+                            );
+                          } else {
+                            return (
+                              <NumericFormat
+                                thousandSeparator={true}
+                                displayType="text"
+                                prefix="UGX "
+                                value={expandedProduct.price}
+                                className="text-sm font-semibold"
+                              />
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -409,14 +559,56 @@ export function OrderSummary({
                         {course.title}
                       </h4>
                       <p className="text-sm text-gray-500">Kapcdam Course</p>
-                      <div className="flex items-center">
-                        <NumericFormat
-                          thousandSeparator={true}
-                          displayType="text"
-                          prefix="UGX "
-                          value={course.price}
-                          className="text-sm font-semibold"
-                        />
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const hasDiscount =
+                            course.hasDiscount && course.discountInfo?.isActive;
+
+                          if (hasDiscount && course.discountInfo) {
+                            const originalPrice = parseInt(course.price);
+                            const discountAmount = calculateItemDiscount(
+                              originalPrice,
+                              course.discountInfo
+                            );
+                            const discountedPrice =
+                              originalPrice - discountAmount;
+
+                            return (
+                              <>
+                                {/* Original price crossed out */}
+                                <NumericFormat
+                                  thousandSeparator={true}
+                                  displayType="text"
+                                  prefix="UGX "
+                                  value={course.price}
+                                  className="text-xs text-gray-400 line-through"
+                                />
+                                {/* Discounted price */}
+                                <NumericFormat
+                                  thousandSeparator={true}
+                                  displayType="text"
+                                  prefix="UGX "
+                                  value={discountedPrice}
+                                  className="text-sm font-semibold text-green-600"
+                                />
+                                {/* Discount badge */}
+                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                                  -{course.discountInfo.value}%
+                                </span>
+                              </>
+                            );
+                          } else {
+                            return (
+                              <NumericFormat
+                                thousandSeparator={true}
+                                displayType="text"
+                                prefix="UGX "
+                                value={course.price}
+                                className="text-sm font-semibold"
+                              />
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -525,10 +717,108 @@ export function OrderSummary({
                   thousandSeparator={true}
                   displayType="text"
                   prefix="UGX "
-                  value={subtotal}
+                  value={subtotalBeforeDiscount}
                   className="font-medium"
                 />
               </div>
+
+              {/* Item-level discounts */}
+              {itemDiscountTotal > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Item Discounts:</span>
+                  <NumericFormat
+                    thousandSeparator={true}
+                    displayType="text"
+                    prefix="-UGX "
+                    value={itemDiscountTotal}
+                    className="font-medium text-green-600"
+                  />
+                </div>
+              )}
+
+              {/* Coupon Section */}
+              {!appliedCoupon && !showCouponInput && (
+                <div className="flex justify-between items-center text-sm">
+                  <Button
+                    variant="link"
+                    onClick={() => setShowCouponInput(true)}
+                    className="text-blue-600 hover:text-blue-800 p-0 h-auto font-normal text-sm"
+                  >
+                    I have a coupon
+                  </Button>
+                </div>
+              )}
+
+              {/* Coupon Input */}
+              {showCouponInput && !appliedCoupon && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) =>
+                        setCouponCode(e.target.value.toUpperCase())
+                      }
+                      placeholder="Enter coupon code"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onKeyPress={(e) =>
+                        e.key === "Enter" && handleApplyCoupon()
+                      }
+                    />
+                    <Button
+                      onClick={handleApplyCoupon}
+                      disabled={
+                        validateCouponMutation.isPending || !couponCode.trim()
+                      }
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {validateCouponMutation.isPending
+                        ? "Applying..."
+                        : "Apply"}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-red-600 text-xs">{couponError}</p>
+                  )}
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setShowCouponInput(false);
+                      setCouponCode("");
+                      setCouponError(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700 p-0 h-auto font-normal text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              {/* Applied Coupon */}
+              {appliedCoupon && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600 flex items-center gap-2">
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                      {appliedCoupon.code}
+                    </span>
+                    {`Coupon (-${appliedCoupon.discount.percentage}%):`}
+                    <Button
+                      variant="link"
+                      onClick={handleRemoveCoupon}
+                      className="text-red-600 hover:text-red-800 p-0 h-auto font-normal text-xs ml-2"
+                    >
+                      Remove
+                    </Button>
+                  </span>
+                  <NumericFormat
+                    thousandSeparator={true}
+                    displayType="text"
+                    prefix="-UGX "
+                    value={appliedCoupon.discount.amount}
+                    className="font-medium text-green-600"
+                  />
+                </div>
+              )}
 
               {shippingCost > 0 && (
                 <div className="flex justify-between items-center text-sm">
@@ -552,19 +842,6 @@ export function OrderSummary({
                     prefix="UGX "
                     value={tax}
                     className="font-medium"
-                  />
-                </div>
-              )}
-
-              {discount > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Discount:</span>
-                  <NumericFormat
-                    thousandSeparator={true}
-                    displayType="text"
-                    prefix="-UGX "
-                    value={discount}
-                    className="font-medium text-green-600"
                   />
                 </div>
               )}

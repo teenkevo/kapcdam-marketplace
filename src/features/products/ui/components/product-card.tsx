@@ -174,7 +174,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   productId: product._id,
                   selectedVariantSku: defaultVariant?.sku,
                   quantity: 1,
-                  addedAt: new Date(),
+                  addedAt: new Date().toISOString(),
                 }}
               />
             )}

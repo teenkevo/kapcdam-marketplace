@@ -7,6 +7,17 @@ const CartDisplayProductSchema = z.object({
   hasVariants: z.boolean(),
   totalStock: z.number().nullable().optional(),
   defaultImage: z.string(),
+  hasDiscount: z.boolean().nullable().optional(),
+  discountInfo: z
+    .object({
+      value: z.number(),
+      isActive: z.boolean(),
+      startDate: z.string().nullable().optional(),
+      endDate: z.string().nullable().optional(),
+      title: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   variants: z
     .array(
       z.object({
@@ -32,6 +43,17 @@ const CartDisplayCourseSchema = z.object({
   title: z.string(),
   price: z.string(),
   defaultImage: z.string(),
+  hasDiscount: z.boolean().nullable().optional(),
+  discountInfo: z
+    .object({
+      value: z.number(),
+      isActive: z.boolean(),
+      startDate: z.string().nullable().optional(),
+      endDate: z.string().nullable().optional(),
+      title: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 const CartItemSchema = z.object({
@@ -86,4 +108,4 @@ export type UpdateCartItemType = z.infer<typeof updateCartItemSchema>;
 export type SyncCartType = z.infer<typeof syncCartSchema>;
 export type CartType = z.infer<typeof CartSchema>;
 export type CartDisplayProductType = z.infer<typeof CartDisplayProductSchema>;
-export type CartDisplayCourseType = z.infer<typeof CartDisplayCourseSchema>;  
+export type CartDisplayCourseType = z.infer<typeof CartDisplayCourseSchema>;

@@ -17,6 +17,8 @@ import { attributeDefinition } from "./ecommerce/attribute-defination";
 import { productVariant } from "./ecommerce/variant";
 import { donation } from "./donationType";
 import { reviews } from "./ecommerce/ratings";
+import { deliveryZone } from "./ecommerce/delivery-zone";
+import { discountCodes } from "./ecommerce/discount-codes";
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
@@ -36,5 +38,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     team,
     donation,
     reviews,
+    deliveryZone,
+    discountCodes,
   ],
 };

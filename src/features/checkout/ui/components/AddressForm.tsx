@@ -29,6 +29,8 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { nanoid } from "nanoid";
+import { type AddressInput } from "../../schemas/checkout-form";
+import { AddressSkeleton } from "./checkout-skeleton";
 
 export const addressFormSchema = z.object({
   id: z.string(),
@@ -117,7 +119,6 @@ export function NewAddressForm({
   return (
     <Form {...form}>
       {" "}
-    
       <form
         onSubmit={form.handleSubmit(handleFormSubmit)}
         className="space-y-4"
@@ -305,17 +306,7 @@ export function NewAddressForm({
 }
 
 type AddressCardProps = {
-  addressDetails: {
-    id: string;
-    fullName: string;
-    address: string;
-    landmark: string;
-    city: string;
-    country: string;
-    label?: string;
-    phone?: string;
-    isDefault?: boolean;
-  };
+  addressDetails: AddressInput;
   showAddressOptions: () => void;
 };
 
@@ -373,30 +364,8 @@ export function AddressCard({
 }
 
 type CheckOutAddressProps = {
-  selectedAddress: {
-    id: string;
-    fullName: string;
-    address: string;
-    landmark: string;
-    city: string;
-    country: string;
-    label?: string;
-    phone?: string;
-    isDefault?: boolean;
-  } | null;
-  setSelectedAddress: (
-    address: {
-      id: string;
-      fullName: string;
-      address: string;
-      landmark: string;
-      city: string;
-      country: string;
-      label?: string;
-      phone?: string;
-      isDefault?: boolean;
-    } | null
-  ) => void;
+  selectedAddress: AddressInput | null;
+  setSelectedAddress: (address: AddressInput | null) => void;
 };
 
 export default function CheckOutAddress({
@@ -410,17 +379,8 @@ export default function CheckOutAddress({
     typeof addressFormSchema
   > | null>(null);
 
-  const [tempSelectedAddress, setTempSelectedAddress] = useState<{
-    id: string;
-    fullName: string;
-    address: string;
-    landmark: string;
-    city: string;
-    country: string;
-    label?: string;
-    phone?: string;
-    isDefault?: boolean;
-  } | null>(null);
+  const [tempSelectedAddress, setTempSelectedAddress] =
+    useState<AddressInput | null>(null);
   const trpc = useTRPC();
   const { data: userAddresses, isLoading } = useQuery(
     trpc.user.getUserAddresses.queryOptions()
@@ -518,7 +478,6 @@ export default function CheckOutAddress({
     if (userAddresses?.addresses) {
       setEditingAddress(address);
       setShowEditForm(true);
-
     }
   };
 
@@ -528,7 +487,7 @@ export default function CheckOutAddress({
   };
 
   if (isLoading) {
-    return <div>Loading addresses...</div>;
+    return <AddressSkeleton />;
   }
 
   if (!userAddresses?.addresses || !selectedAddress) {

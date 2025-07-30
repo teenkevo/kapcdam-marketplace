@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import { SanityAsset } from "@sanity/image-url/lib/types/types";
 
@@ -50,9 +49,9 @@ const discountInfoSchema = z
   .object({
     value: z.number(),
     isActive: z.boolean(),
-    title: z.string(),
-    startDate: z.string(), 
-    endDate: z.string(), 
+    title: z.string().nullable().optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
   })
   .nullable();
 
@@ -70,7 +69,7 @@ const productListItemSchema = z.object({
   totalReviews: z.number(),
   category: categorySchema,
   variantOptions: z.array(productVariantSchema),
-  hasDiscount: z.boolean(),
+  hasDiscount: z.boolean().nullable().optional(),
   discountInfo: discountInfoSchema.optional().nullable(),
 });
 
@@ -89,7 +88,6 @@ const productsResponseSchema = z.object({
 
 const categoriesResponseSchema = z.array(categorySchema);
 
-
 const getManyProductsInputSchema = z.object({
   page: z.number().min(1).default(1),
   pageSize: z.number().min(1).max(20).default(10),
@@ -102,7 +100,6 @@ const getManyProductsInputSchema = z.object({
 const getOneProductInputSchema = z.object({
   slug: z.string(),
 });
-
 
 export {
   // Base schemas
@@ -125,7 +122,6 @@ export {
   getManyProductsInputSchema,
   getOneProductInputSchema,
 };
-
 
 export type SanitySlug = z.infer<typeof sanitySlugSchema>;
 export type Category = z.infer<typeof categorySchema>;

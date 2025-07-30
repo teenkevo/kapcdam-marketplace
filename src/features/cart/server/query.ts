@@ -32,6 +32,11 @@ export const CART_DISPLAY_QUERY = defineQuery(`
     hasVariants,
     totalStock,
     "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+    "hasDiscount": defined(discount) && discount.isActive == true,
+    "discountInfo": select(
+      defined(discount) && discount.isActive == true => discount,
+      null
+    ),
     "variants": variants[sku in $selectedSKUs] {
       sku,
       price,
@@ -48,7 +53,12 @@ export const CART_DISPLAY_QUERY = defineQuery(`
     _id,
     title,
     price,
-    "defaultImage": coalesce(images[isDefault == true][0], images[0])
+    "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+    "hasDiscount": defined(discount) && discount.isActive == true,
+    "discountInfo": select(
+      defined(discount) && discount.isActive == true => discount,
+      null
+    )
   }
 }
 `);

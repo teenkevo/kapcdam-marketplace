@@ -6,6 +6,7 @@ import {
   BookIcon,
   UsersIcon,
   CreditCardIcon,
+  LaunchIcon,
 } from "@sanity/icons";
 
 export const structure: StructureResolver = (S) =>
@@ -25,6 +26,9 @@ export const structure: StructureResolver = (S) =>
       S.documentTypeListItem("product").title("Products").icon(PackageIcon),
       S.documentTypeListItem("course").title("Courses").icon(BookIcon),
       S.documentTypeListItem("team").title("Team Members").icon(UsersIcon),
+      S.documentTypeListItem("deliveryZone")
+        .title("Delivery Zones")
+        .icon(LaunchIcon),
 
       S.divider(),
 

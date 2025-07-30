@@ -125,7 +125,7 @@ export default function VariantSelector({
                 productId: productId,
                 selectedVariantSku: selectedVariant.sku,
                 quantity: 1,
-                addedAt: new Date(),
+                addedAt: new Date().toISOString(),
               }}
             />
           </div>

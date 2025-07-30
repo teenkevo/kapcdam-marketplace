@@ -26,34 +26,39 @@ export function useCheckoutForm() {
   }, []);
 
   const handleFormDataChange = useCallback((data: CheckoutFormData) => {
-    setFormState((prev) => ({
-      ...prev,
-      formData: data,
-      selectedAddress: data.selectedAddress,
-    }));
-  }, []);
-
-  const handleShippingAddressChange = useCallback((address: AddressInput) => {
     setFormState((prev) => {
-      // Calculate shipping cost based on delivery method and address
-      const calculateShippingCost = (addr: AddressInput, deliveryMethod?: string): number => {
-        // Basic shipping calculation - can be enhanced
-        if (deliveryMethod === "pickup") {
+      // Calculate shipping cost based on delivery method and selected zone
+      const calculateShippingCost = (): number => {
+        if (data.deliveryMethod === "pickup") {
           return 0;
         }
 
-        // Default local delivery cost
-        return 50000; // UGX 50,000 for local delivery
+        // Use delivery zone fee if available, otherwise fallback to default
+        if (data.selectedDeliveryZone) {
+          return data.selectedDeliveryZone.fee;
+        }
+
+       
+        return 50000; 
       };
 
-      const shippingCost = calculateShippingCost(address, prev.formData?.deliveryMethod);
+      const shippingCost = calculateShippingCost();
 
       return {
         ...prev,
-        selectedAddress: address,
+        formData: data,
+        selectedAddress: data.selectedAddress,
         shippingCost,
       };
     });
+  }, []);
+
+  const handleShippingAddressChange = useCallback((address: AddressInput) => {
+    setFormState((prev) => ({
+      ...prev,
+      selectedAddress: address,
+     
+    }));
   }, []);
 
   return {

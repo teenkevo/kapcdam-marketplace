@@ -47,39 +47,16 @@ export const discountCodes = defineType({
     }),
 
     defineField({
-      name: "type",
-      title: "Discount Type",
-      type: "string",
-      description: "Type of discount",
-      options: {
-        list: [
-          { title: "Percentage", value: "percentage" },
-          { title: "Fixed Amount", value: "fixed_amount" },
-        ],
-        layout: "radio",
-      },
-      validation: (rule) => rule.required().error("Discount type is required"),
-    }),
-
-    defineField({
-      name: "value",
-      title: "Discount Value",
+      name: "percentage",
+      title: "Discount Percentage (%)",
       type: "number",
-      description: "Discount amount (percentage or UGX amount)",
+      description: "Discount percentage (1-100)",
       validation: (rule) =>
         rule
           .required()
           .min(1)
-          .custom((value, context) => {
-            const type = context.document?.type;
-            if (type === "percentage" && (value as number) > 100) {
-              return "Percentage discount cannot exceed 100%";
-            }
-            if (type === "fixed_amount" && (value as number) > 10000000) {
-              return "Fixed amount discount seems too high";
-            }
-            return true;
-          }),
+          .max(100)
+          .error("Discount percentage must be between 1% and 100%"),
     }),
 
     defineField({
@@ -358,8 +335,7 @@ export const discountCodes = defineType({
     select: {
       code: "code",
       title: "title",
-      type: "type",
-      value: "value",
+      percentage: "percentage",
       isActive: "isActive",
       currentUses: "currentUses",
       maxUses: "maxUses",
@@ -371,8 +347,7 @@ export const discountCodes = defineType({
     prepare({
       code,
       title,
-      type,
-      value,
+      percentage,
       isActive,
       currentUses,
       maxUses,
@@ -381,10 +356,7 @@ export const discountCodes = defineType({
       firstTimeCustomersOnly,
       totalDiscountGiven,
     }) {
-      const discountDisplay =
-        type === "percentage"
-          ? `${value}% OFF`
-          : `${value?.toLocaleString()} UGX OFF`;
+      const discountDisplay = `${percentage}% OFF`;
 
       const statusInfo = !isActive ? " (Inactive)" : "";
 

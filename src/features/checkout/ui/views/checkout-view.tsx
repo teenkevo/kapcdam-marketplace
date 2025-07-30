@@ -42,10 +42,16 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import CheckoutForm from "../components/CheckoutForm";
 import { useCheckoutForm } from "../../hooks/use-checkout-form";
+import {
+  CheckoutFormSkeleton,
+  OrderSummarySkeleton,
+} from "../components/checkout-skeleton";
 
 export default function CheckoutView() {
   const trpc = useTRPC();
-  const { data: userCart } = useQuery(trpc.cart.getUserCart.queryOptions());
+  const { data: userCart, isLoading: isCartLoading } = useQuery(
+    trpc.cart.getUserCart.queryOptions()
+  );
 
   const {
     formState,
@@ -54,10 +60,8 @@ export default function CheckoutView() {
     handleShippingAddressChange,
   } = useCheckoutForm();
 
-  if (!userCart) return null;
-
   const handlePlaceOrder = () => {
-    if (formState.isValid && formState.formData) {
+    if (formState.isValid && formState.formData && userCart) {
       console.log("Placing order with:", {
         cart: userCart,
         checkoutData: formState.formData,
@@ -66,26 +70,56 @@ export default function CheckoutView() {
     }
   };
 
+  if (isCartLoading || !userCart) {
+    return (
+      <div className="max-w-7xl mx-auto py-20">
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-center">Secure Checkout</h1>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left Column - Checkout Form Skeleton */}
+          <div>
+            <CheckoutFormSkeleton />
+          </div>
+
+          {/* Right Column - Order Summary Skeleton */}
+          <div className="lg:sticky lg:top-8 lg:self-start">
+            <OrderSummarySkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 py-20">
-      {/* Left Column - Checkout Form */}
-      <div className="">
-        <CheckoutForm
-          onFormValidChange={handleFormValidChange}
-          onFormDataChange={handleFormDataChange}
-          onShippingAddressChange={handleShippingAddressChange}
-        />
+    <div className="max-w-7xl mx-auto py-20">
+      {/* Page Title */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-center">Secure Checkout</h1>
       </div>
 
-      {/* Right Column - Order Summary */}
-      <div>
-        <OrderSummary
-          userCart={userCart}
-          shippingCost={formState.shippingCost}
-          onPrimaryAction={handlePlaceOrder}
-          primaryActionText="Place Order"
-          primaryActionDisabled={!formState.isValid}
-        />
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* Left Column - Checkout Form */}
+        <div>
+          <CheckoutForm
+            onFormValidChange={handleFormValidChange}
+            onFormDataChange={handleFormDataChange}
+            onShippingAddressChange={handleShippingAddressChange}
+          />
+        </div>
+
+        {/* Right Column - Order Summary */}
+        <div className="lg:sticky lg:top-8 lg:self-start">
+          <OrderSummary
+            userCart={userCart}
+            shippingCost={formState.shippingCost}
+            onPrimaryAction={handlePlaceOrder}
+            primaryActionText="Place Order"
+            primaryActionDisabled={!formState.isValid}
+          />
+        </div>
       </div>
     </div>
   );

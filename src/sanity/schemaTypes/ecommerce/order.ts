@@ -78,13 +78,46 @@ export const order = defineType({
 
     defineField({
       name: "orderLevelDiscount",
-      title: "Order-Level Discount (UGX)",
-      type: "number",
-      description: "Additional order-wide discount (promo codes)",
-      validation: (rule) =>
-        rule.min(0).error("Order-level discount cannot be negative"),
-      initialValue: 0,
-      readOnly: true,
+      title: "Order-Level Discount",
+      type: "object",
+      description: "Applied coupon discount information",
+      fields: [
+        defineField({
+          name: "discountCode",
+          title: "Discount Code",
+          type: "reference",
+          to: [{ type: "discountCodes" }],
+          description: "Reference to the applied discount code",
+        }),
+        defineField({
+          name: "discountAmount",
+          title: "Discount Amount (UGX)",
+          type: "number",
+          description: "Actual discount amount applied",
+          validation: (rule) =>
+            rule.required().min(0).error("Discount amount cannot be negative"),
+        }),
+        defineField({
+          name: "originalPercentage",
+          title: "Original Percentage (%)",
+          type: "number",
+          description: "Original percentage from the discount code",
+          validation: (rule) =>
+            rule
+              .required()
+              .min(1)
+              .max(100)
+              .error("Percentage must be between 1% and 100%"),
+        }),
+        defineField({
+          name: "appliedAt",
+          title: "Applied At",
+          type: "datetime",
+          description: "When the discount was applied",
+          validation: (rule) => rule.required(),
+          initialValue: () => new Date().toISOString(),
+        }),
+      ],
     }),
 
     defineField({
@@ -249,13 +282,7 @@ export const order = defineType({
       status: "status",
       orderDate: "orderDate",
     },
-    prepare({
-      orderNumber,
-      customerEmail,
-      customerName,
-      total,
-      orderDate,
-    }) {
+    prepare({ orderNumber, customerEmail, customerName, total, orderDate }) {
       const totalFormatted = total
         ? `${total.toLocaleString()} UGX`
         : "No total";
