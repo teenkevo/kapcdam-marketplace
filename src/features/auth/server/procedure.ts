@@ -13,6 +13,7 @@ import {
   addressSchema,
   userWithAddressesSchema,
 } from "@/features/checkout/schemas/checkout-form";
+import { sanityFetch } from "@/sanity/lib/live";
 
 export const userRouter = createTRPCRouter({
   syncUserWebhook: baseProcedure
@@ -131,30 +132,24 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
-  getUserWithAddresses: protectedProcedure.query(async ({ ctx }) => {
+  getUserAddresses: protectedProcedure.query(async ({ ctx }) => {
     const { auth } = ctx;
     try {
-      const user = await client.fetch(
-        groq`*[_type == "user" && clerkUserId == $clerkUserId][0]{
-            _id,
-            clerkUserId,
-            firstName,
-            lastName,
-            email,
-            phone,
-            addresses
-          }`,
-        { clerkUserId: auth.userId }
-      );
+      const { data } = await sanityFetch({
+        query: groq`*[_type == "user" && clerkUserId == $clerkUserId][0]{
+        addresses,
+      }`,
+        params: { clerkUserId: auth.userId },
+      });
 
-      if (!user) {
+      if (!data) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "User profile not found",
+          message: "Default address not found",
         });
       }
 
-      return user;
+      return data;
     } catch (error) {
       if (error instanceof TRPCError) {
         throw error;
@@ -186,13 +181,37 @@ export const userRouter = createTRPCRouter({
 
         const currentAddresses = currentUser.addresses || [];
 
-        const updatedAddresses = input.isDefault
-          ? currentAddresses.map((addr: any) => ({ ...addr, isDefault: false }))
-          : currentAddresses;
+        // Check if address with this ID already exists
+        const existingAddressIndex = currentAddresses.findIndex(
+          (addr: any) => addr.id === input.id
+        );
 
-        updatedAddresses.push({
-          ...input,
-        });
+        let updatedAddresses;
+
+        if (existingAddressIndex !== -1) {
+          // Update existing address
+          updatedAddresses = [...currentAddresses];
+
+          // If setting as default, remove default from all other addresses
+          if (input.isDefault) {
+            updatedAddresses = updatedAddresses.map((addr: any) =>
+              addr.id === input.id ? addr : { ...addr, isDefault: false }
+            );
+          }
+
+          // Replace the existing address
+          updatedAddresses[existingAddressIndex] = { ...input };
+        } else {
+          // Add new address
+          updatedAddresses = input.isDefault
+            ? currentAddresses.map((addr: any) => ({
+                ...addr,
+                isDefault: false,
+              }))
+            : currentAddresses;
+
+          updatedAddresses.push({ ...input });
+        }
 
         const updatedUser = await client
           .patch(currentUser._id)
@@ -206,7 +225,7 @@ export const userRouter = createTRPCRouter({
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to add address",
+          message: "Failed to add/update address",
         });
       }
     }),

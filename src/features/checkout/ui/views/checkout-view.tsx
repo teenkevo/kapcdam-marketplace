@@ -58,7 +58,6 @@ export default function CheckoutView() {
 
   const handlePlaceOrder = () => {
     if (formState.isValid && formState.formData) {
-      // TODO: Implement order placement logic
       console.log("Placing order with:", {
         cart: userCart,
         checkoutData: formState.formData,

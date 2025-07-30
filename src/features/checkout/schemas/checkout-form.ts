@@ -2,9 +2,11 @@ import { z } from "zod";
 
 // Address schema matching Sanity schema exactly
 export const addressSchema = z.object({
+  id: z.string(),
   label: z.enum(["home", "work", "other"], {
     required_error: "Address label is required",
   }),
+  fullName: z.string(),
   phone: z
     .string()
     .min(1, "Phone number is required")
@@ -31,7 +33,7 @@ export const checkoutFormSchema = z.object({
 export type AddressInput = z.infer<typeof addressSchema>;
 export type CheckoutFormData = {
   selectedAddress: AddressInput;
-  deliveryMethod: 'pickup' | 'local_delivery';
+  deliveryMethod: "pickup" | "local_delivery";
   orderNotes?: string;
 };
 

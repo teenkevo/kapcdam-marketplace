@@ -7,6 +7,20 @@ export const address = defineType({
   description: "Delivery address powered by Google Maps",
   fields: [
     defineField({
+      name: "id",
+      title: "Address Identifier",
+      type: "string",
+      description:
+        "Unique identifier for this address (generated automatically)",
+      validation: (rule) => rule.required().error("Address ID is required"),
+    }),
+    defineField({
+      name: "fullName",
+      title: "Full Name (First and Last Name",
+      type: "string",
+      description: "Person recieving the package",
+    }),
+    defineField({
       name: "label",
       title: "Address Label",
       type: "string",
