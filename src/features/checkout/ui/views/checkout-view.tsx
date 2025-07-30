@@ -47,10 +47,14 @@ import {
   OrderSummarySkeleton,
 } from "../components/checkout-skeleton";
 
-export default function CheckoutView() {
+interface CheckoutViewProps {
+  cartId: string;
+}
+
+export default function CheckoutView({ cartId }: CheckoutViewProps) {
   const trpc = useTRPC();
   const { data: userCart, isLoading: isCartLoading } = useQuery(
-    trpc.cart.getUserCart.queryOptions()
+    trpc.cart.getCartById.queryOptions({ cartId })
   );
 
   const {

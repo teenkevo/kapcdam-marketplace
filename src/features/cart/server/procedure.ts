@@ -15,11 +15,51 @@ import {
   CartDisplayCourseType,
   CartDisplayProductType,
 } from "../schema";
-import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY } from "./query";
+import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY, CART_BY_ID_QUERY } from "./query";
 import { revalidatePath } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/live";
 
 export const cartRouter = createTRPCRouter({
+  /**
+   * Get cart by ID with user ownership validation
+   * Only for authenticated users
+   */
+  getCartById: protectedProcedure
+    .input(z.object({ cartId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const cart = await client.fetch(CART_BY_ID_QUERY, {
+          clerkUserId: ctx.auth.userId,
+          cartId: input.cartId,
+        });
+
+        if (!cart) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Cart not found or access denied",
+          });
+        }
+
+        return CartSchema.parse(cart);
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        if (error instanceof z.ZodError) {
+          console.error("Schema validation error:", error.errors);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid cart data structure",
+          });
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch cart",
+        });
+      }
+    }),
+
   /**
    * Get the authenticated user's cart with full product/course details
    * Only for authenticated users

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +35,7 @@ type Props = {
 
 export function CartSheet({ totalItems, userCart }: Props) {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const {
     setIsCartOpen,
     isCartOpen,
@@ -275,6 +277,24 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Get current total items count
   const currentTotalItems = isSignedIn ? totalItems : getLocalItemCount();
+
+  // Handle proceed to checkout
+  const handleProceedToCheckout = () => {
+    if (!isSignedIn) {
+      // Redirect to sign-in page
+      router.push("/sign-in");
+      return;
+    }
+
+    if (!userCart?._id) {
+      toast.error("Cart not found. Please try refreshing the page.");
+      return;
+    }
+
+    // Close cart sheet and navigate to checkout with cart ID
+    setIsCartOpen(false);
+    router.push(`/checkout/c/${userCart._id}`);
+  };
 
   const CartContent = () => (
     <div className="flex flex-col h-full">
@@ -539,6 +559,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
           <Button
             className="w-full bg-[#C5F82A] text-black hover:bg-[#B4E729]"
             disabled={updateServerCartMutation.isPending}
+            onClick={handleProceedToCheckout}
           >
             Proceed to Checkout
           </Button>

@@ -23,6 +23,29 @@ export const CART_ITEMS_QUERY = defineQuery(`
   }
 `);
 
+export const CART_BY_ID_QUERY = defineQuery(`
+  *[_type == "cart" && _id == $cartId && user->clerkUserId == $clerkUserId && isActive == true][0] {
+    _id,
+    itemCount,
+    createdAt,
+    updatedAt,
+    isActive,
+    cartItems[] {
+      type,
+      quantity,
+      addedAt,
+      preferredStartDate,
+      selectedVariantSku,
+      type == "product" => {
+        "productId": product._ref
+      },
+      type == "course" => {
+        "courseId": course._ref
+      }
+    }
+  }
+`);
+
 export const CART_DISPLAY_QUERY = defineQuery(`
 {
   "products": *[_type == "product" && _id in $productIds] {
