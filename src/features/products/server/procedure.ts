@@ -9,9 +9,11 @@ import { groq } from "next-sanity";
 import {
   getManyProductsInputSchema,
   getOneProductInputSchema,
+  getRelatedProductsInputSchema,
   productDetailSchema,
   productsResponseSchema,
   categoriesResponseSchema,
+  productListItemSchema,
 } from "../schemas";
 import { z } from "zod";
 import { sanityFetch } from "@/sanity/lib/live";
@@ -433,4 +435,179 @@ export const productsRouter = createTRPCRouter({
       return (data || []) as ProductRefType[];
     }
   ),
+
+  getRelatedProducts: baseProcedure
+    .input(getRelatedProductsInputSchema)
+    .query(async ({ input }) => {
+      const { productId, categoryId, limit } = input;
+
+      try {
+        let query = "";
+        
+        const params: any = { productId, limit };
+
+        if (categoryId) {
+          // First try to get products from the same category
+          query = groq`*[_type == "product" && _id != $productId && category._ref == $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+            _id,
+            title,
+            slug,
+            hasVariants,
+            status,
+            "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+            "price": select(
+              hasVariants == true => variants[isDefault == true][0].price,
+              price
+            ),
+            "totalStock": select(
+              hasVariants == true => math::sum(variants[].stock),
+              totalStock
+            ),
+            "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+            "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+            category-> {
+              _id,
+              name,
+              slug,
+              hasParent,
+              parent-> {
+                _id,
+                name,
+                slug
+              }
+            },
+            "variantOptions": variants[] {
+              sku,
+              price,
+              stock,
+              isDefault,
+              attributes[] {
+                "attributeName": attributeRef->name,
+                "attributeCode": attributeRef->code.current,
+                value
+              }
+            },
+            "hasDiscount": defined(discount) && discount.isActive == true,
+            "discountInfo": select(
+              defined(discount) && discount.isActive == true => discount,
+              null
+            )
+          }`;
+          params.categoryId = categoryId;
+        } else {
+          // If no category, get random products excluding the current one
+          query = groq`*[_type == "product" && _id != $productId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+            _id,
+            title,
+            slug,
+            hasVariants,
+            status,
+            "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+            "price": select(
+              hasVariants == true => variants[isDefault == true][0].price,
+              price
+            ),
+            "totalStock": select(
+              hasVariants == true => math::sum(variants[].stock),
+              totalStock
+            ),
+            "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+            "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+            category-> {
+              _id,
+              name,
+              slug,
+              hasParent,
+              parent-> {
+                _id,
+                name,
+                slug
+              }
+            },
+            "variantOptions": variants[] {
+              sku,
+              price,
+              stock,
+              isDefault,
+              attributes[] {
+                "attributeName": attributeRef->name,
+                "attributeCode": attributeRef->code.current,
+                value
+              }
+            },
+            "hasDiscount": defined(discount) && discount.isActive == true,
+            "discountInfo": select(
+              defined(discount) && discount.isActive == true => discount,
+              null
+            )
+          }`;
+        }
+
+        const products = await client.fetch(query, params);
+        const cleanedProducts = (products || []).map(cleanProductData);
+
+        // If we have less than the limit and we were filtering by category, get random products to fill up
+        if (cleanedProducts.length < limit && categoryId) {
+          const remainingLimit = limit - cleanedProducts.length;
+          const fallbackQuery = groq`*[_type == "product" && _id != $productId && category._ref != $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${remainingLimit}] {
+            _id,
+            title,
+            slug,
+            hasVariants,
+            status,
+            "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+            "price": select(
+              hasVariants == true => variants[isDefault == true][0].price,
+              price
+            ),
+            "totalStock": select(
+              hasVariants == true => math::sum(variants[].stock),
+              totalStock
+            ),
+            "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+            "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+            category-> {
+              _id,
+              name,
+              slug,
+              hasParent,
+              parent-> {
+                _id,
+                name,
+                slug
+              }
+            },
+            "variantOptions": variants[] {
+              sku,
+              price,
+              stock,
+              isDefault,
+              attributes[] {
+                "attributeName": attributeRef->name,
+                "attributeCode": attributeRef->code.current,
+                value
+              }
+            },
+            "hasDiscount": defined(discount) && discount.isActive == true,
+            "discountInfo": select(
+              defined(discount) && discount.isActive == true => discount,
+              null
+            )
+          }`;
+
+          const fallbackProducts = await client.fetch(fallbackQuery, { productId, categoryId });
+          const cleanedFallbackProducts = (fallbackProducts || []).map(cleanProductData);
+          
+          cleanedProducts.push(...cleanedFallbackProducts);
+        }
+
+        return z.array(productListItemSchema).parse(cleanedProducts);
+      } catch (error) {
+        console.error("Failed to fetch related products:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch related products",
+        });
+      }
+    }),
 });

@@ -346,9 +346,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     className="w-16 h-16 object-cover rounded-md"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 truncate">
+                    <h4 
+                      className="text-sm font-medium text-gray-900 truncate"
+                      title={expandedProduct.originalTitle} // Tooltip with full title
+                    >
                       {expandedProduct.title}
                     </h4>
+                    {expandedProduct.variantDetails && (
+                      <p className="text-xs text-gray-600 truncate">
+                        {expandedProduct.variantDetails}
+                      </p>
+                    )}
                     <p className="text-sm text-gray-500">Kapcdam Marketplace</p>
                     <div className="flex items-center">
                       <NumericFormat

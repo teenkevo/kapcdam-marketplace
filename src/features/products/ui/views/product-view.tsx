@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 import LikeProductButton from "@/features/products/ui/components/like-product-button";
+import { RelatedProducts } from "@/features/products/ui/components/related-products";
 import { CartItemType } from "@/features/cart/schema";
 
 interface ProductViewProps {
@@ -708,6 +709,12 @@ export default function ProductView({ slug }: ProductViewProps) {
           )}
         </div>
       </div>
+
+      {/* Related Products Section */}
+      <RelatedProducts 
+        productId={product._id} 
+        categoryId={product.category?._id}
+      />
     </div>
   );
 }

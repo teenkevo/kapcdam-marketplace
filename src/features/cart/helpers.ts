@@ -11,20 +11,30 @@ export function getDisplayTitle(
       value: string;
     }[];
   }
-): string {
-  if (!selectedVariant || type === "course") return title;
+): { title: string; variantDetails: string | null } {
+  if (!selectedVariant || type === "course") {
+    return {
+      title: title.length > 40 ? `${title.substring(0, 40)}...` : title,
+      variantDetails: null
+    };
+  }
 
   const variantDetails = selectedVariant.attributes
     .map((attr) => `${attr.name}: ${attr.value}`)
     .filter(Boolean)
     .join(", ");
 
-  return variantDetails ? `${title} - ${variantDetails}` : title;
+  return {
+    title: title.length > 40 ? `${title.substring(0, 40)}...` : title,
+    variantDetails: variantDetails || null
+  };
 }
 
 export type ExpandedProduct = {
   _id: string;
   title: string;
+  variantDetails: string | null;
+  originalTitle: string; // Keep original title for tooltip
   price: string;
   totalStock: string | null;
   defaultImage: any;
@@ -75,9 +85,13 @@ export function expandCartVariants(
         const variant = product.variants!.find((v) => v.sku === sku);
         if (!variant) return;
 
+        const displayInfo = getDisplayTitle(product.title, "product", variant);
+
         const variantProduct: ExpandedProduct = {
           _id: `${product._id}-${variant.sku}`,
-          title: getDisplayTitle(product.title, "product", variant),
+          title: displayInfo.title,
+          variantDetails: displayInfo.variantDetails,
+          originalTitle: product.title,
           price: `${variant.price}`,
           totalStock: `${variant.totalStock}`,
           defaultImage: product.defaultImage,
@@ -93,9 +107,13 @@ export function expandCartVariants(
       return;
     } else {
       // Product without variants - add as-is
+      const displayInfo = getDisplayTitle(product.title, "product");
+      
       expandedItems.push({
         _id: product._id,
-        title: product.title,
+        title: displayInfo.title,
+        variantDetails: displayInfo.variantDetails,
+        originalTitle: product.title,
         price: product.price ?? "0",
         totalStock: `${product.totalStock}`,
         defaultImage: product.defaultImage,

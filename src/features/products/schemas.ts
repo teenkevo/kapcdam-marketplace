@@ -103,6 +103,12 @@ const getOneProductInputSchema = z.object({
   slug: z.string(),
 });
 
+const getRelatedProductsInputSchema = z.object({
+  productId: z.string().min(1, "Product ID is required"),
+  categoryId: z.string().optional(),
+  limit: z.number().min(1).max(8).default(4),
+});
+
 export {
   // Base schemas
   sanitySlugSchema,
@@ -123,6 +129,7 @@ export {
   // Input schemas
   getManyProductsInputSchema,
   getOneProductInputSchema,
+  getRelatedProductsInputSchema,
 };
 
 export type SanitySlug = z.infer<typeof sanitySlugSchema>;
@@ -136,6 +143,7 @@ export type ProductsResponse = z.infer<typeof productsResponseSchema>;
 export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
 export type GetManyProductsInput = z.infer<typeof getManyProductsInputSchema>;
 export type GetOneProductInput = z.infer<typeof getOneProductInputSchema>;
+export type GetRelatedProductsInput = z.infer<typeof getRelatedProductsInputSchema>;
 
 // Validation helpers
 export const validateProductsResponse = (data: unknown): ProductsResponse => {

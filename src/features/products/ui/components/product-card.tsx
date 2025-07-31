@@ -2,7 +2,6 @@
 
 import { NumericFormat } from "react-number-format";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
@@ -90,23 +89,22 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        <div className="p-4 space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 flex justify-between items-start">
-              <Link 
-                href={`/products/${product.slug.current}`}
-                className="flex-1"
-              >
-                <h3 className="font-semibold text-sm leading-tight min-h-[2.5rem] line-clamp-2 hover:text-primary transition-colors cursor-pointer">
-                  {product.title}
-                </h3>
-              </Link>
-              {product.category?.name && (
-                <Badge variant="secondary" className="text-xs h-fit ml-2">
-                  {product.category.name}
-                </Badge>
-              )}
-            </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <Link 
+              href={`/products/${product.slug.current}`}
+              className="block"
+              title={product.title} // Tooltip for full title
+            >
+              <h3 className="font-semibold text-sm leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer mb-2">
+                {product.title.length > 80 ? `${product.title.substring(0, 120)}...` : product.title}
+              </h3>
+            </Link>
+            {product.category?.name && (
+              <Badge variant="secondary" className="text-xs">
+                {product.category.name}
+              </Badge>
+            )}
           </div>
 
           <div>
