@@ -94,7 +94,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <Link 
               href={`/products/${product.slug.current}`}
               className="block"
-              title={product.title} // Tooltip for full title
+              title={product.title}
             >
               <h3 className="font-semibold text-sm leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer mb-2">
                 {product.title.length > 80 ? `${product.title.substring(0, 120)}...` : product.title}
