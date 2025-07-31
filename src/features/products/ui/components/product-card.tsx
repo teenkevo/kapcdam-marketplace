@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
+import Link from "next/link";
 
 import { Star } from "lucide-react";
 
@@ -51,17 +52,19 @@ export function ProductCard({ product }: ProductCardProps) {
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="relative aspect-square">
-          <Image
-            src={imageSrc}
-            alt={product.title || "Product image"}
-            width={300}
-            height={300}
-            className="object-cover w-full h-full p-4"
-          />
+          <Link href={`/products/${product.slug.current}`} className="block">
+            <Image
+              src={imageSrc}
+              alt={product.title || "Product image"}
+              width={300}
+              height={300}
+              className="object-cover w-full h-full p-4 transition-transform duration-200 hover:scale-105"
+            />
+          </Link>
 
           {/* Out of stock overlay */}
           {availableStock === 0 && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 pointer-events-none">
               <div className="bg-white px-4 py-2 rounded-lg">
                 <span className="text-black font-semibold">Out of Stock</span>
               </div>
@@ -70,7 +73,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           {/* Low stock indicator - only show if not out of stock */}
           {availableStock <= 5 && availableStock > 0 && (
-            <div className="absolute top-2 left-2">
+            <div className="absolute top-2 left-2 z-10 pointer-events-none">
               <Badge variant="destructive" className="text-xs">
                 Only {availableStock} left
               </Badge>
@@ -79,7 +82,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           {/* Discount indicator */}
           {product.hasDiscount && product.discountInfo && (
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 right-2 z-10 pointer-events-none">
               <Badge className="bg-red-500 text-white text-xs">
                 -{product.discountInfo.value}% OFF
               </Badge>
@@ -90,11 +93,16 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="p-4 space-y-4">
           <div className="flex items-start justify-between">
             <div className="flex-1 flex justify-between items-start">
-              <h3 className="font-semibold text-sm leading-tight min-h-[2.5rem] line-clamp-2">
-                {product.title}
-              </h3>
+              <Link 
+                href={`/products/${product.slug.current}`}
+                className="flex-1"
+              >
+                <h3 className="font-semibold text-sm leading-tight min-h-[2.5rem] line-clamp-2 hover:text-primary transition-colors cursor-pointer">
+                  {product.title}
+                </h3>
+              </Link>
               {product.category?.name && (
-                <Badge variant="secondary" className="text-xs h-fit">
+                <Badge variant="secondary" className="text-xs h-fit ml-2">
                   {product.category.name}
                 </Badge>
               )}

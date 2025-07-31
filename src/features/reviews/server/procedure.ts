@@ -43,7 +43,7 @@ export const reviewsRouter = createTRPCRouter({
           orderBy = "helpfulCount desc, createdAt desc";
           break;
         default:
-          orderBy = "createdAt desc";
+         orderBy = "createdAt desc";
       }
 
       const query = groq`{
