@@ -112,7 +112,7 @@ export const reviews = defineType({
       name: "order",
       title: "Order",
       type: "reference",
-      description: "Order that proves the purchase (required for verification)",
+      description: "Order that proves the purchase (optional - required only for verification)",
       to: [{ type: "order" }],
       validation: (rule) =>
         rule.custom((value, context) => {

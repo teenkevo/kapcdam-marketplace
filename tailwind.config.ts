@@ -93,7 +93,35 @@ export default {
       boxShadow: {
         even: "0 0 24px 0 rgba(0,0,0,0.15)", // more even, less directional
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            'h2': {
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: 'rgb(31 41 55)', // gray-800
+              marginTop: '2rem',
+              marginBottom: '1rem',
+            },
+            'p': {
+              marginTop: '1rem',
+              marginBottom: '1rem',
+            },
+            'ul': {
+              marginTop: '1rem',
+              marginBottom: '1rem',
+            },
+            'li': {
+              marginTop: '0.5rem',
+              marginBottom: '0.5rem',
+            },
+          },
+        },
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+  ],
 } satisfies Config;

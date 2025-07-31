@@ -14,9 +14,10 @@ import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 
 type Props = {
   product: CartItemType;
+  quantity?: number;
 };
 
-export const AddToLocalCartButton = ({ product }: Props) => {
+export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
   const { addLocalCartItem, isInCart } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const { isSyncing } = useCartSync();
@@ -36,7 +37,7 @@ export const AddToLocalCartButton = ({ product }: Props) => {
         productId: product.productId,
         courseId: product.courseId,
         selectedVariantSku: product.selectedVariantSku,
-        quantity: 1,
+        quantity: quantity,
       });
 
       if (isProductInCart) {
@@ -84,8 +85,10 @@ export const AddToLocalCartButton = ({ product }: Props) => {
 
 export const AddToServerCartButton = ({
   product,
+  quantity = 1,
 }: {
   product: CartItemType;
+  quantity?: number;
 }) => {
   const [isInCart, setIsInCart] = useState(false);
   const trpc = useTRPC();
@@ -147,7 +150,7 @@ export const AddToServerCartButton = ({
     <div className="relative flex-1">
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
-        onClick={() => addItemToCart.mutate(product)}
+        onClick={() => addItemToCart.mutate({ ...product, quantity })}
         disabled={addItemToCart.isPending}
       >
         {addItemToCart.isPending ? (
@@ -166,12 +169,12 @@ export const AddToServerCartButton = ({
   );
 };
 
-export const AddToCartButton = ({ product }: { product: CartItemType }) => {
+export const AddToCartButton = ({ product, quantity }: { product: CartItemType; quantity?: number }) => {
   const user = useUser();
 
   return user.isSignedIn ? (
-    <AddToServerCartButton product={product} />
+    <AddToServerCartButton product={product} quantity={quantity} />
   ) : (
-    <AddToLocalCartButton product={product} />
+    <AddToLocalCartButton product={product} quantity={quantity} />
   );
 };

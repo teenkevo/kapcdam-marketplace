@@ -366,6 +366,18 @@ export const ordersRouter = createTRPCRouter({
         // 6. Generate order number
         const orderNumber = generateOrderNumber();
 
+        // 6.5. Get discount code reference if coupon is applied
+        let discountCodeRef = null;
+        if (appliedCoupon) {
+          const discountCode = await client.fetch(
+            groq`*[_type == "discountCodes" && code == $code][0]{ _id }`,
+            { code: appliedCoupon.code.toUpperCase() }
+          );
+          if (discountCode) {
+            discountCodeRef = { _type: "reference", _ref: discountCode._id };
+          }
+        }
+
         // 7. Validate shipping address (must be existing address ID only)
         let addressId: string;
 
@@ -406,6 +418,7 @@ export const ordersRouter = createTRPCRouter({
           totalItemDiscounts: totals.totalItemDiscounts,
           ...(appliedCoupon && {
             orderLevelDiscount: {
+              ...(discountCodeRef && { discountCode: discountCodeRef }),
               discountAmount: appliedCoupon.discountAmount,
               originalPercentage: appliedCoupon.originalPercentage,
               appliedAt: new Date().toISOString(),

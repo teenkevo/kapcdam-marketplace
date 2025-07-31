@@ -1,14 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import {
-  createTRPCRouter,
-  protectedProcedure,
-} from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import { addressSchema } from "@/features/checkout/schemas/checkout-form";
 
-// Address creation schema 
+// Address creation schema
 export const createAddressSchema = addressSchema;
 
 // Address update schema
@@ -63,7 +60,7 @@ export const addressesRouter = createTRPCRouter({
         { clerkUserId: ctx.auth.userId }
       );
 
-      console.log("get User Addresses",addresses)
+      console.log("get User Addresses", addresses);
 
       return addresses.map((addr: any) => addressResponseSchema.parse(addr));
     } catch (error) {
@@ -145,10 +142,13 @@ export const addressesRouter = createTRPCRouter({
           await client
             .patch({
               query: groq`*[_type == "address" && user->clerkUserId == $clerkUserId && isDefault == true]`,
+              params: { clerkUserId: ctx.auth.userId },
             })
             .set({ isDefault: false, updatedAt: new Date().toISOString() })
             .commit();
         }
+
+        console.log("current user: ", user);
 
         // Create new address
         const newAddress = await client.create({
@@ -160,14 +160,18 @@ export const addressesRouter = createTRPCRouter({
           isActive: true,
         });
 
+        console.log("new Address: ", newAddress);
+
         return addressResponseSchema.parse({
           ...newAddress,
           user: { _ref: user._id, _type: "reference" },
         });
       } catch (error) {
         if (error instanceof TRPCError) {
+          console.log(error);
           throw error;
         }
+        console.log("INTERNAL_SERVER_ERROR", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create address",
@@ -260,7 +264,8 @@ export const addressesRouter = createTRPCRouter({
         if (addressCount <= 1) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Cannot delete the only address. Please add another address first.",
+            message:
+              "Cannot delete the only address. Please add another address first.",
           });
         }
 

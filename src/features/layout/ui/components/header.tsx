@@ -187,19 +187,7 @@ export default async function Header() {
     return { productIds, courseIds, selectedSKUs };
   };
 
-  const { data: cartDisplayData } = await sanityFetch({
-    query: CART_DISPLAY_QUERY,
-    params: {
-      productIds: cartIds().productIds,
-      courseIds: cartIds().courseIds,
-      selectedSKUs: cartIds().selectedSKUs,
-    },
-  });
 
-  const enhancedCartDisplayData = expandCartVariants(
-    cartDisplayData?.products,
-    cartData?.cartItems ?? []
-  );
 
   return (
     <header className="bg-white border-b border-gray-200">

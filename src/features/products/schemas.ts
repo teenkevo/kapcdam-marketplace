@@ -75,7 +75,9 @@ const productListItemSchema = z.object({
 
 // Product detail schema (for getOne)
 const productDetailSchema = productListItemSchema.extend({
-  variants: z.array(productVariantSchema),
+  variants: z.array(productVariantSchema).nullable(),
+  images: z.array(sanityAssetSchema).nullable(),
+  detailedDescription: z.any().nullable(), // PortableText content
 });
 
 // Response schemas

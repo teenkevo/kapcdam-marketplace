@@ -33,6 +33,18 @@ function cleanProductData(data: any) {
     totalStock: data.totalStock ?? 0,
     totalReviews: data.totalReviews ?? 0,
     hasDiscount: data.hasDiscount ?? false,
+    variants: data.variants === null ? null : Array.isArray(data.variants) 
+      ? data.variants.map((variant: any) => ({
+          ...variant,
+          sku: variant.sku ?? "",
+          price: variant.price ?? "0",
+          stock: variant.stock ?? 0,
+          isDefault: variant.isDefault ?? false,
+          attributes: Array.isArray(variant.attributes)
+            ? variant.attributes
+            : [],
+        }))
+      : [],
     variantOptions: Array.isArray(data.variantOptions)
       ? data.variantOptions.map((variant: any) => ({
           ...variant,
@@ -49,6 +61,8 @@ function cleanProductData(data: any) {
       ...data.category,
       hasParent: data.category?.hasParent ?? false,
     },
+    images: data.images === null ? null : data.images,
+    detailedDescription: data.detailedDescription === null ? null : data.detailedDescription,
     discountInfo:
       data.hasDiscount && data.discountInfo ? data.discountInfo : null,
   };
@@ -75,6 +89,8 @@ export const productsRouter = createTRPCRouter({
         slug,
         hasVariants,
         status,
+        detailedDescription,
+        images,
         "defaultImage": coalesce(images[isDefault == true][0], images[0]),
         "price": select(
           hasVariants == true => variants[isDefault == true][0].price,

@@ -282,16 +282,26 @@ export const order = defineType({
       status: "status",
       orderDate: "orderDate",
     },
-    prepare({ orderNumber, customerEmail, customerName, total, orderDate }) {
+    prepare({ orderNumber, customerEmail, customerName, total, paymentStatus, status, orderDate }) {
       const totalFormatted = total
         ? `${total.toLocaleString()} UGX`
         : "No total";
       const date = orderDate ? new Date(orderDate).toLocaleDateString() : "";
       const customerDisplay =
         customerName || customerEmail || "Unknown Customer";
+      
+      // Format payment status for display
+      const paymentStatusDisplay = paymentStatus 
+        ? paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)
+        : "Pending";
+      
+      const orderStatusDisplay = status 
+        ? status.charAt(0).toUpperCase() + status.slice(1)
+        : "Pending";
+
       return {
         title: `${orderNumber}`,
-        subtitle: `${totalFormatted} • ${customerDisplay} • ${date}`,
+        subtitle: `${totalFormatted} • ${customerDisplay} • ${paymentStatusDisplay} • ${orderStatusDisplay} • ${date}`,
         media: null,
       };
     },
