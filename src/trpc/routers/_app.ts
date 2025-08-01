@@ -9,6 +9,7 @@ import { couponRouter } from "@/features/coupons/server/procedure";
 import { ordersRouter } from "@/features/orders/server/procedure";
 import { addressesRouter } from "@/features/addresses/server/procedure";
 import { reviewsRouter } from "@/features/reviews/server/procedure";
+import { coursesRouter } from "@/features/courses/server/procedure";
 
 export const appRouter = createTRPCRouter({
   products: productsRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   orders: ordersRouter,
   addresses: addressesRouter,
   reviews: reviewsRouter,
+  courses: coursesRouter,
 });
 
 export type AppRouter = typeof appRouter;

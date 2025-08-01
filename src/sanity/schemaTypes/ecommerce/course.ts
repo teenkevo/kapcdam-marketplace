@@ -146,7 +146,7 @@ export const course = defineType({
           description: "Discount percentage %",
           validation: (rule) =>
             rule
-              .required()
+
               .min(1)
               .max(100)
               .error("Discount value must be between 1% and 100%"),
@@ -163,8 +163,6 @@ export const course = defineType({
           title: "Campaign Start Date",
           type: "datetime",
           description: "When this discount campaign begins",
-          validation: (rule) =>
-            rule.required().error("Campaign start date is required"),
         }),
         defineField({
           name: "endDate",
@@ -173,7 +171,6 @@ export const course = defineType({
           description: "When this discount campaign ends",
           validation: (rule) =>
             rule
-              .required()
               .error("Campaign end date is required")
               .custom((endDate, context) => {
                 const startDate = context.document?.startDate as string;
@@ -195,8 +192,6 @@ export const course = defineType({
           title: "Campaign Name",
           type: "string",
           description: "Name of the discount campaign",
-          validation: (rule) =>
-            rule.required().error("Campaign name is required"),
         }),
       ],
     }),
