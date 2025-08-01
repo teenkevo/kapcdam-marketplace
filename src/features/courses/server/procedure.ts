@@ -1,8 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import {
-  createTRPCRouter,
-  baseProcedure,
-} from "@/trpc/init";
+import { createTRPCRouter, baseProcedure } from "@/trpc/init";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import { z } from "zod";
@@ -17,80 +14,37 @@ import {
 } from "../schemas";
 
 function cleanCourseData(data: any) {
-  // Transform images from Sanity objects to URLs
-  const transformImages = (images: any[]) => {
-    if (!Array.isArray(images)) return [];
-    return images.map(img => {
-      if (typeof img === 'string') return img;
-      if (img?.asset?._ref) {
-        // Convert Sanity image reference to URL using urlFor
-        return urlFor(img).url();
-      }
-      return null;
-    }).filter(Boolean);
-  };
-
-  // Transform defaultImage from Sanity object to URL
-  const transformDefaultImage = (img: any) => {
-    if (typeof img === 'string') return img;
-    if (img?.asset?._ref) {
-      return urlFor(img).url();
-    }
-    return null;
-  };
-
-  // Transform discount object to match schema
-  const transformDiscount = (discount: any) => {
-    if (!discount || !discount.isActive) {
-      return {
-        value: 0,
-        isActive: false,
-        startDate: '',
-        endDate: '',
-        title: ''
-      };
-    }
-    return {
-      value: discount.value || 0,
-      isActive: discount.isActive || false,
-      startDate: discount.startDate || '',
-      endDate: discount.endDate || '',
-      title: discount.title || ''
-    };
-  };
-
-  // Transform createdBy image
-  const transformCreatedBy = (createdBy: any) => {
-    if (!createdBy) return null;
-    return {
-      ...createdBy,
-      image: createdBy.image ? urlFor(createdBy.image).url() : null
-    };
-  };
-
   return {
     ...data,
     isActive: data.isActive ?? true,
     isFeatured: data.isFeatured ?? false,
     price: data.price ?? "0",
     hasDiscount: data.hasDiscount ?? false,
-    images: transformImages(data.images),
-    defaultImage: transformDefaultImage(data.defaultImage),
-    requirements: Array.isArray(data.requirements) ? data.requirements : [],
-    tags: Array.isArray(data.tags) ? data.tags : [],
-    discount: transformDiscount(data.discount),
-    discountInfo: data.hasDiscount && data.discountInfo ? data.discountInfo : null,
-    learningOutcomes: Array.isArray(data.learningOutcomes) ? data.learningOutcomes : [],
+    images: data.images === null ? null : data.images,
+    defaultImage: data.defaultImage === null ? null : data.defaultImage,
+    requirements: data.requirements === null ? null : Array.isArray(data.requirements) ? data.requirements : null,
+    tags: data.tags === null ? null : Array.isArray(data.tags) ? data.tags : null,
+    discount: data.discount === null ? null : {
+      value: data.discount?.value || 0,
+      isActive: data.discount?.isActive || false,
+      startDate: data.discount?.startDate || "",
+      endDate: data.discount?.endDate || "", 
+      title: data.discount?.title || "",
+      ...data.discount
+    },
+    discountInfo:
+      data.hasDiscount && data.discountInfo ? data.discountInfo : null,
+    learningOutcomes: Array.isArray(data.learningOutcomes)
+      ? data.learningOutcomes
+      : [],
     curriculum: Array.isArray(data.curriculum) ? data.curriculum : [],
-    createdBy: transformCreatedBy(data.createdBy),
+    createdBy: data.createdBy === null ? null : data.createdBy,
   };
 }
 
 function cleanCoursesResponse(result: any) {
   return {
-    items: Array.isArray(result.items)
-      ? result.items.map(cleanCourseData)
-      : [],
+    items: Array.isArray(result.items) ? result.items.map(cleanCourseData) : [],
     total: result.total ?? 0,
     hasMore: result.hasMore ?? false,
     nextCursor: result.nextCursor ?? null,
@@ -149,7 +103,7 @@ export const coursesRouter = createTRPCRouter({
         }
 
         const cleanedCourse = cleanCourseData(course);
-        console.log(cleanedCourse)
+        console.log(cleanedCourse);
         return courseDetailSchema.parse(cleanedCourse);
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -182,7 +136,9 @@ export const coursesRouter = createTRPCRouter({
       const conditions = [`_type == "course"`, `isActive == true`];
 
       if (search) {
-        conditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
+        conditions.push(
+          `(title match $search + "*" || title match "*" + $search + "*")`
+        );
       }
 
       if (skillLevel) {
@@ -285,9 +241,8 @@ export const coursesRouter = createTRPCRouter({
     }),
 
   // Get featured courses
-  getFeatured: baseProcedure
-    .query(async () => {
-      const query = groq`*[_type == "course" && isActive == true && isFeatured == true] | order(_createdAt desc) [0...6] {
+  getFeatured: baseProcedure.query(async () => {
+    const query = groq`*[_type == "course" && isActive == true && isFeatured == true] | order(_createdAt desc) [0...6] {
         _id,
         title,
         slug,
@@ -311,17 +266,17 @@ export const coursesRouter = createTRPCRouter({
         )
       }`;
 
-      try {
-        const courses = await client.fetch(query);
-        const cleanedCourses = (courses || []).map(cleanCourseData);
-        
-        return z.array(courseListItemSchema).parse(cleanedCourses);
-      } catch (error) {
-        console.error("Failed to fetch featured courses:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch featured courses",
-        });
-      }
-    }),
+    try {
+      const courses = await client.fetch(query);
+      const cleanedCourses = (courses || []).map(cleanCourseData);
+
+      return z.array(courseListItemSchema).parse(cleanedCourses);
+    } catch (error) {
+      console.error("Failed to fetch featured courses:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch featured courses",
+      });
+    }
+  }),
 });

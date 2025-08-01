@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Duration schema for course modules  
+// Duration schema for course modules
 const DurationSchema = z.object({
   value: z.number(),
   unit: z.enum(["hours", "minutes"]),
@@ -15,19 +15,32 @@ const CourseModuleSchema = z.object({
 });
 
 // Discount schema for courses
-const CourseDiscountSchema = z.object({
-  value: z.number(),
-  isActive: z.boolean(),
-  startDate: z.string(),
-  endDate: z.string(),
-  title: z.string(),
-}).nullable().optional();
+const CourseDiscountSchema = z
+  .object({
+    value: z.number(),
+    isActive: z.boolean(),
+    startDate: z.string(),
+    endDate: z.string(),
+    title: z.string(),
+  })
+  .nullable()
+  .optional();
 
 // Created by team member schema
 const TeamMemberSchema = z.object({
   _id: z.string(),
   name: z.string(),
   image: z.string().nullable().optional(),
+});
+
+// Sanity image schema
+const SanityImageSchema = z.object({
+  _key: z.string().optional(),
+  _type: z.literal("image"),
+  asset: z.object({
+    _ref: z.string(),
+    _type: z.literal("reference"),
+  }),
 });
 
 // Course detail schema (for individual course page)
@@ -40,19 +53,19 @@ export const courseDetailSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   description: z.any(), // Block content
-  images: z.array(z.string()),
-  defaultImage: z.string().nullable().optional(),
+  images: z.array(SanityImageSchema).nullable().optional(),
+  defaultImage: SanityImageSchema.nullable().optional(),
   previewVideo: z.string().nullable().optional(),
   skillLevel: z.enum(["beginner", "intermediate", "advanced"]),
   price: z.string(),
   compareAtPrice: z.string().nullable().optional(),
   discount: z.object({
-    value: z.number(),
+    value: z.number().optional(),
     isActive: z.boolean(),
-    startDate: z.string(),
-    endDate: z.string(),
-    title: z.string(),
-  }),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    title: z.string().optional(),
+  }).nullable().optional(),
   isActive: z.boolean(),
   isFeatured: z.boolean(),
   learningOutcomes: z.array(z.string()),
@@ -73,7 +86,7 @@ export const courseListItemSchema = z.object({
   }),
   startDate: z.string(),
   endDate: z.string(),
-  defaultImage: z.string().nullable().optional(),
+  defaultImage: SanityImageSchema.nullable().optional(),
   skillLevel: z.enum(["beginner", "intermediate", "advanced"]),
   price: z.string(),
   compareAtPrice: z.string().nullable().optional(),
@@ -93,9 +106,22 @@ export const getManyCourseInputSchema = z.object({
   page: z.number().min(1).default(1),
   pageSize: z.number().min(1).max(50).default(12),
   search: z.string().nullable().optional(),
-  skillLevel: z.enum(["beginner", "intermediate", "advanced"]).nullable().optional(),
+  skillLevel: z
+    .enum(["beginner", "intermediate", "advanced"])
+    .nullable()
+    .optional(),
   featured: z.boolean().optional(),
-  sortBy: z.enum(["newest", "oldest", "price-asc", "price-desc", "name-asc", "name-desc", "skill-level"]).default("newest"),
+  sortBy: z
+    .enum([
+      "newest",
+      "oldest",
+      "price-asc",
+      "price-desc",
+      "name-asc",
+      "name-desc",
+      "skill-level",
+    ])
+    .default("newest"),
 });
 
 // Response schemas

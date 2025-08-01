@@ -220,45 +220,56 @@ export const cartRouter = createTRPCRouter({
         }
 
         // Check if item already exists in cart
+        console.log("Cart items structure:", JSON.stringify(cart.cartItems, null, 2));
+        console.log("Looking for:", { type, productId, courseId, selectedVariantSku });
+        
         const existingItemIndex = cart.cartItems?.findIndex((cartItem: any) => {
+          console.log("Checking cart item:", JSON.stringify(cartItem, null, 2));
+          
           if (type === "product" && productId) {
             if (selectedVariantSku) {
               return (
-                cartItem.product._ref === productId &&
+                cartItem.product?._ref === productId &&
                 cartItem.selectedVariantSku === selectedVariantSku
               );
             }
-            return cartItem.product._ref === productId;
-          } else {
-            return cartItem.course._ref === courseId;
+            return cartItem.product?._ref === productId;
+          } else if (type === "course" && courseId) {
+            return cartItem.course?._ref === courseId;
           }
+          return false;
         });
 
         const updatedItems = [...(cart.cartItems || [])];
 
+        console.log("Existing item index:", existingItemIndex);
+        
         if (existingItemIndex !== -1) {
           // Update existing item quantity
+          console.log("Updating existing item at index:", existingItemIndex);
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
             quantity: updatedItems[existingItemIndex].quantity + quantity,
             lastUpdated: new Date().toISOString(),
           };
         } else {
+          console.log("Creating new cart item for:", { type, productId, courseId });
           const newItem = {
             _key: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             type,
             quantity,
             addedAt: new Date().toISOString(),
             lastUpdated: new Date().toISOString(),
-            ...(type === "product" && {
+            ...(type === "product" && productId && {
               product: { _type: "reference", _ref: productId },
               selectedVariantSku: selectedVariantSku || null,
             }),
-            ...(type === "course" && {
+            ...(type === "course" && courseId && {
               course: { _type: "reference", _ref: courseId },
               preferredStartDate: preferredStartDate || null,
             }),
           };
+          console.log("New item to be added:", JSON.stringify(newItem, null, 2));
           updatedItems.push(newItem);
         }
 
@@ -269,6 +280,9 @@ export const cartRouter = createTRPCRouter({
         );
 
         // Update cart in Sanity (remove subtotal as it should be calculated dynamically)
+        console.log("Updating cart with items:", JSON.stringify(updatedItems, null, 2));
+        console.log("Item count:", itemCount);
+        
         const updatedCart = await client
           .patch(cart._id)
           .set({
@@ -278,16 +292,19 @@ export const cartRouter = createTRPCRouter({
           })
           .commit();
 
+        console.log("Cart updated successfully:", updatedCart._id);
         revalidatePath("/");
 
         return updatedCart;
       } catch (error) {
+        console.error("Error in addToCart:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to add item to cart",
+          cause: error,
         });
       }
     }),

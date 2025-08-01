@@ -127,3 +127,20 @@ export function expandCartVariants(
 
   return expandedItems;
 }
+
+/**
+ * Analyzes cart composition to determine what types of items are present
+ */
+export function analyzeCartComposition(cartItems: CartItemType[]) {
+  const hasProducts = cartItems.some(item => item.type === "product");
+  const hasCourses = cartItems.some(item => item.type === "course");
+  
+  return {
+    hasProducts,
+    hasCourses,
+    isCoursesOnly: hasCourses && !hasProducts,
+    isProductsOnly: hasProducts && !hasCourses,
+    isMixed: hasProducts && hasCourses,
+    isEmpty: cartItems.length === 0
+  };
+}

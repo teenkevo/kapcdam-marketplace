@@ -3,7 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calendar, Clock, Users, BookOpen, CheckCircle, Play, User, Star } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Users,
+  BookOpen,
+  CheckCircle,
+  Play,
+  User,
+  Star,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,13 +76,14 @@ export default function CourseView({ slug }: CourseViewProps) {
     if (!course?.curriculum) return "0 hrs";
     const totalMinutes = course.curriculum.reduce((total, module) => {
       const duration = module.estimatedDuration;
-      const minutes = duration.unit === "hours" ? duration.value * 60 : duration.value;
+      const minutes =
+        duration.unit === "hours" ? duration.value * 60 : duration.value;
       return total + minutes;
     }, 0);
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    
+
     if (hours === 0) return `${minutes} mins`;
     if (minutes === 0) return `${hours} hrs`;
     return `${hours}h ${minutes}m`;
@@ -134,7 +144,10 @@ export default function CourseView({ slug }: CourseViewProps) {
           Home
         </Link>
         <span className="text-muted-foreground">/</span>
-        <Link href="/courses" className="text-muted-foreground hover:text-primary">
+        <Link
+          href="/courses"
+          className="text-muted-foreground hover:text-primary"
+        >
           Courses
         </Link>
       </div>
@@ -147,7 +160,11 @@ export default function CourseView({ slug }: CourseViewProps) {
             <div className="aspect-video relative rounded-lg overflow-hidden">
               {currentImage ? (
                 <Image
-                  src={urlFor(currentImage).url()}
+                  src={
+                    typeof currentImage === "string"
+                      ? currentImage
+                      : urlFor(currentImage).url()
+                  }
                   alt={course.title}
                   fill
                   className="object-cover"
@@ -158,14 +175,14 @@ export default function CourseView({ slug }: CourseViewProps) {
                   <BookOpen className="w-16 h-16 text-gray-400" />
                 </div>
               )}
-              
+
               {/* Play Button Overlay if preview video exists */}
               {course.previewVideo && (
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                   <Button
                     size="lg"
                     className="rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"
-                    onClick={() => window.open(course.previewVideo!, '_blank')}
+                    onClick={() => window.open(course.previewVideo!, "_blank")}
                   >
                     <Play className="w-8 h-8 text-white fill-white" />
                   </Button>
@@ -187,7 +204,9 @@ export default function CourseView({ slug }: CourseViewProps) {
                     onMouseEnter={() => handleThumbnailHover(i)}
                   >
                     <Image
-                      src={urlFor(image).url()}
+                      src={
+                        typeof image === "string" ? image : urlFor(image).url()
+                      }
                       alt={`Course view ${i + 1}`}
                       fill
                       className="object-cover"
@@ -237,13 +256,18 @@ export default function CourseView({ slug }: CourseViewProps) {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-gray-600 mb-3">{module.moduleDescription}</p>
+                    <p className="text-gray-600 mb-3">
+                      {module.moduleDescription}
+                    </p>
                     {module.topics && module.topics.length > 0 && (
                       <div className="space-y-2">
                         <h5 className="font-medium text-sm">Topics Covered:</h5>
                         <ul className="text-sm text-gray-600 space-y-1">
                           {module.topics.map((topic, topicIndex) => (
-                            <li key={topicIndex} className="flex items-center gap-2">
+                            <li
+                              key={topicIndex}
+                              className="flex items-center gap-2"
+                            >
                               <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" />
                               {topic}
                             </li>
@@ -278,8 +302,10 @@ export default function CourseView({ slug }: CourseViewProps) {
           <Card className="p-6 space-y-6">
             {/* Course Title and Instructor */}
             <div className="space-y-4">
-              <h1 className="text-2xl font-bold leading-tight">{course.title}</h1>
-              
+              <h1 className="text-2xl font-bold leading-tight">
+                {course.title}
+              </h1>
+
               {course.createdBy && (
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
@@ -297,7 +323,9 @@ export default function CourseView({ slug }: CourseViewProps) {
                   </div>
                   <div>
                     <p className="font-medium text-sm">Instructor</p>
-                    <p className="text-sm text-gray-600">{course.createdBy.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {course.createdBy.name}
+                    </p>
                   </div>
                 </div>
               )}
@@ -330,11 +358,15 @@ export default function CourseView({ slug }: CourseViewProps) {
             <div className="space-y-3 pt-4 border-t">
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-gray-500" />
-                <span>Starts: {new Date(course.startDate).toLocaleDateString()}</span>
+                <span>
+                  Starts: {new Date(course.startDate).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Calendar className="w-4 h-4 text-gray-500" />
-                <span>Ends: {new Date(course.endDate).toLocaleDateString()}</span>
+                <span>
+                  Ends: {new Date(course.endDate).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Clock className="w-4 h-4 text-gray-500" />

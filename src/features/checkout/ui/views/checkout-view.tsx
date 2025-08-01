@@ -201,6 +201,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             onFormValidChange={handleFormValidChange}
             onFormDataChange={handleFormDataChange}
             onShippingAddressChange={handleShippingAddressChange}
+            cartId={cartId}
           />
         </div>
 

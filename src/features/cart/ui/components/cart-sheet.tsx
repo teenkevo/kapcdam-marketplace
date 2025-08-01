@@ -449,7 +449,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     <h4 className="text-sm font-medium text-gray-900 truncate">
                       {course.title}
                     </h4>
-                    <p className="text-sm text-gray-500">Kapcdam Course</p>
+                    <p className="text-sm text-gray-500">Kapcdam Course • Qty: 1 (fixed)</p>
                     <div className="flex items-center">
                       <NumericFormat
                         thousandSeparator={true}
@@ -461,80 +461,23 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* Disabled quantity controls for courses */}
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        const newQuantity = Math.max(1, cartItem.quantity - 1);
-                        if (isSignedIn && userCart?._id) {
-                          // Server cart update for courses
-                          const itemIndex = cartData.findIndex(
-                            (item) =>
-                              item.type === "course" &&
-                              item.courseId === course._id
-                          );
-                          if (itemIndex !== -1) {
-                            updateServerCartMutation.mutate({
-                              cartId: userCart._id,
-                              itemIndex,
-                              quantity: newQuantity,
-                            });
-                          }
-                        } else {
-                          // Local cart update for courses
-                          updateLocalQuantity(
-                            "", // productId not needed for courses
-                            course._id,
-                            undefined,
-                            newQuantity
-                          );
-                        }
-                      }}
-                      disabled={
-                        updateServerCartMutation.isPending ||
-                        cartItem.quantity <= 1
-                      }
-                      className="h-8 w-8 p-0"
+                      disabled={true}
+                      className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="text-sm font-medium w-8 text-center">
-                      {cartItem.quantity}
+                    <span className="text-sm font-medium w-8 text-center text-gray-500">
+                      1
                     </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        const newQuantity = Math.min(99, cartItem.quantity + 1); // Cap at 99
-                        if (isSignedIn && userCart?._id) {
-                          // Server cart update for courses
-                          const itemIndex = cartData.findIndex(
-                            (item) =>
-                              item.type === "course" &&
-                              item.courseId === course._id
-                          );
-                          if (itemIndex !== -1) {
-                            updateServerCartMutation.mutate({
-                              cartId: userCart._id,
-                              itemIndex,
-                              quantity: newQuantity,
-                            });
-                          }
-                        } else {
-                          // Local cart update for courses
-                          updateLocalQuantity(
-                            "", // productId not needed for courses
-                            course._id,
-                            undefined,
-                            newQuantity
-                          );
-                        }
-                      }}
-                      disabled={
-                        updateServerCartMutation.isPending ||
-                        cartItem.quantity >= 99
-                      }
-                      className="h-8 w-8 p-0"
+                      disabled={true}
+                      className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>

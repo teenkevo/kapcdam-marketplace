@@ -367,7 +367,7 @@ export function OrderSummary({
     return cartData.reduce((total, item) => total + item.quantity, 0);
   }, [cartData]);
 
-  // State for coupon handling with persistence
+  // State for coupon handling - removed automatic persistence
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
@@ -377,32 +377,14 @@ export function OrderSummary({
       description?: string | null;
     };
     minimumOrderAmount?: number;
-  } | null>(() => {
-    // Load persisted coupon from localStorage on mount
-    if (typeof window !== 'undefined') {
-      try {
-        const savedCoupon = localStorage.getItem('order-summary-coupon');
-        return savedCoupon ? JSON.parse(savedCoupon) : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  } | null>(null);
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Custom setter to persist coupon to localStorage
-  const setPersistedAppliedCoupon = useCallback((coupon: typeof appliedCoupon) => {
+  // Simple setter without persistence
+  const setAppliedCouponState = useCallback((coupon: typeof appliedCoupon) => {
     setAppliedCoupon(coupon);
-    if (typeof window !== 'undefined') {
-      if (coupon) {
-        localStorage.setItem('order-summary-coupon', JSON.stringify(coupon));
-      } else {
-        localStorage.removeItem('order-summary-coupon');
-      }
-    }
   }, []);
 
   const validateCouponMutation = useMutation(
@@ -418,7 +400,7 @@ export function OrderSummary({
             discount: result.discount,
             minimumOrderAmount: result.discount.minimumOrderAmount,
           };
-          setPersistedAppliedCoupon(couponData);
+          setAppliedCouponState(couponData);
           setCouponCode("");
           setShowCouponInput(false);
           setCouponError(null);
@@ -466,7 +448,7 @@ export function OrderSummary({
   };
 
   const handleRemoveCoupon = () => {
-    setPersistedAppliedCoupon(null);
+    setAppliedCouponState(null);
     setCouponError(null);
 
     // Notify parent component that coupon was removed
@@ -497,7 +479,7 @@ export function OrderSummary({
       // Check if minimum order amount is still met
       if (appliedCoupon.minimumOrderAmount && finalSubtotal < appliedCoupon.minimumOrderAmount) {
         // Remove coupon if minimum order amount is no longer met
-        setPersistedAppliedCoupon(null);
+        setAppliedCouponState(null);
         setCouponError(null);
         onCouponChangeRef.current?.(null);
         lastNotifiedDiscountRef.current = 0;
@@ -507,7 +489,7 @@ export function OrderSummary({
 
       // If cart is empty, remove coupon
       if (finalSubtotal === 0) {
-        setPersistedAppliedCoupon(null);
+        setAppliedCouponState(null);
         setCouponError(null);
         onCouponChangeRef.current?.(null);
         lastNotifiedDiscountRef.current = 0;

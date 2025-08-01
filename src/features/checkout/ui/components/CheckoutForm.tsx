@@ -31,17 +31,20 @@ import CheckOutAddress from "./AddressForm";
 import { LiaShippingFastSolid } from "react-icons/lia";
 import { MdStorefront } from "react-icons/md";
 import { DeliveryZoneSelector } from "@/features/delivery/ui/components/delivery-zone-selector";
+import { analyzeCartComposition } from "@/features/cart/helpers";
 
 interface CheckoutFormProps {
   onFormValidChange: (isValid: boolean) => void;
   onFormDataChange: (data: CheckoutFormData) => void;
   onShippingAddressChange: (address: AddressInput) => void;
+  cartId: string;
 }
 
 export default function CheckoutForm({
   onFormValidChange,
   onFormDataChange,
   onShippingAddressChange,
+  cartId,
 }: CheckoutFormProps) {
   const [selectedAddress, setSelectedAddress] = useState<AddressInput | null>(
     null
@@ -57,12 +60,21 @@ export default function CheckoutForm({
 
   const trpc = useTRPC();
 
+  // Get cart data to analyze composition
+  const { data: userCart } = useQuery(
+    trpc.cart.getCartById.queryOptions({ cartId })
+  );
+
+  // Analyze cart composition to determine if delivery options should be shown
+  const cartComposition = analyzeCartComposition(userCart?.cartItems || []);
+  const shouldShowDeliveryOptions = !cartComposition.isCoursesOnly;
+
   const form = useForm<{
     deliveryMethod: "pickup" | "local_delivery";
     paymentMethod: "pesapal" | "cod";
   }>({
     defaultValues: {
-      deliveryMethod: "local_delivery",
+      deliveryMethod: shouldShowDeliveryOptions ? "local_delivery" : "pickup",
       paymentMethod: "pesapal",
     },
     mode: "onChange",
@@ -75,22 +87,27 @@ export default function CheckoutForm({
 
   // Process form data changes
   useEffect(() => {
-    // For local delivery, require a delivery zone to be selected
+    // For courses-only carts, don't require delivery zone
+    // For product carts with local delivery, require a delivery zone to be selected
     const isFormValid =
       isValid &&
       !!selectedAddress &&
       !!selectedAddress._id && // Ensure address has an ID
-      (deliveryMethod === "pickup" || !!selectedDeliveryZone);
+      (deliveryMethod === "pickup" ||
+        !shouldShowDeliveryOptions || // Courses-only carts don't need delivery zones
+        !!selectedDeliveryZone);
 
     onFormValidChange(isFormValid);
 
     if (isFormValid && selectedAddress && selectedAddress._id) {
       const formData: CheckoutFormData = {
         selectedAddress: { addressId: selectedAddress._id }, // Transform to addressId format
-        deliveryMethod,
+        deliveryMethod: shouldShowDeliveryOptions ? deliveryMethod : "pickup", // Force pickup for courses-only
         paymentMethod,
         selectedDeliveryZone:
-          deliveryMethod === "pickup" ? null : selectedDeliveryZone,
+          deliveryMethod === "pickup" || !shouldShowDeliveryOptions
+            ? null
+            : selectedDeliveryZone,
       };
 
       console.log("Checkout form data:", formData); // Debug log
@@ -103,6 +120,7 @@ export default function CheckoutForm({
     deliveryMethod,
     paymentMethod,
     selectedDeliveryZone,
+    shouldShowDeliveryOptions,
     onFormValidChange,
     onFormDataChange,
     onShippingAddressChange,
@@ -123,103 +141,108 @@ export default function CheckoutForm({
 
       <Form {...form}>
         <form className="space-y-6">
-          <Card>
-            <CardContent className="py-4 space-y-4">
-              <div className="flex w-full justify-between items-center">
-                <h4 className="text-xl font-semibold">Delivery Method</h4>
-              </div>
-              <FormField
-                control={form.control}
-                name="deliveryMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <RadioGroup
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        className="space-y-3"
-                      >
-                        <div
-                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer ${
-                            field.value === "local_delivery"
-                              ? "border-[#C5F82A/]/50 bg-[#C5F82A]/5 ring-1 ring-[#C5F82A]/20"
-                              : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/10"
-                          }`}
+          {/* Only show delivery method selection for carts with products */}
+          {shouldShowDeliveryOptions && (
+            <Card>
+              <CardContent className="py-4 space-y-4">
+                <div className="flex w-full justify-between items-center">
+                  <h4 className="text-xl font-semibold">Delivery Method</h4>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="deliveryMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <RadioGroup
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          className="space-y-3"
                         >
-                          <RadioGroupItem
-                            value="local_delivery"
-                            id="local_delivery"
-                            className="sr-only"
-                          />
-
-                          <label
-                            htmlFor="local_delivery"
-                            className="font-medium cursor-pointer flex-1 p-3"
+                          <div
+                            className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer ${
+                              field.value === "local_delivery"
+                                ? "border-[#C5F82A/]/50 bg-[#C5F82A]/5 ring-1 ring-[#C5F82A]/20"
+                                : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/10"
+                            }`}
                           >
-                            <div className="flex w-full justify-between items-center gap-2">
-                              Local Delivery
-                              <LiaShippingFastSolid
-                                className={`size-4 ${
-                                  field.value === "local_delivery"
-                                    ? "text-[#C5F82A]"
-                                    : ""
-                                }`}
-                              />
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              We'll deliver to your address
-                            </p>
-                          </label>
-                        </div>
+                            <RadioGroupItem
+                              value="local_delivery"
+                              id="local_delivery"
+                              className="sr-only"
+                            />
 
-                        <div
-                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer ${
-                            field.value === "pickup"
-                              ? "border-[#C5F82A/]/50 bg-[#C5F82A]/5 ring-1 ring-[#C5F82A]/20"
-                              : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/10"
-                          }`}
-                        >
-                          <RadioGroupItem
-                            value="pickup"
-                            id="pickup"
-                            className="sr-only"
-                          />
+                            <label
+                              htmlFor="local_delivery"
+                              className="font-medium cursor-pointer flex-1 p-3"
+                            >
+                              <div className="flex w-full justify-between items-center gap-2">
+                                Local Delivery
+                                <LiaShippingFastSolid
+                                  className={`size-4 ${
+                                    field.value === "local_delivery"
+                                      ? "text-[#C5F82A]"
+                                      : ""
+                                  }`}
+                                />
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                We'll deliver to your address
+                              </p>
+                            </label>
+                          </div>
 
-                          <label
-                            htmlFor="pickup"
-                            className="font-medium cursor-pointer flex-1 p-3 "
+                          <div
+                            className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer ${
+                              field.value === "pickup"
+                                ? "border-[#C5F82A/]/50 bg-[#C5F82A]/5 ring-1 ring-[#C5F82A]/20"
+                                : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/10"
+                            }`}
                           >
-                            <div className="flex w-full justify-between items-center gap-2">
-                              Pick up
-                              <MdStorefront
-                                className={`size-4 ${
-                                  field.value === "pickup"
-                                    ? "text-[#C5F82A]"
-                                    : ""
-                                }`}
-                              />
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Pick up from our offices
-                            </p>
-                          </label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                            <RadioGroupItem
+                              value="pickup"
+                              id="pickup"
+                              className="sr-only"
+                            />
 
-          {/* Delivery Zones */}
-          <DeliveryZoneSelector
-            selectedAddress={selectedAddress}
-            selectedZone={selectedDeliveryZone}
-            onZoneSelect={setSelectedDeliveryZone}
-            deliveryMethod={deliveryMethod}
-          />
+                            <label
+                              htmlFor="pickup"
+                              className="font-medium cursor-pointer flex-1 p-3 "
+                            >
+                              <div className="flex w-full justify-between items-center gap-2">
+                                Pick up
+                                <MdStorefront
+                                  className={`size-4 ${
+                                    field.value === "pickup"
+                                      ? "text-[#C5F82A]"
+                                      : ""
+                                  }`}
+                                />
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Pick up from our offices
+                              </p>
+                            </label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Delivery Zones - only show for product carts */}
+          {shouldShowDeliveryOptions && (
+            <DeliveryZoneSelector
+              selectedAddress={selectedAddress}
+              selectedZone={selectedDeliveryZone}
+              onZoneSelect={setSelectedDeliveryZone}
+              deliveryMethod={deliveryMethod}
+            />
+          )}
 
           {/* Payment Method */}
           <Card>
