@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingCart } from "lucide-react";
+import { Calendar, ShoppingCart, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
@@ -25,21 +25,40 @@ interface CourseEnrollmentButtonProps {
   courseId: string;
 }
 
-export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps) {
+export function CourseEnrollmentButton({
+  courseId,
+}: CourseEnrollmentButtonProps) {
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { addLocalCartItem } = useLocalCartStore();
+  const { addLocalCartItem, isInCart } = useLocalCartStore();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [preferredStartDate, setPreferredStartDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
   // Get user cart if signed in
   const { data: userCart } = useQuery({
     ...trpc.cart.getUserCart.queryOptions(),
     enabled: isSignedIn,
   });
+
+  // Check if course is already in cart
+  useEffect(() => {
+    if (isSignedIn && userCart) {
+      // Check server cart for signed-in users
+      const courseInCart = userCart.cartItems?.some(
+        (cartItem: any) =>
+          cartItem.courseId === courseId || cartItem.course?._ref === courseId
+      );
+      setIsEnrolled(courseInCart || false);
+    } else {
+      // Check local cart for guest users
+      const courseInLocalCart = isInCart(undefined, courseId);
+      setIsEnrolled(courseInLocalCart);
+    }
+  }, [userCart, courseId, isSignedIn, isInCart]);
 
   // Add to cart mutation for signed-in users
   const addToCartMutation = useMutation(
@@ -50,7 +69,7 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
         queryClient.invalidateQueries({
           queryKey: ["cart", "getDisplayData"],
         });
-        
+
         toast.success("Course added to cart successfully!");
         setIsDialogOpen(false);
         setPreferredStartDate("");
@@ -65,6 +84,11 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
   );
 
   const handleEnrollment = async () => {
+    if (isEnrolled) {
+      toast.info("You're already enrolled in this course!");
+      return;
+    }
+
     if (!preferredStartDate) {
       toast.error("Please select your preferred start date");
       return;
@@ -96,7 +120,7 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
           quantity: 1,
           preferredStartDate: cartItem.preferredStartDate,
         });
-        
+
         toast.success("Course added to cart successfully!");
         setIsDialogOpen(false);
         setPreferredStartDate("");
@@ -108,15 +132,37 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
     }
   };
 
+  const handleButtonClick = () => {
+    if (isEnrolled) {
+      toast.info("You're already enrolled in this course!");
+      return;
+    }
+    setIsDialogOpen(true);
+  };
+
   // Get today's date for min date validation
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full bg-[#C5F82A] text-black hover:bg-[#B4E729]">
-          <ShoppingCart className="w-4 h-4 mr-2" />
-          Enroll Now
+        <Button
+          className={`w-full ${
+            isEnrolled
+              ? "bg-[#C5F82A]/50 text-black/80 cursor-default"
+              : "bg-[#C5F82A] text-black hover:bg-[#B4E729]"
+          }`}
+          disabled={isEnrolled}
+          onClick={handleButtonClick}
+        >
+          {isEnrolled ? (
+            <>In cart</>
+          ) : (
+            <>
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Enroll Now
+            </>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
@@ -126,10 +172,11 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
             Course Enrollment
           </DialogTitle>
           <DialogDescription>
-            Select your preferred start date for this course. This helps us better plan the course schedule.
+            Select your preferred start date for this course. This helps us
+            better plan the course schedule.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="preferred-date" className="text-sm font-medium">
@@ -145,7 +192,8 @@ export function CourseEnrollmentButton({ courseId }: CourseEnrollmentButtonProps
               required
             />
             <p className="text-xs text-gray-500">
-              Note: The actual course start date may differ based on enrollment and scheduling.
+              Note: The actual course start date may differ based on enrollment
+              and scheduling.
             </p>
           </div>
         </div>

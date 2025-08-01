@@ -2,6 +2,7 @@ import HeroSection from "@/features/home/ui/components/hero-section";
 import AboutUsSummary from "../components/about-us-summary";
 import MarketPlaceTeaser from "@/features/home/ui/components/market-place-teaser";
 import { ProductList } from "@/features/products/ui/components/product-list";
+import { CoursesSection } from "../components/courses-section";
 
 import { auth } from "@clerk/nextjs/server";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -26,6 +27,7 @@ export default async function HomeView() {
       <main>
         <HeroSection />
         <AboutUsSummary />
+        <CoursesSection />
         <MarketPlaceTeaser />
         <ProductList />
       </main>
