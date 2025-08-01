@@ -41,7 +41,7 @@ export function ProductsGrid({
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
-    
+
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -49,12 +49,12 @@ export function ProductsGrid({
     } else {
       const start = Math.max(1, currentPage - 2);
       const end = Math.min(totalPages, start + maxVisible - 1);
-      
+
       for (let i = start; i <= end; i++) {
         pages.push(i);
       }
     }
-    
+
     return pages;
   };
 
@@ -62,7 +62,7 @@ export function ProductsGrid({
     return (
       <div className="space-y-6">
         {/* Loading Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3  gap-6">
           {[...Array(12)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
@@ -80,7 +80,9 @@ export function ProductsGrid({
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4 text-gray-300">🔍</div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          No products found
+        </h3>
         <p className="text-gray-500 mb-6">
           Try adjusting your search or filter criteria
         </p>
@@ -95,7 +97,7 @@ export function ProductsGrid({
         <p className="text-sm text-muted-foreground">
           Showing {startItem}-{endItem} of {total.toLocaleString()} results
         </p>
-        
+
         {/* Items per page */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Show:</span>
@@ -117,7 +119,7 @@ export function ProductsGrid({
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {products.map((product) => (
           <ProductCard key={product._id} product={product} />
         ))}
@@ -125,48 +127,58 @@ export function ProductsGrid({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="gap-1"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Previous
-          </Button>
-
-          <div className="flex items-center gap-1">
-            {getPageNumbers().map((pageNum) => (
-              <Button
-                key={pageNum}
-                variant={pageNum === currentPage ? "default" : "outline"}
-                size="sm"
-                onClick={() => onPageChange(pageNum)}
-                className="w-10"
-              >
-                {pageNum}
-              </Button>
-            ))}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+          {/* Mobile: Show page info first */}
+          <div className="sm:hidden">
+            <p className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </p>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="gap-1"
-          >
-            Next
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+          {/* Navigation buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="gap-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Previous</span>
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((pageNum) => (
+                <Button
+                  key={pageNum}
+                  variant={pageNum === currentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onPageChange(pageNum)}
+                  className="w-8 sm:w-10"
+                >
+                  {pageNum}
+                </Button>
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="gap-1"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Page info */}
+      {/* Page info - Desktop only */}
       {totalPages > 1 && (
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="hidden sm:block text-center text-sm text-muted-foreground">
           Page {currentPage} of {totalPages}
         </p>
       )}

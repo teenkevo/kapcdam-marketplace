@@ -37,7 +37,7 @@ export function useProductsFilters() {
     (min: number | null, max: number | null) => {
       setMinPrice(min);
       setMaxPrice(max);
-      setPage(1); // Reset to first page when filters change
+      setPage(1); 
     },
     [setMinPrice, setMaxPrice, setPage]
   );

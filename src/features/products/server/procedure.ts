@@ -192,7 +192,9 @@ export const productsRouter = createTRPCRouter({
       }
 
       if (categoryId) {
-        conditions.push(`category._ref == $categoryId`);
+        // Include products from both the category itself and its children (if it's a parent)
+        // OR products whose parent category matches (if categoryId is a parent)
+        conditions.push(`(category._ref == $categoryId || category->parent._ref == $categoryId)`);
       }
 
       // Price filtering conditions

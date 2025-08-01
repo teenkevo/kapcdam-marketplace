@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { ProductFilters } from "../components/product-filters";
 import { ProductsGrid } from "../components/products-grid";
 import { ProductsHeader } from "../components/products-header";
 import { useProductsFilters } from "../hooks/use-products-filters";
@@ -19,11 +18,9 @@ export function ProductsView() {
     pageSize,
     setSearch,
     setCategory,
-    setPriceRange,
     setPage,
     setSortBy,
     setPageSize,
-    clearFilters,
   } = useProductsFilters();
 
   // Fetch products with current filters
@@ -43,17 +40,13 @@ export function ProductsView() {
     })
   );
 
-  // Fetch categories for filters
-  const { data: categories, isLoading: categoriesLoading } = useQuery(
+  // Fetch categories for navigation
+  const { data: categories, isLoading: categoriesLoading, error: categoriesError } = useQuery(
     trpc.products.getCategories.queryOptions()
   );
 
-  // Fetch price range for filters
-  const { data: priceRange, isLoading: priceRangeLoading } = useQuery(
-    trpc.products.getPriceRange.queryOptions()
-  );
 
-  const isLoading = productsLoading || categoriesLoading || priceRangeLoading;
+  const isLoading = productsLoading || categoriesLoading;
 
   if (productsError) {
     return (
@@ -73,37 +66,22 @@ export function ProductsView() {
         onSortChange={setSortBy}
         resultsCount={productsData?.total || 0}
         isLoading={isLoading}
+        categories={categories || []}
+        selectedCategory={category}
+        onCategoryChange={setCategory}
       />
 
-      <div className="flex gap-8 mt-8">
-        {/* Filters Sidebar */}
-        <aside className="w-64 flex-shrink-0">
-          <ProductFilters
-            categories={categories || []}
-            selectedCategory={category}
-            onCategoryChange={setCategory}
-            priceRange={priceRange}
-            selectedMinPrice={minPrice}
-            selectedMaxPrice={maxPrice}
-            onPriceRangeChange={setPriceRange}
-            onClearFilters={clearFilters}
-            isLoading={isLoading}
-          />
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1">
-          <ProductsGrid
-            products={productsData?.items || []}
-            total={productsData?.total || 0}
-            currentPage={page}
-            pageSize={pageSize}
-            hasMore={productsData?.hasMore || false}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            isLoading={isLoading}
-          />
-        </main>
+      <div className="mt-8">
+        <ProductsGrid
+          products={productsData?.items || []}
+          total={productsData?.total || 0}
+          currentPage={page}
+          pageSize={pageSize}
+          hasMore={productsData?.hasMore || false}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   );
