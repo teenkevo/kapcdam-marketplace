@@ -21,10 +21,7 @@ export const CART_ITEMS_QUERY = defineQuery(`
       }
     }
   }
-`, { 
-  // Add cache tags for better invalidation
-  tag: 'cart-items'
-});
+`);
 
 export const CART_BY_ID_QUERY = defineQuery(`
   *[_type == "cart" && _id == $cartId && user->clerkUserId == $clerkUserId && isActive == true][0] {
@@ -47,10 +44,7 @@ export const CART_BY_ID_QUERY = defineQuery(`
       }
     }
   }
-`, { 
-  // Add cache tags for better invalidation
-  tag: 'cart-by-id'
-});
+`);
 
 export const CART_DISPLAY_QUERY = defineQuery(`
 {
@@ -90,7 +84,4 @@ export const CART_DISPLAY_QUERY = defineQuery(`
     )
   }
 }
-`, { 
-  // Add cache tags for better invalidation
-  tag: 'cart-display'
-});
+`);

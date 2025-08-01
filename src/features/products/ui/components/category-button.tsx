@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,11 +14,11 @@ interface CategoryButtonProps {
   isLoading?: boolean;
 }
 
-const menuVariants = {
-  hidden: { 
-    opacity: 0, 
+const menuVariants: Variants = {
+  hidden: {
+    opacity: 0,
     y: -10,
-    transition: { duration: 0.2 }
+    transition: { duration: 0.2 },
   },
   visible: {
     opacity: 1,
@@ -27,9 +27,8 @@ const menuVariants = {
       type: "spring",
       stiffness: 300,
       damping: 30,
-      duration: 0.3
-    }
-  }
+    },
+  },
 };
 
 export function CategoryButton({

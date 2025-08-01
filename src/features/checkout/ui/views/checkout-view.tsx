@@ -62,7 +62,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
           
           // 4. Invalidate cart display data queries
           await queryClient.invalidateQueries({ 
-            queryKey: [trpc.cart.getDisplayData.queryOptions().queryKey[0]]
+            queryKey: ['cart', 'getDisplayData']
           });
           
           // 5. Invalidate cart by ID query if it exists

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence,type Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Category } from "@/features/products/schemas";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ interface CategoryMegaMenuProps {
   selectedCategory: string | null;
 }
 
-const menuVariants = {
+const menuVariants:Variants = {
   hidden: { 
     opacity: 0, 
     y: -10,
