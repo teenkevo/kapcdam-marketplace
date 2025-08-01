@@ -92,11 +92,13 @@ const categoriesResponseSchema = z.array(categorySchema);
 
 const getManyProductsInputSchema = z.object({
   page: z.number().min(1).default(1),
-  pageSize: z.number().min(1).max(20).default(10),
+  pageSize: z.number().min(1).max(50).default(12),
   search: z.string().nullish(),
   categoryId: z.string().nullish(),
+  minPrice: z.number().min(0).nullish(),
+  maxPrice: z.number().min(0).nullish(),
+  sortBy: z.enum(["newest", "oldest", "price-asc", "price-desc", "name-asc", "name-desc", "relevance"]).default("newest"),
   status: z.enum(["draft", "active", "archived"]).default("active"),
-  lastId: z.string().nullish(),
 });
 
 const getOneProductInputSchema = z.object({
@@ -107,6 +109,11 @@ const getRelatedProductsInputSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   categoryId: z.string().optional(),
   limit: z.number().min(1).max(8).default(4),
+});
+
+const priceRangeSchema = z.object({
+  minPrice: z.number(),
+  maxPrice: z.number(),
 });
 
 export {
@@ -130,6 +137,7 @@ export {
   getManyProductsInputSchema,
   getOneProductInputSchema,
   getRelatedProductsInputSchema,
+  priceRangeSchema,
 };
 
 export type SanitySlug = z.infer<typeof sanitySlugSchema>;
@@ -144,6 +152,7 @@ export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
 export type GetManyProductsInput = z.infer<typeof getManyProductsInputSchema>;
 export type GetOneProductInput = z.infer<typeof getOneProductInputSchema>;
 export type GetRelatedProductsInput = z.infer<typeof getRelatedProductsInputSchema>;
+export type PriceRange = z.infer<typeof priceRangeSchema>;
 
 // Validation helpers
 export const validateProductsResponse = (data: unknown): ProductsResponse => {

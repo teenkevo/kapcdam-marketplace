@@ -14,6 +14,7 @@ import {
   productsResponseSchema,
   categoriesResponseSchema,
   productListItemSchema,
+  priceRangeSchema,
 } from "../schemas";
 import { z } from "zod";
 import { sanityFetch } from "@/sanity/lib/live";
@@ -181,26 +182,69 @@ export const productsRouter = createTRPCRouter({
   getMany: baseProcedure
     .input(getManyProductsInputSchema)
     .query(async ({ input }) => {
-      const { search, pageSize, lastId, categoryId, status } = input;
+      const { search, pageSize, page, categoryId, minPrice, maxPrice, sortBy, status } = input;
+      const offset = (page - 1) * pageSize;
 
-      const conditions = [`_type == "product"`, `status == "${status}"`];
+      const conditions = [`_type == "product"`, `status == "${status}"`, `totalStock > 0`];
 
       if (search) {
-        conditions.push(`(title match $search + "*")`);
+        conditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
       }
 
       if (categoryId) {
         conditions.push(`category._ref == $categoryId`);
       }
 
-      if (lastId) {
-        conditions.push(`_id > $lastId`);
+      // Price filtering conditions
+      if (minPrice !== null && minPrice !== undefined) {
+        conditions.push(`(
+          (hasVariants == true && math::min(variants[].price) >= ${minPrice}) ||
+          (hasVariants == false && price >= ${minPrice})
+        )`);
+      }
+
+      if (maxPrice !== null && maxPrice !== undefined) {
+        conditions.push(`(
+          (hasVariants == true && math::max(variants[].price) <= ${maxPrice}) ||
+          (hasVariants == false && price <= ${maxPrice})
+        )`);
       }
 
       const filterExpression = conditions.join(" && ");
 
+      // Sort order based on sortBy parameter
+      let orderBy = "_createdAt desc";
+      switch (sortBy) {
+        case "oldest":
+          orderBy = "_createdAt asc";
+          break;
+        case "price-asc":
+          orderBy = `select(
+            hasVariants == true => math::min(variants[].price),
+            price
+          ) asc`;
+          break;
+        case "price-desc":
+          orderBy = `select(
+            hasVariants == true => math::max(variants[].price),
+            price
+          ) desc`;
+          break;
+        case "name-asc":
+          orderBy = "title asc";
+          break;
+        case "name-desc":
+          orderBy = "title desc";
+          break;
+        case "relevance":
+          orderBy = search ? "_score desc, _createdAt desc" : "_createdAt desc";
+          break;
+        default:
+          orderBy = "_createdAt desc";
+      }
+
       const query = groq`{
-        "items": *[${filterExpression}] | order(_id asc) [0...${pageSize}] {
+        "items": *[${filterExpression}] | order(${orderBy}) [${offset}...${offset + pageSize}] {
           _id,
           title,
           slug,
@@ -251,19 +295,17 @@ export const productsRouter = createTRPCRouter({
       const params: Record<string, unknown> = {};
       if (search) params.search = search;
       if (categoryId) params.categoryId = categoryId;
-      if (lastId) params.lastId = lastId;
 
       try {
         const result = await client.fetch(query, params);
+        const total = result.total || 0;
+        const totalPages = Math.ceil(total / pageSize);
 
         const cleanedResponse = cleanProductsResponse({
           items: result.items || [],
-          total: result.total || 0,
-          hasMore: (result.items?.length || 0) === pageSize,
-          nextCursor:
-            result.items && result.items.length > 0
-              ? result.items[result.items.length - 1]._id
-              : null,
+          total,
+          hasMore: page < totalPages,
+          nextCursor: page < totalPages ? `page-${page + 1}` : null,
         });
 
         // Validate the response against our schema
@@ -286,6 +328,37 @@ export const productsRouter = createTRPCRouter({
         });
       }
     }),
+
+  getPriceRange: baseProcedure.query(async () => {
+    const query = groq`{
+      "minPrice": math::min(*[_type == "product" && status == "active" && totalStock > 0][]{
+        "price": select(
+          hasVariants == true => math::min(variants[].price),
+          price
+        )
+      }.price),
+      "maxPrice": math::max(*[_type == "product" && status == "active" && totalStock > 0][]{
+        "price": select(
+          hasVariants == true => math::max(variants[].price),
+          price
+        )
+      }.price)
+    }`;
+
+    try {
+      const result = await client.fetch(query);
+      return priceRangeSchema.parse({
+        minPrice: Math.floor(result.minPrice || 0),
+        maxPrice: Math.ceil(result.maxPrice || 100000),
+      });
+    } catch (error) {
+      console.error("Error fetching price range:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch price range",
+      });
+    }
+  }),
 
   getCategories: baseProcedure.query(async () => {
     const query = groq`*[_type == "category"] | order(displayOrder asc, name asc) {
