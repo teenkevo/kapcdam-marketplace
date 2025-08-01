@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { OrderSummary } from "../components/order-summary";
 import { useTRPC } from "@/trpc/client";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import CheckoutForm from "../components/CheckoutForm";
@@ -21,6 +21,7 @@ interface CheckoutViewProps {
 export default function CheckoutView({ cartId }: CheckoutViewProps) {
   const trpc = useTRPC();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: userCart, isLoading: isCartLoading } = useQuery(
     trpc.cart.getCartById.queryOptions({ cartId })
   );
@@ -47,6 +48,33 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     trpc.orders.createOrder.mutationOptions({
       onSuccess: async (result) => {
         toast.success(`Order ${result.orderNumber} created successfully!`);
+
+        // Comprehensive cache invalidation for cart-related queries
+        try {
+          // 1. Invalidate all cart queries
+          await queryClient.invalidateQueries({ queryKey: ['cart'] });
+          
+          // 2. Remove all cart query cache to force fresh fetch
+          queryClient.removeQueries({ queryKey: ['cart'] });
+          
+          // 3. Specifically invalidate getUserCart query
+          await queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
+          
+          // 4. Invalidate cart display data queries
+          await queryClient.invalidateQueries({ 
+            queryKey: [trpc.cart.getDisplayData.queryOptions().queryKey[0]]
+          });
+          
+          // 5. Invalidate cart by ID query if it exists
+          if (cartId) {
+            await queryClient.invalidateQueries(
+              trpc.cart.getCartById.queryOptions({ cartId })
+            );
+          }
+        } catch (error) {
+          console.error("Cache invalidation error:", error);
+          // Continue with order flow even if cache invalidation fails
+        }
 
         if (result.paymentRequired) {
           // Process payment for pesapal orders

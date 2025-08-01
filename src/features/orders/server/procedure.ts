@@ -22,6 +22,7 @@ import {
   submitOrderSchema,
   type PesapalOrderRequest,
 } from "@/features/payments/schema";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 // Generate order number in format KAPC-YYYY-XXX
 function generateOrderNumber(): string {
@@ -560,6 +561,42 @@ export const ordersRouter = createTRPCRouter({
           })
           .commit();
 
+        // 10.5. Create new active cart for continued shopping
+        let newCartId = null;
+        try {
+          const newCart = {
+            _type: "cart",
+            user: { _type: "reference", _ref: user._id },
+            cartItems: [],
+            itemCount: 0,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          const createdNewCart = await client.create(newCart);
+          newCartId = createdNewCart._id;
+        } catch (error) {
+          console.error("Failed to create new cart:", error);
+          // Don't fail the order creation if new cart creation fails
+        }
+
+        // 10.6. Invalidate server-side caches to ensure fresh cart data
+        try {
+          // Invalidate pages that depend on cart data
+          revalidatePath('/', 'layout'); // Invalidate layout cache (header with cart)
+          revalidatePath('/checkout', 'page'); // Invalidate checkout pages
+          revalidatePath('/cart', 'page'); // Invalidate cart page if it exists
+          
+          // Invalidate Sanity Live cache tags for cart queries
+          revalidateTag('cart-items'); // Invalidate cart items queries
+          revalidateTag('cart-by-id'); // Invalidate cart by ID queries
+          revalidateTag('cart-display'); // Invalidate cart display data queries
+        } catch (error) {
+          console.error("Cache invalidation error:", error);
+          // Don't fail the order creation if cache invalidation fails
+        }
+
         // 11. Apply coupon if provided and track usage
         if (appliedCoupon && ctx.auth.userId) {
           try {
@@ -600,6 +637,7 @@ export const ordersRouter = createTRPCRouter({
             firstName: user.firstName,
             lastName: user.lastName,
           },
+          ...(newCartId && { newCartId }), // Include new cart ID if created successfully
         };
       } catch (error) {
         if (error instanceof TRPCError) {
