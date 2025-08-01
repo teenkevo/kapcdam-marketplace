@@ -34,6 +34,7 @@ const couponValidationResponse = z.object({
       amount: z.number(), // Calculated discount amount
       code: z.string(),
       description: z.string().nullable().optional(),
+      minimumOrderAmount: z.number().optional(),
     })
     .optional(),
   error: z.string().optional(),
@@ -213,6 +214,7 @@ export const couponRouter = createTRPCRouter({
             amount: discountAmount,
             code: coupon.code,
             description: coupon.title,
+            minimumOrderAmount: coupon.minimumOrderAmount || undefined,
           },
         };
 

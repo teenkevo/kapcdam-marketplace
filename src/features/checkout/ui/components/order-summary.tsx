@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NumericFormat } from "react-number-format";
 import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from "lucide-react";
 import { urlFor } from "@/sanity/lib/image";
 import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
@@ -98,6 +99,7 @@ export function OrderSummary({
   const updateServerCartMutation = useMutation(
     trpcClient.cart.updateCartItem.mutationOptions({
       onMutate: async (variables) => {
+        setIsUpdating(true);
         // Cancel outgoing queries to prevent race conditions
         await queryClient.cancelQueries(
           trpcClient.cart.getUserCart.queryOptions()
@@ -184,6 +186,7 @@ export function OrderSummary({
         return { previousCart };
       },
       onError: (error, variables, context) => {
+        setIsUpdating(false);
         // Rollback optimistic updates on error
         if (context?.previousCart) {
           queryClient.setQueryData(
@@ -194,6 +197,7 @@ export function OrderSummary({
         toast.error(`Failed to update cart: ${error.message}`);
       },
       onSuccess: () => {
+        setIsUpdating(false);
         // Refetch all relevant cart queries to ensure consistency
         queryClient.refetchQueries(trpcClient.cart.getUserCart.queryOptions());
         queryClient.refetchQueries(
@@ -363,7 +367,7 @@ export function OrderSummary({
     return cartData.reduce((total, item) => total + item.quantity, 0);
   }, [cartData]);
 
-  // State for coupon handling
+  // State for coupon handling with persistence
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
@@ -372,27 +376,58 @@ export function OrderSummary({
       amount: number;
       description?: string | null;
     };
-  } | null>(null);
+    minimumOrderAmount?: number;
+  } | null>(() => {
+    // Load persisted coupon from localStorage on mount
+    if (typeof window !== 'undefined') {
+      try {
+        const savedCoupon = localStorage.getItem('order-summary-coupon');
+        return savedCoupon ? JSON.parse(savedCoupon) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Custom setter to persist coupon to localStorage
+  const setPersistedAppliedCoupon = useCallback((coupon: typeof appliedCoupon) => {
+    setAppliedCoupon(coupon);
+    if (typeof window !== 'undefined') {
+      if (coupon) {
+        localStorage.setItem('order-summary-coupon', JSON.stringify(coupon));
+      } else {
+        localStorage.removeItem('order-summary-coupon');
+      }
+    }
+  }, []);
 
   const validateCouponMutation = useMutation(
     trpcClient.coupons.validateCoupon.mutationOptions({
+      onMutate: () => {
+        setIsUpdating(true);
+      },
       onSuccess: (result) => {
+        setIsUpdating(false);
         if (result.valid && result.discount) {
           const couponData = {
             code: couponCode,
             discount: result.discount,
+            minimumOrderAmount: result.discount.minimumOrderAmount,
           };
-          setAppliedCoupon(couponData);
+          setPersistedAppliedCoupon(couponData);
           setCouponCode("");
           setShowCouponInput(false);
           setCouponError(null);
 
-          // Notify parent component about the applied coupon
+          // Notify parent component about the applied coupon with dynamic amount
+          const dynamicDiscountAmount = Math.round((finalSubtotal * couponData.discount.percentage) / 100);
           onCouponChange?.({
             code: couponData.code,
-            discountAmount: couponData.discount.amount,
+            discountAmount: dynamicDiscountAmount,
             originalPercentage: couponData.discount.percentage,
           });
 
@@ -404,6 +439,7 @@ export function OrderSummary({
         }
       },
       onError: (error) => {
+        setIsUpdating(false);
         setCouponError(error.message);
       },
     })
@@ -430,7 +466,7 @@ export function OrderSummary({
   };
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
+    setPersistedAppliedCoupon(null);
     setCouponError(null);
 
     // Notify parent component that coupon was removed
@@ -439,15 +475,85 @@ export function OrderSummary({
     toast.success("Coupon removed");
   };
 
-  // Calculate final totals
+  // Calculate final totals with dynamic coupon calculation
   const tax = 0; // No tax for now
-  const couponDiscount = appliedCoupon?.discount.amount || 0;
+  const couponDiscount = appliedCoupon 
+    ? Math.round((finalSubtotal * appliedCoupon.discount.percentage) / 100)
+    : 0;
   const finalTotal = finalSubtotal + shippingCost + tax - couponDiscount;
+
+  // Use ref to track the last notified discount amount to prevent unnecessary updates
+  const lastNotifiedDiscountRef = useRef<number>(0);
+  const onCouponChangeRef = useRef(onCouponChange);
+  
+  // Update ref when onCouponChange changes
+  useEffect(() => {
+    onCouponChangeRef.current = onCouponChange;
+  }, [onCouponChange]);
+
+  // Effect to handle coupon recalculation and validation when cart changes
+  useEffect(() => {
+    if (appliedCoupon) {
+      // Check if minimum order amount is still met
+      if (appliedCoupon.minimumOrderAmount && finalSubtotal < appliedCoupon.minimumOrderAmount) {
+        // Remove coupon if minimum order amount is no longer met
+        setPersistedAppliedCoupon(null);
+        setCouponError(null);
+        onCouponChangeRef.current?.(null);
+        lastNotifiedDiscountRef.current = 0;
+        toast.error(`Coupon removed: Minimum order amount of UGX ${appliedCoupon.minimumOrderAmount.toLocaleString()} required`);
+        return;
+      }
+
+      // If cart is empty, remove coupon
+      if (finalSubtotal === 0) {
+        setPersistedAppliedCoupon(null);
+        setCouponError(null);
+        onCouponChangeRef.current?.(null);
+        lastNotifiedDiscountRef.current = 0;
+        return;
+      }
+
+      // Calculate new discount amount
+      const dynamicDiscountAmount = Math.round((finalSubtotal * appliedCoupon.discount.percentage) / 100);
+      
+      // Only notify parent if the discount amount has actually changed
+      if (onCouponChangeRef.current && dynamicDiscountAmount !== lastNotifiedDiscountRef.current) {
+        lastNotifiedDiscountRef.current = dynamicDiscountAmount;
+        onCouponChangeRef.current({
+          code: appliedCoupon.code,
+          discountAmount: dynamicDiscountAmount,
+          originalPercentage: appliedCoupon.discount.percentage,
+        });
+      }
+    } else {
+      // Reset ref when no coupon is applied
+      lastNotifiedDiscountRef.current = 0;
+    }
+  }, [finalSubtotal, appliedCoupon?.code, appliedCoupon?.discount.percentage, appliedCoupon?.minimumOrderAmount]);
 
   return (
     <div
-      className={`bg-white border border-gray-200 rounded-lg p-6 ${className}`}
+      className={`bg-white border border-gray-200 rounded-lg p-6 relative ${className}`}
     >
+      {/* Loading Overlay */}
+      <AnimatePresence>
+        {isUpdating && (
+          <motion.div
+            className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg z-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+              <span className="text-sm text-gray-600">Updating...</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900">
@@ -474,17 +580,28 @@ export function OrderSummary({
             {/* Items List */}
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {/* Render Products */}
-              {expandedProducts.map((expandedProduct) => {
-                const cartItem = findCartItemForProduct(expandedProduct);
-                if (!cartItem) return null;
+              <AnimatePresence mode="popLayout">
+                {expandedProducts.map((expandedProduct) => {
+                  const cartItem = findCartItemForProduct(expandedProduct);
+                  if (!cartItem) return null;
 
-                const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
+                  const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
 
-                return (
-                  <div
-                    key={itemKey}
-                    className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
-                  >
+                  return (
+                    <motion.div
+                      key={itemKey}
+                      layout
+                      initial={{ opacity: 1, x: 0, scale: 1 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ 
+                        opacity: 0, 
+                        x: -100, 
+                        scale: 0.8,
+                        transition: { duration: 0.3, ease: "easeInOut" }
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                    >
                     <Image
                       src={urlFor(expandedProduct.defaultImage)
                         .width(80)
@@ -602,25 +719,37 @@ export function OrderSummary({
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
+              </AnimatePresence>
 
               {/* Render Courses */}
-              {cartDisplayData?.courses.map((course) => {
-                const cartItem = cartData.find(
-                  (item) =>
-                    item.type === "course" && item.courseId === course._id
-                );
-                if (!cartItem) return null;
+              <AnimatePresence mode="popLayout">
+                {cartDisplayData?.courses.map((course) => {
+                  const cartItem = cartData.find(
+                    (item) =>
+                      item.type === "course" && item.courseId === course._id
+                  );
+                  if (!cartItem) return null;
 
-                const courseKey = `course-${course._id}-${cartItem.quantity}`;
+                  const courseKey = `course-${course._id}-${cartItem.quantity}`;
 
-                return (
-                  <div
-                    key={courseKey}
-                    className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
-                  >
+                  return (
+                    <motion.div
+                      key={courseKey}
+                      layout
+                      initial={{ opacity: 1, x: 0, scale: 1 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ 
+                        opacity: 0, 
+                        x: -100, 
+                        scale: 0.8,
+                        transition: { duration: 0.3, ease: "easeInOut" }
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                    >
                     <Image
                       src={urlFor(course.defaultImage)
                         .width(80)
@@ -781,9 +910,10 @@ export function OrderSummary({
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
+              </AnimatePresence>
             </div>
 
             {/* Totals Section */}
@@ -828,8 +958,15 @@ export function OrderSummary({
               )}
 
               {/* Coupon Input */}
-              {showCouponInput && !appliedCoupon && (
-                <div className="space-y-2">
+              <AnimatePresence>
+                {showCouponInput && !appliedCoupon && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="space-y-2"
+                  >
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -869,35 +1006,44 @@ export function OrderSummary({
                   >
                     Cancel
                   </Button>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
 
               {/* Applied Coupon */}
-              {appliedCoupon && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600 flex items-center gap-2">
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                      {appliedCoupon.code}
+              <AnimatePresence>
+                {appliedCoupon && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0, y: -10 }}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="text-gray-600 flex items-center gap-2">
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                        {appliedCoupon.code}
+                      </span>
+                      {`Coupon (-${appliedCoupon.discount.percentage}%):`}
+                      <Button
+                        variant="link"
+                        onClick={handleRemoveCoupon}
+                        className="text-red-600 hover:text-red-800 p-0 h-auto font-normal text-xs ml-2"
+                      >
+                        Remove
+                      </Button>
                     </span>
-                    {`Coupon (-${appliedCoupon.discount.percentage}%):`}
-                    <Button
-                      variant="link"
-                      onClick={handleRemoveCoupon}
-                      className="text-red-600 hover:text-red-800 p-0 h-auto font-normal text-xs ml-2"
-                    >
-                      Remove
-                    </Button>
-                  </span>
-                  <NumericFormat
-                    thousandSeparator={true}
-                    displayType="text"
-                    prefix="UGX "
-                    value={-Math.abs(appliedCoupon.discount.amount)}
-                    allowNegative={true}
-                    className="font-medium text-green-600"
-                  />
-                </div>
-              )}
+                    <NumericFormat
+                      thousandSeparator={true}
+                      displayType="text"
+                      prefix="UGX "
+                      value={-Math.abs(couponDiscount)}
+                      allowNegative={true}
+                      className="font-medium text-green-600"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {shippingCost > 0 && (
                 <div className="flex justify-between items-center text-sm">
