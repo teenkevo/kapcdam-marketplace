@@ -103,25 +103,29 @@ export function ProductsHeader({
       {/* Controls Row: Category, Search, Sort */}
       <div className="flex items-center gap-4 flex-wrap">
         {/* Category Button */}
-        <div className={cn("flex-shrink-0 flex items-center gap-2")}>
+        <div
+          className={cn(
+            "flex-shrink-0 flex items-center gap-2 w-full sm:w-auto"
+          )}
+        >
           <Button
             variant={selectedType === "all" ? "default" : "outline"}
             onClick={() => onTypeChange("all")}
-            className="flex items-center gap-2 min-w-[80px] justify-center"
+            className="flex items-center gap-2 min-w-[80px] justify-center flex-shrink-0"
           >
             All
           </Button>
           <Button
             variant={selectedType === "products" ? "default" : "outline"}
             onClick={() => onTypeChange("products")}
-            className="flex items-center gap-2 min-w-[100px] justify-center"
+            className="flex items-center gap-2 justify-center flex-1 sm:flex-none sm:min-w-[100px]"
           >
             Products
           </Button>
           <Button
             variant={selectedType === "courses" ? "default" : "outline"}
             onClick={() => onTypeChange("courses")}
-            className="flex items-center gap-2 min-w-[100px] justify-center"
+            className="flex items-center gap-2 justify-center flex-1 sm:flex-none sm:min-w-[100px]"
           >
             Courses
           </Button>
