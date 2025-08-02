@@ -22,7 +22,7 @@ export default function HeroSection() {
         transition={{ duration: 8, ease: "easeOut" }}
       >
         <Image
-          src="https://kapcdam.org/wp-content/uploads/2022/08/Candle-making-by-parents-of-Children-with-Disabilities-Association-1-1.jpg"
+          src="https://res.cloudinary.com/teenkevo-cloud/image/upload/q_72/v1754117385/Candle_making_by_parents_of_Children_with_Disabilities_Association_1_jrjigx.webp"
           alt="Parents of children with disabilities making candles"
           fill
           className="object-cover"

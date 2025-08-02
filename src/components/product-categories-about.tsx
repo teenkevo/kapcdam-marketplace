@@ -21,7 +21,7 @@ const categories = [
     name: "Skilling Center",
     description: "Trendy clothes and accessories",
     image:
-      "https://kapcdam.org/wp-content/uploads/2022/08/Parents-of-CWDs-receiving-training.jpg",
+      "https://res.cloudinary.com/teenkevo-cloud/image/upload/q_72/v1754117385/Candle_making_by_parents_of_Children_with_Disabilities_Association_1_jrjigx.webp",
     href: "/category/fashion",
   },
 ];
