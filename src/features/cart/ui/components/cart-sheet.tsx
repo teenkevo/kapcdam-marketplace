@@ -311,13 +311,20 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
+    const cartId = serverCart?._id || userCart?._id;
+    
     if (!isSignedIn) {
-      // Redirect to sign-in page
-      router.push("/sign-in");
+      // If we have a cartId, redirect to sign-in with checkout URL for redirect after auth
+      if (cartId) {
+        const checkoutUrl = `/checkout/c/${cartId}`;
+        router.push(`/sign-in?redirect_url=${encodeURIComponent(checkoutUrl)}`);
+      } else {
+        // No cart available, just redirect to sign-in
+        router.push("/sign-in");
+      }
       return;
     }
 
-    const cartId = serverCart?._id || userCart?._id;
     if (!cartId) {
       toast.error("Cart not found. Please try refreshing the page.", {
         classNames: {

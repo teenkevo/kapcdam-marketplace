@@ -117,33 +117,19 @@ export const AddToServerCartButton = ({
           queryKey: ["cart", "getDisplayData"],
         });
 
-        if (isInCart) {
-          toast.success("Quantity updated!", {
-            description: "Item quantity increased in cart",
-            classNames: {
-              toast: "bg-[#e8f8e8] border-green-500",
-              icon: "text-[#03a53e]",
-              title: "text-[#03a53e]",
-              description: "text-black",
-              actionButton: "bg-zinc-400",
-              cancelButton: "bg-orange-400",
-              closeButton: "bg-lime-400",
-            },
-          });
-        } else {
-          toast.success("Added to cart!", {
-            description: "Item successfully added to your cart",
-            classNames: {
-              toast: "bg-[#e8f8e8] border-green-500",
-              icon: "text-[#03a53e]",
-              title: "text-[#03a53e]",
-              description: "text-black",
-              actionButton: "bg-zinc-400",
-              cancelButton: "bg-orange-400",
-              closeButton: "bg-lime-400",
-            },
-          });
-        }
+        // Consolidate into single cart success message
+        toast.success("Added to cart!", {
+          description: isInCart ? "Quantity updated" : "Item added successfully",
+          classNames: {
+            toast: "bg-[#e8f8e8] border-green-500",
+            icon: "text-[#03a53e]",
+            title: "text-[#03a53e]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
       },
       onError: (error) => {
         toast.error("Failed to add to cart", {

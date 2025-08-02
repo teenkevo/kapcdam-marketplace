@@ -32,15 +32,9 @@ export function useCartSync() {
             });
           });
 
-          // Show success message without transition to avoid keeping isPending active
+          // Show concise success message
           if ("itemsAdded" in result && result.itemsAdded > 0) {
-            const itemsText = result.itemsAdded === 1 ? "item" : "items";
-            toast.success(
-              `${result.itemsAdded} ${itemsText} synced to your account!`
-            );
-          } else {
-            // Handle case where no items were synced
-            toast.success("Cart synced successfully!");
+            toast.success("Cart synced!");
           }
         }
       },
