@@ -197,7 +197,7 @@ export default async function Header() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <Image
-                src="https://kapcdam.org/wp-content/uploads/2022/08/cropped-kapcdam-logo-2.jpg"
+                src="https://res.cloudinary.com/teenkevo-cloud/image/upload/v1754117385/logo-kapcdam_h9goky.webp"
                 alt="KAPCDAM Logo"
                 width={280}
                 height={280}
