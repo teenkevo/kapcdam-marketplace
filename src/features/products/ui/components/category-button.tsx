@@ -1,11 +1,10 @@
 "use client";
-
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Category } from "@/features/products/schemas";
+import type { Category } from "@/features/products/schemas";
 
 interface CategoryButtonProps {
   categories: Category[];
@@ -39,94 +38,101 @@ export function CategoryButton({
 }: CategoryButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredParent, setHoveredParent] = useState<string | null>(null);
-  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  const menuRef = useRef<HTMLDivElement>(null); // Ref for the entire menu container
+  const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For delaying hoveredParent clear
 
   // Group categories by parent/child structure
-  const parentCategories = categories.filter(cat => !cat.hasParent || !cat.parent);
-  const childCategories = categories.filter(cat => cat.hasParent && cat.parent);
+  const parentCategories = categories.filter(
+    (cat) => !cat.hasParent || !cat.parent
+  );
+  const childCategories = categories.filter(
+    (cat) => cat.hasParent && cat.parent
+  );
 
   // Group child categories by parent
-  const categoriesByParent = childCategories.reduce((acc, child) => {
-    const parentId = child.parent?._id;
-    if (parentId) {
-      if (!acc[parentId]) {
-        acc[parentId] = [];
+  const categoriesByParent = childCategories.reduce(
+    (acc, child) => {
+      const parentId = child.parent?._id;
+      if (parentId) {
+        if (!acc[parentId]) {
+          acc[parentId] = [];
+        }
+        acc[parentId].push(child);
       }
-      acc[parentId].push(child);
-    }
-    return acc;
-  }, {} as Record<string, Category[]>);
+      return acc;
+    },
+    {} as Record<string, Category[]>
+  );
 
   const handleToggleMenu = () => {
     setIsOpen(!isOpen);
+    // When opening, reset hoveredParent
+    if (!isOpen) {
+      setHoveredParent(null);
+    }
   };
 
-  const handleClickOutside = () => {
-    setIsOpen(false);
-    setHoveredParent(null);
+  const handleClickOutside = (event: MouseEvent) => {
+    // Check if the click occurred outside the menuRef element
+    if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      // [^2]
+      setIsOpen(false);
+      setHoveredParent(null);
+    }
   };
 
   const handleParentHover = (parentId: string) => {
-    // Clear any existing hover timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
+    // Clear any pending leave timeout when hovering over a parent
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
     }
     setHoveredParent(parentId);
   };
 
-  const handleParentAreaLeave = () => {
-    // Only delay when leaving the entire parent categories area
-    hoverTimeoutRef.current = setTimeout(() => {
+  const handleMenuLeave = () => {
+    // Set a timeout to clear hoveredParent after a short delay
+    leaveTimeoutRef.current = setTimeout(() => {
       setHoveredParent(null);
-    }, 150);
+    }, 150); // Adjust delay as needed
   };
 
-  const handleParentAreaEnter = () => {
-    // Clear timeout when re-entering the parent area
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
+  const handleMenuEnter = () => {
+    // Clear the timeout if the mouse re-enters the menu
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
     }
   };
 
   const handleCategorySelect = (categoryId: string) => {
     onCategoryChange(categoryId);
     setIsOpen(false);
+    setHoveredParent(null); // Clear hoveredParent on selection
   };
 
   // Get selected category name
   const getSelectedCategoryName = () => {
     if (!selectedCategory) return "All Categories";
-    const selected = categories.find(cat => cat._id === selectedCategory);
+    const selected = categories.find((cat) => cat._id === selectedCategory);
     return selected?.name || "All Categories";
   };
 
   // Handle click outside to close menu
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('[data-category-menu]')) {
-        handleClickOutside();
-      }
-    };
-
     if (isOpen) {
-      document.addEventListener('click', handleClick);
+      // Use 'mousedown' instead of 'click' for more immediate response
+      // and to prevent issues with clicks on elements that might be removed from DOM
+      document.addEventListener("mousedown", handleClickOutside);
     }
-
     return () => {
-      document.removeEventListener('click', handleClick);
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current);
-      }
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+      document.removeEventListener("mousedown", handleClickOutside);
+      // Clear any pending leave timeout when component unmounts or isOpen changes to false
+      if (leaveTimeoutRef.current) {
+        clearTimeout(leaveTimeoutRef.current);
       }
     };
-  }, [isOpen]);
+  }, [isOpen]); // Depend on isOpen
 
   if (isLoading) {
     return (
@@ -137,7 +143,9 @@ export function CategoryButton({
   }
 
   return (
-    <div className="relative w-full" data-category-menu>
+    <div className="relative w-full" data-category-menu ref={menuRef}>
+      {" "}
+      {/* Attach ref here */}
       <Button
         variant="outline"
         onClick={handleToggleMenu}
@@ -156,15 +164,16 @@ export function CategoryButton({
           )}
         />
       </Button>
-
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="absolute top-full left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[500px] max-w-2xl mt-1"
+            className="absolute top-full left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg min-w-full md:min-w-[500px] max-w-2xl mt-1"
             initial="hidden"
             animate="visible"
             exit="hidden"
             variants={menuVariants}
+            onMouseLeave={handleMenuLeave}
+            onMouseEnter={handleMenuEnter}
           >
             <div className="p-4">
               <div className="grid grid-cols-2 gap-6">
@@ -173,11 +182,9 @@ export function CategoryButton({
                   <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">
                     Categories
                   </h3>
-                  <div 
-                    className="space-y-1"
-                    onMouseEnter={handleParentAreaEnter}
-                    onMouseLeave={handleParentAreaLeave}
-                  >
+                  <div className="space-y-1">
+                    {" "}
+                    {/* Removed onMouseEnter/Leave from here */}
                     {/* All Categories Option */}
                     <Button
                       variant="ghost"
@@ -185,33 +192,39 @@ export function CategoryButton({
                       onClick={() => handleCategorySelect("")}
                       className={cn(
                         "w-full justify-start text-left h-auto py-2 px-3 transition-colors duration-150",
-                        !selectedCategory ? "bg-gray-100 hover:bg-gray-200" : "hover:bg-gray-50"
+                        !selectedCategory
+                          ? "bg-gray-100 hover:bg-gray-200"
+                          : "hover:bg-gray-50"
                       )}
                     >
                       All Categories
                     </Button>
-                    
                     {/* Parent Categories */}
                     {parentCategories.map((category) => {
-                      const isSelected = selectedCategory === category._id || 
-                        categoriesByParent[category._id]?.some(child => child._id === selectedCategory);
+                      const isSelected =
+                        selectedCategory === category._id ||
+                        categoriesByParent[category._id]?.some(
+                          (child) => child._id === selectedCategory
+                        );
                       const isHovered = hoveredParent === category._id;
-                      
                       return (
                         <Button
                           key={category._id}
                           variant="ghost"
                           size="sm"
                           onClick={() => handleCategorySelect(category._id)}
-                          onMouseEnter={() => handleParentHover(category._id)}
+                          onMouseEnter={() => handleParentHover(category._id)} // Keep this
+                          // No onMouseLeave here
                           className={cn(
                             "w-full justify-start text-left h-auto py-2 px-3 transition-colors duration-150",
-                            isSelected ? "bg-gray-100 hover:bg-gray-200" : "hover:bg-gray-50",
+                            isSelected
+                              ? "bg-gray-100 hover:bg-gray-200"
+                              : "hover:bg-gray-50",
                             isHovered && !isSelected && "bg-gray-50"
                           )}
                         >
                           <div>
-                            <div className="font-medium text-sm">
+                            <div className="font-medium text-xs md:text-sm">
                               {category.name}
                             </div>
                           </div>
@@ -220,39 +233,46 @@ export function CategoryButton({
                     })}
                   </div>
                 </div>
-
                 {/* Second Column: Child Categories */}
                 <div className="pr-4">
-                  {/* Show child categories for hovered parent, selected parent, or popular children */}
                   {(() => {
                     // Priority: hovered parent > selected parent > popular children
-                    const displayParent = hoveredParent 
-                      ? parentCategories.find(cat => cat._id === hoveredParent)
-                      : parentCategories.find(cat => 
-                          cat._id === selectedCategory || 
-                          categoriesByParent[cat._id]?.some(child => child._id === selectedCategory)
+                    const displayParent = hoveredParent
+                      ? parentCategories.find(
+                          (cat) => cat._id === hoveredParent
+                        )
+                      : parentCategories.find(
+                          (cat) =>
+                            cat._id === selectedCategory ||
+                            categoriesByParent[cat._id]?.some(
+                              (child) => child._id === selectedCategory
+                            )
                         );
-                    
-                    const childrenToShow = displayParent 
+                    const childrenToShow = displayParent
                       ? categoriesByParent[displayParent._id] || []
                       : childCategories.slice(0, 8); // Show first 8 if no parent hovered/selected
 
                     if (childrenToShow.length === 0) {
                       return (
                         <div className="text-center text-gray-500 text-sm mt-8">
-                          {displayParent ? "No subcategories available" : "Hover over a category to view subcategories"}
+                          {displayParent
+                            ? "No subcategories available"
+                            : "Hover over a category to view subcategories"}
                         </div>
                       );
                     }
 
                     return (
                       <>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b">
-                          {displayParent ? `${displayParent.name} Subcategories` : "Popular Subcategories"}
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                          Subcategories
                         </h3>
-                        <motion.div 
+                        <p className="text-xs text-gray-500 pb-2 border-b">
+                          {displayParent ? `${displayParent.name}` : "Popular"}
+                        </p>
+                        <motion.div
                           className="space-y-1"
-                          key={displayParent?._id || 'popular'}
+                          key={displayParent?._id || "popular"}
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2 }}
@@ -262,18 +282,25 @@ export function CategoryButton({
                               key={category._id}
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: index * 0.03, duration: 0.2 }}
+                              transition={{
+                                delay: index * 0.03,
+                                duration: 0.2,
+                              }}
                             >
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleCategorySelect(category._id)}
+                                onClick={() =>
+                                  handleCategorySelect(category._id)
+                                }
                                 className={cn(
                                   "w-full justify-start text-left h-auto py-2 px-3 transition-colors duration-150",
-                                  selectedCategory === category._id ? "bg-gray-100 hover:bg-gray-200" : "hover:bg-gray-50"
+                                  selectedCategory === category._id
+                                    ? "bg-gray-100 hover:bg-gray-200"
+                                    : "hover:bg-gray-50"
                                 )}
                               >
-                                <div className="font-medium text-sm">
+                                <div className="font-medium text-xs md:text-sm truncate">
                                   {category.name}
                                 </div>
                               </Button>
