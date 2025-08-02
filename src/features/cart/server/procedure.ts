@@ -22,6 +22,52 @@ import {
 } from "./query";
 import { revalidatePath } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/live";
+import { createClerkClient } from "@clerk/nextjs/server";
+
+// Helper function to get or create user in Sanity (for cart sync only)
+async function getOrCreateUserForSync(clerkUserId: string) {
+  // First, try to get user from Sanity
+  let user = await client.fetch(
+    groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+    { clerkUserId }
+  );
+
+  if (user) {
+    return user;
+  }
+
+  // User doesn't exist in Sanity, fetch from Clerk and create
+  const clerkClient = createClerkClient({
+    secretKey: process.env.CLERK_SECRET_KEY,
+  });
+
+  try {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    
+    // Create user in Sanity using the same structure as webhook
+    user = await client.createIfNotExists({
+      _id: `user-${clerkUserId}`,
+      _type: "user",
+      clerkUserId: clerkUserId,
+      email: clerkUser.emailAddresses[0]?.emailAddress || "",
+      firstName: clerkUser.firstName || "",
+      lastName: clerkUser.lastName || "",
+      phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
+      preferences: {
+        notifications: true,
+        marketing: false,
+      },
+    });
+
+    return user;
+  } catch (error) {
+    console.error("Error creating user from Clerk data:", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to create user account",
+    });
+  }
+}
 
 export const cartRouter = createTRPCRouter({
   /**
@@ -444,18 +490,8 @@ export const cartRouter = createTRPCRouter({
           return { success: true, message: "No items to sync" };
         }
 
-        // Get user document
-        const user = await client.fetch(
-          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
-          { clerkUserId: ctx.auth.userId }
-        );
-
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found. Account sync required.",
-          });
-        }
+        // Get or create user document for sync
+        const user = await getOrCreateUserForSync(ctx.auth.userId);
 
         // Get existing user cart
         let userCart = await client.fetch(

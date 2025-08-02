@@ -4,7 +4,7 @@ export const user = defineType({
   name: "user",
   title: "Customer User",
   type: "document",
-  // readOnly: true,
+  readOnly: true,
   description:
     "Customer users for KAPCDAM e-commerce platform. Authentication handled by Clerk.",
   fields: [
