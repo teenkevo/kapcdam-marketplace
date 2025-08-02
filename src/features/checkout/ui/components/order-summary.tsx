@@ -575,135 +575,135 @@ export function OrderSummary({
                       layout
                       initial={{ opacity: 1, x: 0, scale: 1 }}
                       animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ 
-                        opacity: 0, 
-                        x: -100, 
+                      exit={{
+                        opacity: 0,
+                        x: -100,
                         scale: 0.8,
-                        transition: { duration: 0.3, ease: "easeInOut" }
+                        transition: { duration: 0.3, ease: "easeInOut" },
                       }}
                       transition={{ duration: 0.2 }}
                       className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                     >
-                    <Image
-                      src={urlFor(expandedProduct.defaultImage)
-                        .width(80)
-                        .height(80)
-                        .url()}
-                      alt={expandedProduct.title}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 object-cover rounded-md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">
-                        {expandedProduct.title}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        Kapcdam Marketplace
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const productData = cartDisplayData?.products.find(
-                            (p) => p._id === cartItem.productId
-                          );
-                          const hasDiscount =
-                            productData?.hasDiscount &&
-                            productData?.discountInfo?.isActive;
-
-                          if (hasDiscount && productData?.discountInfo) {
-                            const originalPrice = parseInt(
-                              expandedProduct.price
+                      <Image
+                        src={urlFor(expandedProduct.defaultImage)
+                          .width(80)
+                          .height(80)
+                          .url()}
+                        alt={expandedProduct.title}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 object-cover rounded-md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          {expandedProduct.title}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Kapcdam Marketplace
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const productData = cartDisplayData?.products.find(
+                              (p) => p._id === cartItem.productId
                             );
-                            const discountAmount = calculateItemDiscount(
-                              originalPrice,
-                              productData.discountInfo
-                            );
-                            const discountedPrice =
-                              originalPrice - discountAmount;
+                            const hasDiscount =
+                              productData?.hasDiscount &&
+                              productData?.discountInfo?.isActive;
 
-                            return (
-                              <>
-                                {/* Original price crossed out */}
+                            if (hasDiscount && productData?.discountInfo) {
+                              const originalPrice = parseInt(
+                                expandedProduct.price
+                              );
+                              const discountAmount = calculateItemDiscount(
+                                originalPrice,
+                                productData.discountInfo
+                              );
+                              const discountedPrice =
+                                originalPrice - discountAmount;
+
+                              return (
+                                <>
+                                  {/* Original price crossed out */}
+                                  <NumericFormat
+                                    thousandSeparator={true}
+                                    displayType="text"
+                                    prefix="UGX "
+                                    value={expandedProduct.price}
+                                    className="text-xs text-gray-400 line-through"
+                                  />
+                                  {/* Discounted price */}
+                                  <NumericFormat
+                                    thousandSeparator={true}
+                                    displayType="text"
+                                    prefix="UGX "
+                                    value={discountedPrice}
+                                    className="text-sm font-semibold text-green-600"
+                                  />
+                                  {/* Discount badge */}
+                                  <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                                    -{productData.discountInfo.value}%
+                                  </span>
+                                </>
+                              );
+                            } else {
+                              return (
                                 <NumericFormat
                                   thousandSeparator={true}
                                   displayType="text"
                                   prefix="UGX "
                                   value={expandedProduct.price}
-                                  className="text-xs text-gray-400 line-through"
+                                  className="text-sm font-semibold"
                                 />
-                                {/* Discounted price */}
-                                <NumericFormat
-                                  thousandSeparator={true}
-                                  displayType="text"
-                                  prefix="UGX "
-                                  value={discountedPrice}
-                                  className="text-sm font-semibold text-green-600"
-                                />
-                                {/* Discount badge */}
-                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                                  -{productData.discountInfo.value}%
-                                </span>
-                              </>
-                            );
-                          } else {
-                            return (
-                              <NumericFormat
-                                thousandSeparator={true}
-                                displayType="text"
-                                prefix="UGX "
-                                value={expandedProduct.price}
-                                className="text-sm font-semibold"
-                              />
-                            );
-                          }
-                        })()}
+                              );
+                            }
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handleUpdateQuantity(
-                            expandedProduct,
-                            cartItem.quantity - 1
-                          )
-                        }
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-sm font-medium w-8 text-center">
-                        {cartItem.quantity}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handleUpdateQuantity(
-                            expandedProduct,
-                            cartItem.quantity + 1
-                          )
-                        }
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleRemoveItem(expandedProduct)}
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity - 1
+                            )
+                          }
+                          disabled={updateServerCartMutation.isPending}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center">
+                          {cartItem.quantity}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity + 1
+                            )
+                          }
+                          disabled={updateServerCartMutation.isPending}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRemoveItem(expandedProduct)}
+                          disabled={updateServerCartMutation.isPending}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
 
               {/* Render Courses */}
@@ -715,186 +715,98 @@ export function OrderSummary({
                   );
                   if (!cartItem) return null;
 
+                  // Enhanced key for courses
                   const courseKey = `course-${course._id}-${cartItem.quantity}`;
 
                   return (
-                    <motion.div
+                    <div
                       key={courseKey}
-                      layout
-                      initial={{ opacity: 1, x: 0, scale: 1 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ 
-                        opacity: 0, 
-                        x: -100, 
-                        scale: 0.8,
-                        transition: { duration: 0.3, ease: "easeInOut" }
-                      }}
-                      transition={{ duration: 0.2 }}
                       className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                     >
-                    <Image
-                      src={urlFor(course.defaultImage)
-                        .width(80)
-                        .height(80)
-                        .url()}
-                      alt={course.title}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 object-cover rounded-md"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">
-                        {course.title}
-                      </h4>
-                      <p className="text-sm text-gray-500">Kapcdam Course</p>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const hasDiscount =
-                            course.hasDiscount && course.discountInfo?.isActive;
-
-                          if (hasDiscount && course.discountInfo) {
-                            const originalPrice = parseInt(course.price);
-                            const discountAmount = calculateItemDiscount(
-                              originalPrice,
-                              course.discountInfo
-                            );
-                            const discountedPrice =
-                              originalPrice - discountAmount;
-
-                            return (
-                              <>
-                                {/* Original price crossed out */}
-                                <NumericFormat
-                                  thousandSeparator={true}
-                                  displayType="text"
-                                  prefix="UGX "
-                                  value={course.price}
-                                  className="text-xs text-gray-400 line-through"
-                                />
-                                {/* Discounted price */}
-                                <NumericFormat
-                                  thousandSeparator={true}
-                                  displayType="text"
-                                  prefix="UGX "
-                                  value={discountedPrice}
-                                  className="text-sm font-semibold text-green-600"
-                                />
-                                {/* Discount badge */}
-                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                                  -{course.discountInfo.value}%
-                                </span>
-                              </>
-                            );
-                          } else {
-                            return (
-                              <NumericFormat
-                                thousandSeparator={true}
-                                displayType="text"
-                                prefix="UGX "
-                                value={course.price}
-                                className="text-sm font-semibold"
-                              />
-                            );
-                          }
-                        })()}
+                      <Image
+                        src={urlFor(course.defaultImage)
+                          .width(80)
+                          .height(80)
+                          .url()}
+                        alt={course.title}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 object-cover rounded-md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                          {course.title}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Kapcdam Course • Qty: 1 (fixed)
+                        </p>
+                        <div className="flex items-center">
+                          <NumericFormat
+                            thousandSeparator={true}
+                            displayType="text"
+                            prefix="UGX "
+                            value={Math.max(0, parseInt(course.price) || 0)}
+                            className="text-sm font-semibold"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {/* Disabled quantity controls for courses */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center text-gray-500">
+                          1
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (isSignedIn && userCart?._id) {
+                              // Server cart removal for courses
+                              const itemIndex = cartData.findIndex(
+                                (item) =>
+                                  item.type === "course" &&
+                                  item.courseId === course._id
+                              );
+                              if (itemIndex !== -1) {
+                                updateServerCartMutation.mutate({
+                                  cartId: userCart._id,
+                                  itemIndex,
+                                  quantity: 0,
+                                });
+                              }
+                            } else {
+                              // Local cart removal for courses
+                              removeLocalItem(
+                                "", // productId not needed for courses
+                                course._id,
+                                undefined
+                              );
+                            }
+                          }}
+                          disabled={updateServerCartMutation.isPending}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (isSignedIn && userCart?._id) {
-                            const itemIndex = cartData.findIndex(
-                              (item) =>
-                                item.type === "course" &&
-                                item.courseId === course._id
-                            );
-                            if (itemIndex !== -1) {
-                              updateServerCartMutation.mutate({
-                                cartId: userCart._id,
-                                itemIndex,
-                                quantity: cartItem.quantity - 1,
-                              });
-                            }
-                          } else {
-                            updateLocalQuantity(
-                              "",
-                              course._id,
-                              undefined,
-                              cartItem.quantity - 1
-                            );
-                          }
-                        }}
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-sm font-medium w-8 text-center">
-                        {cartItem.quantity}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (isSignedIn && userCart?._id) {
-                            const itemIndex = cartData.findIndex(
-                              (item) =>
-                                item.type === "course" &&
-                                item.courseId === course._id
-                            );
-                            if (itemIndex !== -1) {
-                              updateServerCartMutation.mutate({
-                                cartId: userCart._id,
-                                itemIndex,
-                                quantity: cartItem.quantity + 1,
-                              });
-                            }
-                          } else {
-                            updateLocalQuantity(
-                              "",
-                              course._id,
-                              undefined,
-                              cartItem.quantity + 1
-                            );
-                          }
-                        }}
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (isSignedIn && userCart?._id) {
-                            const itemIndex = cartData.findIndex(
-                              (item) =>
-                                item.type === "course" &&
-                                item.courseId === course._id
-                            );
-                            if (itemIndex !== -1) {
-                              updateServerCartMutation.mutate({
-                                cartId: userCart._id,
-                                itemIndex,
-                                quantity: 0,
-                              });
-                            }
-                          } else {
-                            removeLocalItem("", course._id, undefined);
-                          }
-                        }}
-                        disabled={updateServerCartMutation.isPending}
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                  );
+                })}
               </AnimatePresence>
             </div>
 
@@ -942,60 +854,60 @@ export function OrderSummary({
               {/* Coupon Input */}
               <AnimatePresence>
                 {showCouponInput && !appliedCoupon && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0, y: -10 }}
                     animate={{ opacity: 1, height: "auto", y: 0 }}
                     exit={{ opacity: 0, height: 0, y: -10 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                     className="space-y-2"
                   >
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) =>
-                        setCouponCode(e.target.value.toUpperCase())
-                      }
-                      placeholder="Enter coupon code"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent"
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleApplyCoupon()
-                      }
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) =>
+                          setCouponCode(e.target.value.toUpperCase())
+                        }
+                        placeholder="Enter coupon code"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleApplyCoupon()
+                        }
+                      />
+                      <Button
+                        onClick={handleApplyCoupon}
+                        disabled={
+                          validateCouponMutation.isPending || !couponCode.trim()
+                        }
+                        className="px-4 py-2 bg-lime-500 text-white text-sm rounded-md hover:bg-lime-600 disabled:opacity-50"
+                      >
+                        {validateCouponMutation.isPending
+                          ? "Applying..."
+                          : "Apply"}
+                      </Button>
+                    </div>
+                    {couponError && (
+                      <p className="text-red-600 text-xs">{couponError}</p>
+                    )}
                     <Button
-                      onClick={handleApplyCoupon}
-                      disabled={
-                        validateCouponMutation.isPending || !couponCode.trim()
-                      }
-                      className="px-4 py-2 bg-lime-500 text-white text-sm rounded-md hover:bg-lime-600 disabled:opacity-50"
+                      variant="link"
+                      onClick={() => {
+                        setShowCouponInput(false);
+                        setCouponCode("");
+                        setCouponError(null);
+                      }}
+                      className="text-gray-500 hover:text-gray-700 p-0 h-auto font-normal text-xs"
                     >
-                      {validateCouponMutation.isPending
-                        ? "Applying..."
-                        : "Apply"}
+                      Cancel
                     </Button>
-                  </div>
-                  {couponError && (
-                    <p className="text-red-600 text-xs">{couponError}</p>
-                  )}
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      setShowCouponInput(false);
-                      setCouponCode("");
-                      setCouponError(null);
-                    }}
-                    className="text-gray-500 hover:text-gray-700 p-0 h-auto font-normal text-xs"
-                  >
-                    Cancel
-                  </Button>
-                </motion.div>
-              )}
+                  </motion.div>
+                )}
               </AnimatePresence>
 
               {/* Applied Coupon */}
               <AnimatePresence>
                 {appliedCoupon && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0, y: -10 }}
                     animate={{ opacity: 1, height: "auto", y: 0 }}
                     exit={{ opacity: 0, height: 0, y: -10 }}
