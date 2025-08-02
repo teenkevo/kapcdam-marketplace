@@ -126,8 +126,7 @@ export const cartRouter = createTRPCRouter({
         if (!user) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message:
-              "User not found. Please ensure your account is properly set up.",
+            message: "User not found. Account sync required.",
           });
         }
 
@@ -454,7 +453,7 @@ export const cartRouter = createTRPCRouter({
         if (!user) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "User not found",
+            message: "User not found. Account sync required.",
           });
         }
 

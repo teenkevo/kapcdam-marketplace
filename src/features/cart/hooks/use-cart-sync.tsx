@@ -6,12 +6,14 @@ import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useSessionTermination } from "@/lib/session";
 
 export function useCartSync() {
   const { userId, isLoaded } = useAuth();
   const { items, hasItems, clearCart } = useLocalCartStore();
   const hasAttemptedSync = useRef(false);
   const [isPending, startTransition] = useTransition();
+  const { terminateSession } = useSessionTermination();
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -46,6 +48,15 @@ export function useCartSync() {
       },
       onError: (error) => {
         hasAttemptedSync.current = false; // Reset on error to allow retry
+        
+        // Check if this is a user-not-found-in-sanity error
+        if (error?.data?.code === "NOT_FOUND" && error.message.includes("User not found")) {
+          // Clear local cart and terminate session for users not in Sanity
+          clearCart();
+          terminateSession("Account sync required");
+          return;
+        }
+        
         const errorMessage = getCartErrorMessage(error);
         toast.error(`Failed to sync cart: ${errorMessage}`);
       },
