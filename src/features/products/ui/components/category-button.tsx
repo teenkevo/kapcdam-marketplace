@@ -137,12 +137,12 @@ export function CategoryButton({
   }
 
   return (
-    <div className="relative" data-category-menu>
+    <div className="relative w-full" data-category-menu>
       <Button
         variant="outline"
         onClick={handleToggleMenu}
         className={cn(
-          "flex items-center gap-2 min-w-[140px] justify-between",
+          "flex items-center gap-2 min-w-[140px] justify-between w-full",
           isOpen && "bg-gray-50"
         )}
         aria-expanded={isOpen}

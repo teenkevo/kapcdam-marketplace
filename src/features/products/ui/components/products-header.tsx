@@ -13,6 +13,8 @@ import {
 import { SortOption } from "../hooks/use-products-filters";
 import { CategoryButton } from "./category-button";
 import { Category } from "@/features/products/schemas";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 interface ProductsHeaderProps {
   search: string | null;
@@ -38,7 +40,7 @@ export function ProductsHeader({
   onCategoryChange,
 }: ProductsHeaderProps) {
   const [searchInput, setSearchInput] = useState(search || "");
-
+  const isMobile = useIsMobile();
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -65,20 +67,7 @@ export function ProductsHeader({
           </p>
         </div>
       </div>
-
-      {/* Controls Row: Category, Search, Sort */}
-      <div className="flex items-center gap-4">
-        {/* Category Button */}
-        <div className="flex-shrink-0">
-          <CategoryButton
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onCategoryChange={onCategoryChange}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Search Input */}
+      {isMobile && (
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -88,6 +77,32 @@ export function ProductsHeader({
             className="pl-10 w-full"
           />
         </div>
+      )}
+
+      {/* Controls Row: Category, Search, Sort */}
+      <div className="flex items-center gap-4">
+        {/* Category Button */}
+        <div className={cn("flex-shrink-0", isMobile && "flex-grow")}>
+          <CategoryButton
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={onCategoryChange}
+            isLoading={isLoading}
+          />
+        </div>
+
+        {/* Search Input */}
+        {!isMobile && (
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search products..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+        )}
 
         {/* Sort Select */}
         <div className="flex-shrink-0">
@@ -103,7 +118,9 @@ export function ProductsHeader({
               <SelectItem value="price-desc">Price: High to Low</SelectItem>
               <SelectItem value="name-asc">Name: A to Z</SelectItem>
               <SelectItem value="name-desc">Name: Z to A</SelectItem>
-              {search && <SelectItem value="relevance">Most Relevant</SelectItem>}
+              {search && (
+                <SelectItem value="relevance">Most Relevant</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
