@@ -329,7 +329,9 @@ export default function CheckoutForm({
                             className="font-medium cursor-pointer flex-1 p-3"
                           >
                             <div className="flex w-full justify-between items-center gap-2">
-                              Cash on Delivery
+                              {shouldShowDeliveryOptions
+                                ? "Cash on Delivery"
+                                : "Pay on site"}
                               <Package
                                 className={`size-4 ${
                                   field.value === "cod" ? "text-[#C5F82A]" : ""
@@ -337,7 +339,9 @@ export default function CheckoutForm({
                               />
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Pay with cash when your order arrives
+                              {shouldShowDeliveryOptions
+                                ? "Pay with cash when your order arrives"
+                                : "Pay at KAPCDAM when you come to take your course"}
                             </p>
                           </label>
                         </div>
