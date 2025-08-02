@@ -15,7 +15,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { CartType } from "@/features/cart/schema";
 import { ExpandedProduct, expandCartVariants } from "@/features/cart/helpers";
 type Props = {
-  userCart: Omit<CartType, "addedAt" | "createdAt"> | null;
+  userCart: CartType | null;
   shippingCost?: number;
   onPrimaryAction?: () => void;
   primaryActionText?: string;

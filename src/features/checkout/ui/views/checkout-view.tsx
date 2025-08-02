@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { OrderSummary } from "../components/order-summary";
 import { useTRPC } from "@/trpc/client";
@@ -13,6 +13,9 @@ import {
   CheckoutFormSkeleton,
   OrderSummarySkeleton,
 } from "../components/checkout-skeleton";
+import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useAuth } from "@clerk/nextjs";
+import { Loader2 } from "lucide-react";
 
 interface CheckoutViewProps {
   cartId: string;
@@ -22,9 +25,37 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: userCart, isLoading: isCartLoading } = useQuery(
-    trpc.cart.getCartById.queryOptions({ cartId })
-  );
+  const { isSignedIn } = useAuth();
+  const { isSyncing } = useCartSync();
+  
+  // Handle special "sync" cart ID
+  const isSyncingCart = cartId === "sync";
+  
+  const { data: userCart, isLoading: isCartLoading } = useQuery({
+    ...trpc.cart.getCartById.queryOptions({ cartId }),
+    enabled: !isSyncingCart, // Don't fetch if syncing
+  });
+
+  // For syncing cart, get the actual user cart
+  const { data: actualUserCart, isLoading: isActualCartLoading } = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    enabled: isSyncingCart && isSignedIn,
+    refetchInterval: isSyncingCart && isSyncing ? 500 : false,
+  });
+
+  // Handle cart sync redirect
+  useEffect(() => {
+    if (isSyncingCart && actualUserCart?._id && !isSyncing) {
+      // Replace URL without page reload for seamless transition
+      window.history.replaceState(null, '', `/checkout/c/${actualUserCart._id}`);
+      // Force component re-render with new cart data
+      window.location.reload();
+    }
+  }, [isSyncingCart, actualUserCart?._id, isSyncing]);
+
+  // Use the appropriate cart data
+  const currentCart = isSyncingCart ? actualUserCart : userCart;
+  const currentIsLoading = isSyncingCart ? isActualCartLoading : isCartLoading;
 
   const {
     formState,
@@ -145,7 +176,36 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     createOrderMutation.mutate(orderData);
   };
 
-  if (isCartLoading || !userCart) {
+  // Unified loading state management
+  const getLoadingState = () => {
+    // Priority 1: Cart sync in progress (highest priority)
+    if (isSyncingCart && isSignedIn && isSyncing) {
+      return { type: 'sync', message: 'Syncing your cart items...' };
+    }
+    
+    // Priority 2: Loading cart data
+    if (currentIsLoading) {
+      return { type: 'skeleton', message: 'Loading checkout...' };
+    }
+    
+    // Priority 3: Waiting for cart sync to complete but no cart yet
+    if (isSyncingCart && isSignedIn && !isSyncing && !actualUserCart) {
+      return { type: 'sync', message: 'Preparing your cart...' };
+    }
+    
+    // Priority 4: No cart data available
+    if (!currentCart) {
+      return { type: 'skeleton', message: 'Loading checkout...' };
+    }
+    
+    return null;
+  };
+
+  const loadingState = getLoadingState();
+  const showCartSyncOverlay = loadingState?.type === 'sync';
+  const showSkeletonLoading = loadingState?.type === 'skeleton';
+
+  if (showSkeletonLoading) {
     return (
       <div className="max-w-7xl mx-auto py-20">
         {/* Page Title */}
@@ -170,6 +230,17 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
 
   return (
     <div className="max-w-7xl mx-auto py-20 relative">
+      {/* Cart Sync Overlay - Clear messaging based on loading state */}
+      {showCartSyncOverlay && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg text-center max-w-sm">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-[#C5F82A]" />
+            <h3 className="text-base font-medium mb-1">{loadingState?.message}</h3>
+            <p className="text-sm text-gray-600">This will only take a moment</p>
+          </div>
+        </div>
+      )}
+
       {/* Processing Overlay */}
       {(createOrderMutation.isPending || isProcessingOrder) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -201,14 +272,14 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             onFormValidChange={handleFormValidChange}
             onFormDataChange={handleFormDataChange}
             onShippingAddressChange={handleShippingAddressChange}
-            cartId={cartId}
+            cartId={isSyncingCart ? "sync" : cartId}
           />
         </div>
 
         {/* Right Column - Order Summary */}
         <div className="lg:sticky lg:top-8 lg:self-start">
           <OrderSummary
-            userCart={userCart}
+            userCart={currentCart || null}
             shippingCost={formState.shippingCost}
             onPrimaryAction={handlePlaceOrder}
             primaryActionText={
@@ -221,7 +292,8 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             primaryActionDisabled={
               !formState.isValid ||
               createOrderMutation.isPending ||
-              isProcessingOrder
+              isProcessingOrder ||
+              showCartSyncOverlay
             }
             onCouponChange={handleCouponChange}
           />

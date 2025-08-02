@@ -306,7 +306,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
       // Show success toast and clear loading state
       updateQuantitySuccess();
-      setTimeout(() => setItemLoading(itemKey, false), 300);
+      setTimeout(() => setItemLoading(itemKey, false), 150);
     }
   };
 
@@ -345,7 +345,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
       // Show success toast and clear loading state
       removeItemSuccess(expandedProduct.title);
-      setTimeout(() => setItemLoading(itemKey, false), 300);
+      setTimeout(() => setItemLoading(itemKey, false), 150);
     }
   };
 
@@ -384,7 +384,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
       );
       // Show success toast and clear loading state
       removeItemSuccess();
-      setTimeout(() => setItemLoading(courseKey, false), 300);
+      setTimeout(() => setItemLoading(courseKey, false), 150);
     }
   };
 
@@ -396,20 +396,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
-    if (!isSignedIn) {
-      // Redirect to sign-in page
-      router.push("/sign-in");
-      return;
-    }
-
-    if (!userCart?._id) {
-      updateCartError("Cart not found. Please try refreshing the page.");
-      return;
-    }
-
-    // Close cart sheet and navigate to checkout with cart ID
+    // Close cart sheet first for better UX
     setIsCartOpen(false);
-    router.push(`/checkout/c/${userCart._id}`);
+
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirectUrl=${encodeURIComponent('/checkout')}`);
+      return;
+    }
+
+    // For signed-in users, always redirect to the general checkout page
+    // The checkout page will handle getting the user's cart and sync if needed
+    router.push("/checkout");
   };
 
   const CartContent = () => (

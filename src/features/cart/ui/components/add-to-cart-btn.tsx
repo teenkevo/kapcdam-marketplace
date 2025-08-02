@@ -52,8 +52,8 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
         addToCartSuccess(false, quantity); // false = not signed in
       }
     } finally {
-      // Add small delay for better UX
-      setTimeout(() => setIsLoading(false), 500);
+      // Quick loading state for immediate feedback
+      setTimeout(() => setIsLoading(false), 200);
     }
   };
 
