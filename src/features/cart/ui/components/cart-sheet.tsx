@@ -507,6 +507,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       variant="outline"
                       onClick={() => {
                         if (isSignedIn && userCart?._id) {
+                          console.log(
+                            "cart-sheet-handleRemoveItem-userCart",
+                            userCart
+                          );
                           // Server cart removal for courses
                           const itemIndex = cartData.findIndex(
                             (item) =>
