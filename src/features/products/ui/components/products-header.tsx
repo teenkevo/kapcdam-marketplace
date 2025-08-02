@@ -64,28 +64,7 @@ export function ProductsHeader({
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Products and Courses</h1>
-          {selectedType === "all" && (
-            <p className="text-muted-foreground mt-1">
-              {isLoading
-                ? "Loading items..."
-                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "item" : "items"} found`}
-            </p>
-          )}
-          {selectedType === "course" && (
-            <p className="text-muted-foreground mt-1">
-              {isLoading
-                ? "Loading courses..."
-                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "course" : "courses"} found`}
-            </p>
-          )}
-          {selectedType === "product" && (
-            <p className="text-muted-foreground mt-1">
-              {isLoading
-                ? "Loading products..."
-                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "product" : "products"} found`}
-            </p>
-          )}
+          <h1 className="text-3xl font-bold">Marketplace</h1>
         </div>
       </div>
       {isMobile && (
