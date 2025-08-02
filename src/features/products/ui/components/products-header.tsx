@@ -131,7 +131,7 @@ export function ProductsHeader({
           </Button>
         </div>
         {selectedType !== "courses" && (
-          <div className={cn("flex-shrink-0", isMobile && "flex-grow")}>
+          <div className={cn("flex-shrink-0", isMobile && "flex-grow w-full")}>
             <CategoryButton
               categories={categories}
               selectedCategory={selectedCategory}
