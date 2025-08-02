@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Heart,
   Facebook,
@@ -8,7 +10,47 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 import ContactUsButton from "./contact-us-button";
+
+function MarketplaceLinks() {
+  const trpc = useTRPC();
+  
+  // Fetch categories from Sanity
+  const { data: categories, isLoading } = useQuery(
+    trpc.products.getCategories.queryOptions()
+  );
+
+  // Filter to get only parent categories (top 3)
+  const parentCategories = categories?.filter(cat => !cat.hasParent || !cat.parent)?.slice(0, 3) || [];
+
+  return (
+    <div>
+      <h4 className="font-bold text-gray-900 mb-4">OUR MARKETPLACE</h4>
+      <ul className="space-y-2 text-sm">
+        {isLoading ? (
+          [...Array(3)].map((_, i) => (
+            <li key={i}>
+              <div className="h-4 bg-gray-200 animate-pulse rounded w-32" />
+            </li>
+          ))
+        ) : (
+          parentCategories.map((category) => (
+            <li key={category._id}>
+              <Link
+                href={`/marketplace?category=${category._id}`}
+                className="text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                {category.name}
+              </Link>
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
 
 export default function Footer() {
   return (
@@ -244,35 +286,7 @@ export default function Footer() {
             </div>
 
             {/* Our Marketplace */}
-            <div>
-              <h4 className="font-bold text-gray-900 mb-4">OUR MARKETPLACE</h4>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Handcrafted goods
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Essential supplies
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-700 hover:text-gray-900 transition-colors"
-                  >
-                    Upskilling training programs
-                  </a>
-                </li>
-              </ul>
-            </div>
+            <MarketplaceLinks />
 
             {/* Read */}
             <div>

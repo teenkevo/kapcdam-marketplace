@@ -51,7 +51,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="relative aspect-square">
-          <Link href={`/products/${product.slug.current}`} className="block">
+          <Link href={`/marketplace/${product.slug.current}`} className="block">
             <Image
               src={imageSrc}
               alt={product.title || "Product image"}
@@ -92,7 +92,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="p-4 space-y-3">
           <div>
             <Link 
-              href={`/products/${product.slug.current}`}
+              href={`/marketplace/${product.slug.current}`}
               className="block"
               title={product.title}
             >

@@ -77,7 +77,7 @@ export default function MarketPlaceTeaser() {
                 </div>
 
                 <Link
-                  href={"/products"}
+                  href={"/marketplace"}
                   className={cn(
                     buttonVariants({ variant: "default" }),
                     "bg-white text-gray-900 hover:bg-gray-100 font-medium px-8 py-3 rounded-full"

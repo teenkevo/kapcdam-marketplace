@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import {
-  Book,
   Check,
   ChevronsUpDown,
-  EyeClosed,
-  GitCommitVertical,
-  Home,
-  Shirt,
+  Package,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,37 +26,32 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const categories = [
-  {
-    value: "home-accessories",
-    label: "Home Accessories",
-    icon: Home,
-  },
-  {
-    value: "fashion",
-    label: "Fashion",
-    icon: Shirt,
-  },
-  {
-    value: "health-and-beauty",
-    label: "Health & Beauty",
-    icon: EyeClosed,
-  },
-  {
-    value: "jewellery",
-    label: "Jewellery",
-    icon: GitCommitVertical,
-  },
-  {
-    value: "books",
-    label: "Books",
-    icon: Book,
-  },
-];
-
 export function Categories() {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState("");
+  const router = useRouter();
+  const trpc = useTRPC();
+
+  // Fetch categories from Sanity
+  const { data: categories, isLoading } = useQuery(
+    trpc.products.getCategories.queryOptions()
+  );
+
+  // Filter to get only parent categories for the dropdown
+  const parentCategories = categories?.filter(cat => !cat.hasParent || !cat.parent) || [];
+
+  const handleCategorySelect = (categoryId: string) => {
+    if (categoryId === value) {
+      setValue("");
+      router.push("/marketplace");
+    } else {
+      setValue(categoryId);
+      router.push(`/marketplace?category=${categoryId}`);
+    }
+    setOpen(false);
+  };
+
+  const selectedCategory = parentCategories.find(cat => cat._id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -67,10 +61,9 @@ export function Categories() {
           role="combobox"
           aria-expanded={open}
           className="w-[220px] border-stone-700 justify-between"
+          disabled={isLoading}
         >
-          {value
-            ? categories.find((category) => category.value === value)?.label
-            : "Select Category"}
+          {isLoading ? "Loading..." : selectedCategory?.name || "Select Category"}
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -78,23 +71,20 @@ export function Categories() {
         <Command>
           <CommandInput placeholder="Search category..." />
           <CommandList>
-            <CommandEmpty>No framework found.</CommandEmpty>
+            <CommandEmpty>No category found.</CommandEmpty>
             <CommandGroup>
-              {categories.map((category) => (
+              {parentCategories.map((category) => (
                 <CommandItem
-                  key={category.value}
-                  value={category.value}
-                  onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue);
-                    setOpen(false);
-                  }}
+                  key={category._id}
+                  value={category.name}
+                  onSelect={() => handleCategorySelect(category._id)}
                 >
-                  <category.icon className={cn("mr-2 h-4 w-4 opacity-40")} />
-                  {category.label}
+                  <Package className={cn("mr-2 h-4 w-4 opacity-40")} />
+                  {category.name}
                   <Check
                     className={cn(
-                      "ml-auto",
-                      value === category.value ? "opacity-100" : "opacity-0"
+                      "ml-auto h-4 w-4",
+                      value === category._id ? "opacity-100" : "opacity-0"
                     )}
                   />
                 </CommandItem>

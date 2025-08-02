@@ -16,6 +16,7 @@ import {
   categoriesResponseSchema,
   productListItemSchema,
   priceRangeSchema,
+  unifiedResponseSchema,
 } from "../schemas";
 import { z } from "zod";
 import { sanityFetch } from "@/sanity/lib/live";
@@ -183,140 +184,218 @@ export const productsRouter = createTRPCRouter({
   getMany: baseProcedure
     .input(getManyProductsInputSchema)
     .query(async ({ input }) => {
-      const { search, pageSize, page, categoryId, minPrice, maxPrice, sortBy, status } = input;
+      const { search, pageSize, page, categoryId, minPrice, maxPrice, sortBy, status, type } = input;
       const offset = (page - 1) * pageSize;
 
-      const conditions = [`_type == "product"`, `status == "${status}"`, `totalStock > 0`];
-
-      if (search) {
-        conditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
-      }
-
-      if (categoryId) {
-        // Include products from both the category itself and its children (if it's a parent)
-        // OR products whose parent category matches (if categoryId is a parent)
-        conditions.push(`(category._ref == $categoryId || category->parent._ref == $categoryId)`);
-      }
-
-      // Price filtering conditions
-      if (minPrice !== null && minPrice !== undefined) {
-        conditions.push(`(
-          (hasVariants == true && math::min(variants[].price) >= ${minPrice}) ||
-          (hasVariants == false && price >= ${minPrice})
-        )`);
-      }
-
-      if (maxPrice !== null && maxPrice !== undefined) {
-        conditions.push(`(
-          (hasVariants == true && math::max(variants[].price) <= ${maxPrice}) ||
-          (hasVariants == false && price <= ${maxPrice})
-        )`);
-      }
-
-      const filterExpression = conditions.join(" && ");
-
-      // Sort order based on sortBy parameter
-      let orderBy = "_createdAt desc";
-      switch (sortBy) {
-        case "oldest":
-          orderBy = "_createdAt asc";
-          break;
-        case "price-asc":
-          orderBy = `select(
-            hasVariants == true => math::min(variants[].price),
-            price
-          ) asc`;
-          break;
-        case "price-desc":
-          orderBy = `select(
-            hasVariants == true => math::max(variants[].price),
-            price
-          ) desc`;
-          break;
-        case "name-asc":
-          orderBy = "title asc";
-          break;
-        case "name-desc":
-          orderBy = "title desc";
-          break;
-        case "relevance":
-          orderBy = search ? "_score desc, _createdAt desc" : "_createdAt desc";
-          break;
-        default:
-          orderBy = "_createdAt desc";
-      }
-
-      const query = groq`{
-        "items": *[${filterExpression}] | order(${orderBy}) [${offset}...${offset + pageSize}] {
-          _id,
-          title,
-          slug,
-          hasVariants,
-          status,
-          "defaultImage": coalesce(images[isDefault == true][0], images[0]),
-          "price": select(
-            hasVariants == true => variants[isDefault == true][0].price,
-            price
-          ),
-          "totalStock": select(
-            hasVariants == true => math::sum(variants[].stock),
-            totalStock
-          ),
-          "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
-          "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
-          category-> {
-            _id,
-            name,
-            slug,
-            hasParent,
-            parent-> {
-              _id,
-              name,
-              slug
-            }
-          },
-          "variantOptions": variants[] {
-            sku,
-            price,
-            stock,
-            isDefault,
-            attributes[] {
-              "attributeName": attributeRef->name,
-              "attributeCode": attributeRef->code.current,
-              value
-            }
-          },
-          "hasDiscount": defined(discount) && discount.isActive == true,
-          "discountInfo": select(
-            defined(discount) && discount.isActive == true => discount,
-            null
-          )
-        },
-        "total": count(*[${filterExpression}])
-      }`;
-
-      const params: Record<string, unknown> = {};
-      if (search) params.search = search;
-      if (categoryId) params.categoryId = categoryId;
-
       try {
-        const result = await client.fetch(query, params);
-        const total = result.total || 0;
-        const totalPages = Math.ceil(total / pageSize);
+        const allItems: any[] = [];
+        let totalCount = 0;
 
-        const cleanedResponse = cleanProductsResponse({
-          items: result.items || [],
-          total,
-          hasMore: page < totalPages,
-          nextCursor: page < totalPages ? `page-${page + 1}` : null,
+        // Fetch products if type is "all" or "products"
+        if (type === "all" || type === "products") {
+          const productConditions = [`_type == "product"`, `status == "${status}"`, `totalStock > 0`];
+
+          if (search) {
+            productConditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
+          }
+
+          if (categoryId) {
+            productConditions.push(`(category._ref == $categoryId || category->parent._ref == $categoryId)`);
+          }
+
+          if (minPrice !== null && minPrice !== undefined) {
+            productConditions.push(`(
+              (hasVariants == true && math::min(variants[].price) >= ${minPrice}) ||
+              (hasVariants == false && price >= ${minPrice})
+            )`);
+          }
+
+          if (maxPrice !== null && maxPrice !== undefined) {
+            productConditions.push(`(
+              (hasVariants == true && math::max(variants[].price) <= ${maxPrice}) ||
+              (hasVariants == false && price <= ${maxPrice})
+            )`);
+          }
+
+          const productFilter = productConditions.join(" && ");
+          
+          const productQuery = groq`{
+            "items": *[${productFilter}] {
+              _id,
+              title,
+              slug,
+              hasVariants,
+              status,
+              "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+              "price": select(
+                hasVariants == true => variants[isDefault == true][0].price,
+                price
+              ),
+              "totalStock": select(
+                hasVariants == true => math::sum(variants[].stock),
+                totalStock
+              ),
+              "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+              "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+              category-> {
+                _id,
+                name,
+                slug,
+                hasParent,
+                displayImage,
+                parent-> {
+                  _id,
+                  name,
+                  slug
+                }
+              },
+              "variantOptions": variants[] {
+                sku,
+                price,
+                stock,
+                isDefault,
+                attributes[] {
+                  "attributeName": attributeRef->name,
+                  "attributeCode": attributeRef->code.current,
+                  value
+                }
+              },
+              "hasDiscount": defined(discount) && discount.isActive == true,
+              "discountInfo": select(
+                defined(discount) && discount.isActive == true => discount,
+                null
+              ),
+              "itemType": "product"
+            },
+            "total": count(*[${productFilter}])
+          }`;
+
+          const params: Record<string, unknown> = {};
+          if (search) params.search = search;
+          if (categoryId) params.categoryId = categoryId;
+
+          const productResult = await client.fetch(productQuery, params);
+          const cleanedProducts = (productResult.items || []).map(cleanProductData);
+          
+          allItems.push(...cleanedProducts);
+          totalCount += productResult.total || 0;
+        }
+
+        // Fetch courses if type is "all" or "courses"
+        if (type === "all" || type === "courses") {
+          const courseConditions = [`_type == "course"`, `isActive == true`];
+
+          if (search) {
+            courseConditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
+          }
+
+          // Price filtering for courses (simpler structure)
+          if (minPrice !== null && minPrice !== undefined) {
+            courseConditions.push(`price >= ${minPrice}`);
+          }
+
+          if (maxPrice !== null && maxPrice !== undefined) {
+            courseConditions.push(`price <= ${maxPrice}`);
+          }
+
+          const courseFilter = courseConditions.join(" && ");
+          
+          const courseQuery = groq`{
+            "items": *[${courseFilter}] {
+              _id,
+              title,
+              slug,
+              startDate,
+              endDate,
+              "defaultImage": coalesce(images[0], null),
+              skillLevel,
+              price,
+              compareAtPrice,
+              isActive,
+              isFeatured,
+              createdBy-> {
+                _id,
+                name,
+                image
+              },
+              "hasDiscount": defined(discount) && discount.isActive == true,
+              "discountInfo": select(
+                defined(discount) && discount.isActive == true => discount,
+                null
+              ),
+              "itemType": "course",
+              "totalStock": 1,
+              "hasVariants": false,
+              "variantOptions": [],
+              "category": null,
+              "averageRating": null,
+              "totalReviews": 0,
+              "status": "active"
+            },
+            "total": count(*[${courseFilter}])
+          }`;
+
+          const courseParams: Record<string, unknown> = {};
+          if (search) courseParams.search = search;
+
+          const courseResult = await client.fetch(courseQuery, courseParams);
+          const cleanedCourses = (courseResult.items || []).map((course: any) => ({
+            ...course,
+            isActive: course.isActive ?? true,
+            isFeatured: course.isFeatured ?? false,
+            price: course.price ?? "0",
+            hasDiscount: course.hasDiscount ?? false,
+            discountInfo: course.hasDiscount && course.discountInfo ? course.discountInfo : null,
+            createdBy: course.createdBy === null ? null : course.createdBy,
+          }));
+          
+          allItems.push(...cleanedCourses);
+          totalCount += courseResult.total || 0;
+        }
+
+        // Sort the combined results
+        const getSortValue = (item: any) => {
+          switch (sortBy) {
+            case "price-asc":
+            case "price-desc":
+              return parseFloat(item.price) || 0;
+            case "name-asc":
+            case "name-desc":
+              return item.title;
+            case "oldest":
+            case "newest":
+            default:
+              return item._createdAt || new Date().toISOString();
+          }
+        };
+
+        allItems.sort((a, b) => {
+          const aVal = getSortValue(a);
+          const bVal = getSortValue(b);
+          
+          if (sortBy === "price-desc" || sortBy === "name-desc" || sortBy === "newest") {
+            return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+          } else {
+            return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+          }
         });
 
-        // Validate the response against our schema
-        return productsResponseSchema.parse(cleanedResponse);
+        // Apply pagination to the sorted results
+        const paginatedItems = allItems.slice(offset, offset + pageSize);
+        const hasMore = offset + pageSize < allItems.length;
+
+        const response = {
+          items: paginatedItems,
+          total: totalCount,
+          hasMore,
+          nextCursor: hasMore ? `page-${page + 1}` : null,
+        };
+
+        // Validate the response against the unified schema
+        return unifiedResponseSchema.parse(response);
       } catch (error) {
         console.error("GROQ Query Error:", error);
 
-        // Check if it's a Zod validation error
         if (error instanceof Error && error.name === "ZodError") {
           throw new TRPCError({
             code: "PARSE_ERROR",
@@ -327,7 +406,7 @@ export const productsRouter = createTRPCRouter({
 
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch products",
+          message: "Failed to fetch products and courses",
         });
       }
     }),
@@ -369,6 +448,7 @@ export const productsRouter = createTRPCRouter({
       name,
       slug,
       hasParent,
+      displayImage,
       parent-> {
         _id,
         name,

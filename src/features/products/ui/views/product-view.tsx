@@ -276,8 +276,8 @@ export default function ProductView({ slug }: ProductViewProps) {
           <Link href="/">
             <Button>Return Home</Button>
           </Link>
-          <Link href="/#products">
-            <Button variant="outline">Browse Products</Button>
+          <Link href="/marketplace">
+            <Button variant="outline">Browse Marketplace</Button>
           </Link>
         </div>
       </div>

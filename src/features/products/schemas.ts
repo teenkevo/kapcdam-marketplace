@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SanityAsset } from "@sanity/image-url/lib/types/types";
+import { courseListItemSchema } from "@/features/courses/schemas";
 
 // Sanity specific schemas
 const sanitySlugSchema = z.object({
@@ -23,6 +24,7 @@ const parentCategorySchema = baseCategorySchema;
 const categorySchema = baseCategorySchema.extend({
   hasParent: z.boolean().optional().nullable(),
   parent: parentCategorySchema.optional().nullable(),
+  displayImage: sanityAssetSchema.optional().nullable(),
 });
 
 // Variant attribute schema
@@ -91,13 +93,24 @@ const productsResponseSchema = z.object({
 const categoriesResponseSchema = z.array(categorySchema);
 
 const getManyProductsInputSchema = z.object({
+  type: z.enum(["all", "products", "courses"]).default("all"),
   page: z.number().min(1).default(1),
   pageSize: z.number().min(1).max(50).default(12),
   search: z.string().nullish(),
   categoryId: z.string().nullish(),
   minPrice: z.number().min(0).nullish(),
   maxPrice: z.number().min(0).nullish(),
-  sortBy: z.enum(["newest", "oldest", "price-asc", "price-desc", "name-asc", "name-desc", "relevance"]).default("newest"),
+  sortBy: z
+    .enum([
+      "newest",
+      "oldest",
+      "price-asc",
+      "price-desc",
+      "name-asc",
+      "name-desc",
+      "relevance",
+    ])
+    .default("newest"),
   status: z.enum(["draft", "active", "archived"]).default("active"),
 });
 
@@ -114,6 +127,32 @@ const getRelatedProductsInputSchema = z.object({
 const priceRangeSchema = z.object({
   minPrice: z.number(),
   maxPrice: z.number(),
+});
+
+// Unified item schemas for mixed products and courses
+const unifiedProductItemSchema = productListItemSchema.extend({
+  itemType: z.literal("product"),
+});
+
+const unifiedCourseItemSchema = courseListItemSchema.extend({
+  itemType: z.literal("course"),
+  // Map course fields to match product structure for consistency
+  totalStock: z.literal(1).default(1), // Courses are always "in stock"
+  hasVariants: z.literal(false).default(false),
+  variantOptions: z.array(z.any()).default([]),
+  category: z.null().default(null), // Courses don't have categories
+});
+
+const unifiedItemSchema = z.discriminatedUnion("itemType", [
+  unifiedProductItemSchema,
+  unifiedCourseItemSchema,
+]);
+
+const unifiedResponseSchema = z.object({
+  items: z.array(unifiedItemSchema),
+  total: z.number(),
+  hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
 });
 
 export {
@@ -133,6 +172,12 @@ export {
   productsResponseSchema,
   categoriesResponseSchema,
 
+  // Unified schemas
+  unifiedItemSchema,
+  unifiedProductItemSchema,
+  unifiedCourseItemSchema,
+  unifiedResponseSchema,
+
   // Input schemas
   getManyProductsInputSchema,
   getOneProductInputSchema,
@@ -149,14 +194,27 @@ export type ProductListItem = z.infer<typeof productListItemSchema>;
 export type ProductDetail = z.infer<typeof productDetailSchema>;
 export type ProductsResponse = z.infer<typeof productsResponseSchema>;
 export type CategoriesResponse = z.infer<typeof categoriesResponseSchema>;
+
+// Unified types
+export type UnifiedItem = z.infer<typeof unifiedItemSchema>;
+export type UnifiedProductItem = z.infer<typeof unifiedProductItemSchema>;
+export type UnifiedCourseItem = z.infer<typeof unifiedCourseItemSchema>;
+export type UnifiedResponse = z.infer<typeof unifiedResponseSchema>;
+
 export type GetManyProductsInput = z.infer<typeof getManyProductsInputSchema>;
 export type GetOneProductInput = z.infer<typeof getOneProductInputSchema>;
-export type GetRelatedProductsInput = z.infer<typeof getRelatedProductsInputSchema>;
+export type GetRelatedProductsInput = z.infer<
+  typeof getRelatedProductsInputSchema
+>;
 export type PriceRange = z.infer<typeof priceRangeSchema>;
 
 // Validation helpers
 export const validateProductsResponse = (data: unknown): ProductsResponse => {
   return productsResponseSchema.parse(data);
+};
+
+export const validateUnifiedResponse = (data: unknown): UnifiedResponse => {
+  return unifiedResponseSchema.parse(data);
 };
 
 export const validateProductDetail = (data: unknown): ProductDetail => {

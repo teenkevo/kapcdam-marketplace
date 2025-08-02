@@ -32,116 +32,142 @@ interface CourseCardProps {
 
 export function CourseCard({ course }: CourseCardProps) {
   const skillLevelColors = {
-    beginner: "bg-green-100 text-green-800",
-    intermediate: "bg-yellow-100 text-yellow-800", 
-    advanced: "bg-red-100 text-red-800"
+    beginner: "bg-green-100 text-green-800 hover:bg-green-200",
+    intermediate: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+    advanced: "bg-red-100 text-red-800 hover:bg-green-200",
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const hasDiscount = course.hasDiscount && course.discountInfo?.isActive;
   const originalPrice = parseInt(course.price);
-  const discountedPrice = hasDiscount 
-    ? originalPrice - Math.round((originalPrice * course.discountInfo!.value) / 100)
+  const discountedPrice = hasDiscount
+    ? originalPrice -
+      Math.round((originalPrice * course.discountInfo!.value) / 100)
     : originalPrice;
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 overflow-hidden">
-      <div className="relative overflow-hidden">
-        {/* Course Image */}
-        <Link href={`/course/${course.slug.current}`}>
-          <div className="aspect-video relative overflow-hidden">
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        <div className="relative aspect-square">
+          <Link href={`/course/${course.slug.current}`} className="block">
             {course.defaultImage ? (
               <Image
-                src={urlFor(course.defaultImage).width(400).height(225).url()}
+                src={urlFor(course.defaultImage).width(300).height(300).url()}
                 alt={course.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                width={300}
+                height={300}
+                className="object-cover w-full h-full p-4 transition-transform duration-200 hover:scale-105"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                 <span className="text-gray-500">No image</span>
               </div>
             )}
-            {hasDiscount && (
-              <div className="absolute top-3 left-3">
-                <Badge className="bg-red-500 text-white">
-                  -{course.discountInfo!.value}% OFF
-                </Badge>
-              </div>
-            )}
-          </div>
-        </Link>
-      </div>
+          </Link>
 
-      <CardContent className="p-6">
-        {/* Skill Level Badge */}
-        <div className="flex items-center justify-between mb-3">
-          <Badge className={`text-xs ${skillLevelColors[course.skillLevel]}`}>
-            {course.skillLevel.charAt(0).toUpperCase() + course.skillLevel.slice(1)}
-          </Badge>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <span>{formatDate(course.startDate)}</span>
-          </div>
+          {/* Discount indicator */}
+          {hasDiscount && (
+            <div className="absolute top-2 right-2 z-10 pointer-events-none">
+              <Badge className="bg-red-500 text-white text-xs">
+                -{course.discountInfo!.value}% OFF
+              </Badge>
+            </div>
+          )}
         </div>
 
-        {/* Course Title */}
-        <Link href={`/course/${course.slug.current}`}>
-          <h3 className="font-semibold text-lg text-gray-900 mb-3 line-clamp-2">
-            {course.title}
-          </h3>
-        </Link>
+        <div className="p-4 space-y-3">
+          <div>
+            {/* Course Title */}
+            <Link href={`/course/${course.slug.current}`}>
+              <h3 className="font-semibold text-sm leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer mb-2">
+                {course.title.length > 80
+                  ? `${course.title.substring(0, 120)}...`
+                  : course.title}
+              </h3>
+            </Link>
 
-        {/* Course Duration */}
-        <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-          <div className="flex items-center gap-1">
-            <span>16 weeks</span>
+            {/* Skill Level Badge */}
+            <Badge
+              variant="secondary"
+              className={`text-xs ${skillLevelColors[course.skillLevel]}`}
+            >
+              {course.skillLevel.charAt(0).toUpperCase() +
+                course.skillLevel.slice(1)}
+            </Badge>
           </div>
-          <div className="flex items-center gap-1">
-            <span>In-person</span>
-          </div>
-        </div>
 
-        {/* Price Section */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {hasDiscount ? (
-              <>
+          {/* Course Duration Info */}
+          <div>
+            <div className="text-xs text-muted-foreground">
+              Duration: 16 weeks • {formatDate(course.startDate)}
+            </div>
+          </div>
+
+          {/* Course Details - equivalent to ratings section */}
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>In-person training</span>
+              <span>•</span>
+              <span>Certificate included</span>
+            </div>
+          </div>
+
+          <hr className="w-full border-t border-gray-200" />
+
+          {/* Price Section */}
+          <div className="flex items-center justify-between">
+            <div className="text-gray-500 text-sm">Price</div>
+            <div className="text-right">
+              {hasDiscount ? (
+                <>
+                  <NumericFormat
+                    thousandSeparator={true}
+                    displayType="text"
+                    prefix="UGX "
+                    value={originalPrice}
+                    className="text-sm text-gray-400 line-through"
+                  />
+                  <NumericFormat
+                    thousandSeparator={true}
+                    displayType="text"
+                    prefix="UGX "
+                    value={discountedPrice}
+                    className="font-semibold text-lg block"
+                  />
+                  <div className="text-xs text-red-500">
+                    Save {course.discountInfo!.value}%
+                  </div>
+                </>
+              ) : (
                 <NumericFormat
                   thousandSeparator={true}
                   displayType="text"
                   prefix="UGX "
                   value={originalPrice}
-                  className="text-sm text-gray-400 line-through"
+                  className="font-semibold text-lg"
                 />
-                <NumericFormat
-                  thousandSeparator={true}
-                  displayType="text"
-                  prefix="UGX "
-                  value={discountedPrice}
-                  className="text-lg font-bold text-green-600"
-                />
-              </>
-            ) : (
-              <NumericFormat
-                thousandSeparator={true}
-                displayType="text"
-                prefix="UGX "
-                value={originalPrice}
-                className="text-lg font-bold text-gray-900"
-              />
-            )}
+              )}
+            </div>
+          </div>
+
+          {/* Course Duration Info */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Starts {formatDate(course.startDate)}</span>
+            <span>16 weeks duration</span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <CourseEnrollmentButton courseId={course._id} />
           </div>
         </div>
-
-        {/* Enroll Button */}
-        <CourseEnrollmentButton courseId={course._id} />
       </CardContent>
     </Card>
   );

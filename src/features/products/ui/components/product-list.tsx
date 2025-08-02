@@ -2,16 +2,21 @@
 
 import { ProductCard } from "./product-card";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
-import { ProductListItem } from "../../schemas";
+import { UnifiedItem, UnifiedProductItem } from "../../schemas";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+
+// Type guard function
+function isProductItem(item: UnifiedItem): item is UnifiedProductItem {
+  return item.itemType === "product";
+}
 
 
 export function ProductList() {
   const trpc = useTRPC();
 
   const products = useQuery(
-    trpc.products.getMany.queryOptions({ page: 1, pageSize: 10 })
+    trpc.products.getMany.queryOptions({ page: 1, pageSize: 10, type: "products" })
   );
 
   if (!products) return null;
@@ -25,9 +30,11 @@ export function ProductList() {
           </h1>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.data?.items.map((product: ProductListItem) => (
-            <ProductCard key={product._id} product={product} />
-          ))}
+          {products.data?.items
+            .filter(isProductItem)
+            .map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
         </div>
       </div>
 

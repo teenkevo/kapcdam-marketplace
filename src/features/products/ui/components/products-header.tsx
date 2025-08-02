@@ -15,6 +15,7 @@ import { CategoryButton } from "./category-button";
 import { Category } from "@/features/products/schemas";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface ProductsHeaderProps {
   search: string | null;
@@ -26,6 +27,8 @@ interface ProductsHeaderProps {
   categories: Category[];
   selectedCategory: string | null;
   onCategoryChange: (categoryId: string) => void;
+  selectedType: string;
+  onTypeChange: (type: string) => void;
 }
 
 export function ProductsHeader({
@@ -38,6 +41,8 @@ export function ProductsHeader({
   categories,
   selectedCategory,
   onCategoryChange,
+  selectedType,
+  onTypeChange,
 }: ProductsHeaderProps) {
   const [searchInput, setSearchInput] = useState(search || "");
   const isMobile = useIsMobile();
@@ -59,19 +64,30 @@ export function ProductsHeader({
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold">Products and Courses</h1>
+          {selectedType === "all"&&<p className="text-muted-foreground mt-1">
+            {isLoading
+              ? "Loading items..."
+              : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "item" : "items"} found`}
+          </p>}
+          {selectedType === "course"&&<p className="text-muted-foreground mt-1">
+            {isLoading
+              ? "Loading courses..."
+              : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "course" : "courses"} found`}
+          </p>}
+          {selectedType === "product"&&<p className="text-muted-foreground mt-1">
             {isLoading
               ? "Loading products..."
               : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "product" : "products"} found`}
-          </p>
+          </p>}
+          
         </div>
       </div>
       {isMobile && (
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search products..."
+            placeholder="Search marketplace..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10 w-full"
@@ -82,21 +98,46 @@ export function ProductsHeader({
       {/* Controls Row: Category, Search, Sort */}
       <div className="flex items-center gap-4">
         {/* Category Button */}
-        <div className={cn("flex-shrink-0", isMobile && "flex-grow")}>
-          <CategoryButton
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onCategoryChange={onCategoryChange}
-            isLoading={isLoading}
-          />
+        <div className={cn("flex-shrink-0 flex items-center gap-2")}>
+          <Button
+            variant={selectedType === "all" ? "default" : "outline"}
+            onClick={() => onTypeChange("all")}
+            className="flex items-center gap-2 min-w-[80px] justify-center"
+          >
+            All
+          </Button>
+          <Button
+            variant={selectedType === "products" ? "default" : "outline"}
+            onClick={() => onTypeChange("products")}
+            className="flex items-center gap-2 min-w-[100px] justify-center"
+          >
+            Products
+          </Button>
+          <Button
+            variant={selectedType === "courses" ? "default" : "outline"}
+            onClick={() => onTypeChange("courses")}
+            className="flex items-center gap-2 min-w-[100px] justify-center"
+          >
+            Courses
+          </Button>
         </div>
+        {selectedType !== "courses" && (
+          <div className={cn("flex-shrink-0", isMobile && "flex-grow")}>
+            <CategoryButton
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onCategoryChange={onCategoryChange}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
 
         {/* Search Input */}
         {!isMobile && (
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search marketplace..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-10 w-full"

@@ -10,10 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductCard } from "./product-card";
-import { ProductListItem } from "@/features/products/schemas";
+import { CourseCard } from "@/features/home/ui/components/course-card";
+import { UnifiedItem } from "@/features/products/schemas";
 
 interface ProductsGridProps {
-  products: ProductListItem[];
+  products: UnifiedItem[];
   total: number;
   currentPage: number;
   pageSize: number;
@@ -62,7 +63,7 @@ export function ProductsGrid({
     return (
       <div className="space-y-6">
         {/* Loading Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3  gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4  gap-6">
           {[...Array(12)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
@@ -81,7 +82,7 @@ export function ProductsGrid({
       <div className="text-center py-16">
         <div className="text-6xl mb-4 text-gray-300">🔍</div>
         <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          No products found
+          No products or courses found
         </h3>
         <p className="text-gray-500 mb-6">
           Try adjusting your search or filter criteria
@@ -118,11 +119,16 @@ export function ProductsGrid({
         </div>
       </div>
 
-      {/* Products Grid */}
+      {/* Products & Courses Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-        {products.map((product) => (
-          <ProductCard key={product._id} product={product} />
-        ))}
+        {products.map((item) => {
+          if (item.itemType === "product") {
+            return <ProductCard key={item._id} product={item} />;
+          } else if (item.itemType === "course") {
+            return <CourseCard key={item._id} course={item} />;
+          }
+          return null;
+        })}
       </div>
 
       {/* Pagination */}

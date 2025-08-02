@@ -14,6 +14,7 @@ export function ProductsView() {
     minPrice,
     maxPrice,
     page,
+    type,
     sortBy,
     pageSize,
     setSearch,
@@ -21,9 +22,10 @@ export function ProductsView() {
     setPage,
     setSortBy,
     setPageSize,
+    setType
   } = useProductsFilters();
 
-  // Fetch products with current filters
+  // Fetch products and courses with current filters
   const {
     data: productsData,
     isLoading: productsLoading,
@@ -37,6 +39,7 @@ export function ProductsView() {
       page,
       pageSize,
       sortBy,
+      type
     })
   );
 
@@ -51,7 +54,7 @@ export function ProductsView() {
   if (productsError) {
     return (
       <div className="max-w-7xl mx-auto py-20 px-4 text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Products</h1>
+        <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Products & Courses</h1>
         <p className="text-gray-600">Something went wrong. Please try again later.</p>
       </div>
     );
@@ -59,6 +62,7 @@ export function ProductsView() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
+      
       <ProductsHeader
         search={search}
         onSearchChange={setSearch}
@@ -69,6 +73,8 @@ export function ProductsView() {
         categories={categories || []}
         selectedCategory={category}
         onCategoryChange={setCategory}
+        selectedType={type}
+        onTypeChange={setType}
       />
 
       <div className="mt-8">

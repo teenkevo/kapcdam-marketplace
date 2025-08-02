@@ -10,7 +10,7 @@ export default function ShopButton() {
 
   return (
     <Link
-      href={"/products"}
+      href={"/marketplace"}
       className={cn(
         buttonVariants({ size: "lg" }),
         "text-lime-400 w-32 border shadow-lg rounded-full border-lime-400"

@@ -31,6 +31,17 @@ export const course = defineType({
       validation: (rule) => rule.required().error("URL slug is required"),
     }),
     defineField({
+      name: "category",
+      title: "Category",
+      type: "reference",
+      to: [{ type: "category" }],
+      description: "Select a child category for this product.",
+      options: {
+        filter: "defined(parent)",
+      },
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: "startDate",
       title: "Course start date",
       type: "datetime",

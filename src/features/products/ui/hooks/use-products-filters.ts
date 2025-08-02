@@ -19,6 +19,10 @@ export function useProductsFilters() {
     parseAsString.withDefault("")
   );
   const [minPrice, setMinPrice] = useQueryState("minPrice", parseAsInteger);
+  const [type, setType] = useQueryState(
+    "type",
+    parseAsString.withDefault("all")
+  );
   const [maxPrice, setMaxPrice] = useQueryState("maxPrice", parseAsInteger);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [pageSize, setPageSize] = useQueryState(
@@ -37,7 +41,7 @@ export function useProductsFilters() {
     (min: number | null, max: number | null) => {
       setMinPrice(min);
       setMaxPrice(max);
-      setPage(1); 
+      setPage(1);
     },
     [setMinPrice, setMaxPrice, setPage]
   );
@@ -45,14 +49,34 @@ export function useProductsFilters() {
   // Helper to clear all filters
   const clearFilters = useCallback(() => {
     setSearch("");
+    setType("all");
     setCategory("");
     setMinPrice(null);
     setMaxPrice(null);
     setPage(1);
     setSortBy("newest");
-  }, [setSearch, setCategory, setMinPrice, setMaxPrice, setPage, setSortBy]);
+  }, [
+    setSearch,
+    setCategory,
+    setMinPrice,
+    setMaxPrice,
+    setPage,
+    setSortBy,
+    setType,
+  ]);
 
   // Override setters to reset page when filters change
+  const setTypeWithReset = useCallback(
+    (value: string) => {
+      setType(value);
+      setPage(1);
+      // Clear category when switching to courses since courses don't have categories
+      if (value === "courses" && category) {
+        setCategory("");
+      }
+    },
+    [setType, setPage, setCategory, category]
+  );
   const setSearchWithReset = useCallback(
     (value: string) => {
       setSearch(value);
@@ -65,8 +89,12 @@ export function useProductsFilters() {
     (value: string) => {
       setCategory(value);
       setPage(1);
+      // When a category is selected, switch to products type since courses don't have categories
+      if (value && type !== "products") {
+        setType("products");
+      }
     },
-    [setCategory, setPage]
+    [setCategory, setPage, setType, type]
   );
 
   const setSortByWithReset = useCallback(
@@ -79,6 +107,7 @@ export function useProductsFilters() {
 
   return {
     // Current state
+    type: (type as "all" | "products" | "courses") || "all",
     search: search || null,
     category: category || null,
     minPrice,
@@ -92,6 +121,7 @@ export function useProductsFilters() {
     setCategory: setCategoryWithReset,
     setPriceRange,
     setPage,
+    setType: setTypeWithReset,
     setSortBy: setSortByWithReset,
     setPageSize,
     clearFilters,
