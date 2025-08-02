@@ -10,7 +10,7 @@ interface LocalCartState {
   lastUpdated: Date | null;
 
   // Actions
-  addLocalCartItem: (item: Omit<CartItemType, "addedAt">) => void;
+  addLocalCartItem: (item: Omit<CartItemType, "addedAt">, showToast?: boolean) => void;
   removeItem: (
     productId?: string,
     courseId?: string,
@@ -46,7 +46,7 @@ export const useLocalCartStore = create<LocalCartState>()(
         lastUpdated: null,
 
         // Actions
-        addLocalCartItem: (newItem) => {
+        addLocalCartItem: (newItem, showToast = true) => {
           set((state) => {
             const itemWithTimestamp = {
               ...newItem,
@@ -89,18 +89,21 @@ export const useLocalCartStore = create<LocalCartState>()(
             };
           });
 
-          toast.success("Added to cart successfully!", {
-            description: "Sign in to sync your cart",
-            classNames: {
-              toast: "bg-[#e8f8e8] border-green-500",
-              icon: "text-[#03a53e]",
-              title: "text-[#03a53e]",
-              description: "text-black",
-              actionButton: "bg-zinc-400",
-              cancelButton: "bg-orange-400",
-              closeButton: "bg-lime-400",
-            },
-          });
+          // Only show toast if requested (avoid duplicate toasts for signed-in users)
+          if (showToast) {
+            toast.success("Added to cart successfully!", {
+              description: "Sign in to sync your cart",
+              classNames: {
+                toast: "bg-[#e8f8e8] border-green-500",
+                icon: "text-[#03a53e]",
+                title: "text-[#03a53e]",
+                description: "text-black",
+                actionButton: "bg-zinc-400",
+                cancelButton: "bg-orange-400",
+                closeButton: "bg-lime-400",
+              },
+            });
+          }
         },
 
         setIsCartOpen: (isOpen) => {

@@ -18,6 +18,7 @@ import { SignInButton, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
+import { debouncedToast } from "@/lib/toast-utils";
 import { useState } from "react";
 
 type Props = {
@@ -41,7 +42,7 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        toast.success("Product liked!");
+        debouncedToast.success("Product liked!");
       },
       onError: (error) => {
         toast.error(error.message);
@@ -55,7 +56,7 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        toast.success("Product removed from favorites!");
+        debouncedToast.success("Product removed from favorites!");
         setShowRemoveDialog(false);
       },
       onError: (error) => {

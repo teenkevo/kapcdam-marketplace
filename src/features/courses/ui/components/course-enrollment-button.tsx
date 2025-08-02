@@ -111,7 +111,7 @@ export function CourseEnrollmentButton({
         // Add to server cart
         await addToCartMutation.mutateAsync(cartItem);
       } else {
-        // Add to local cart
+        // Add to local cart (toast handled by local cart store)
         addLocalCartItem({
           type: "course",
           productId: null,
@@ -121,7 +121,6 @@ export function CourseEnrollmentButton({
           preferredStartDate: cartItem.preferredStartDate,
         });
 
-        toast.success("Course added to cart successfully!");
         setIsDialogOpen(false);
         setPreferredStartDate("");
         setIsSubmitting(false);
