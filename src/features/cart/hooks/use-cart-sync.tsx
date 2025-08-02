@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useCartToasts } from "./use-cart-toasts";
 
 export function useCartSync() {
   const { userId, isLoaded } = useAuth();
@@ -15,6 +15,7 @@ export function useCartSync() {
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { syncSuccess, syncError } = useCartToasts();
 
   // Sync mutation
   const syncCartMutation = useMutation(
@@ -34,20 +35,17 @@ export function useCartSync() {
 
           // Show success message without transition to avoid keeping isPending active
           if ("itemsAdded" in result && result.itemsAdded > 0) {
-            const itemsText = result.itemsAdded === 1 ? "item" : "items";
-            toast.success(
-              `${result.itemsAdded} ${itemsText} synced to your account!`
-            );
+            syncSuccess(result.itemsAdded);
           } else {
             // Handle case where no items were synced
-            toast.success("Cart synced successfully!");
+            syncSuccess(0);
           }
         }
       },
       onError: (error) => {
         hasAttemptedSync.current = false; // Reset on error to allow retry
         const errorMessage = getCartErrorMessage(error);
-        toast.error(`Failed to sync cart: ${errorMessage}`);
+        syncError(errorMessage);
       },
     })
   );

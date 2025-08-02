@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useThrottle } from "@/hooks/use-debounce";
 
 type Props = {
   productId: string;
@@ -64,7 +65,9 @@ const LikeProductButton = ({ productId }: Props) => {
     })
   );
 
-  const handleLikeProduct = () => {
+  const handleLikeProductInternal = () => {
+    if (likeProductMutation.isPending || unlikeProductMutation.isPending) return;
+    
     if (isLiked) {
       setShowRemoveDialog(true);
     } else {
@@ -72,9 +75,14 @@ const LikeProductButton = ({ productId }: Props) => {
     }
   };
 
-  const handleRemoveFromLiked = () => {
+  const handleRemoveFromLikedInternal = () => {
+    if (unlikeProductMutation.isPending) return;
     unlikeProductMutation.mutate({ productId });
   };
+
+  // Throttled versions to prevent rapid clicks
+  const handleLikeProduct = useThrottle(handleLikeProductInternal, 500);
+  const handleRemoveFromLiked = useThrottle(handleRemoveFromLikedInternal, 500);
 
   if (!isSignedIn) {
     return (
@@ -107,7 +115,7 @@ const LikeProductButton = ({ productId }: Props) => {
         variant="outline"
         className="shrink-0"
         onClick={handleLikeProduct}
-        disabled={likeProductMutation.isPending}
+        disabled={likeProductMutation.isPending || unlikeProductMutation.isPending}
       >
         <Heart
           className={cn("w-4 h-4", isLiked && "fill-red-500 text-red-500")}

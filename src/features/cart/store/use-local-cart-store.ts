@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
-import { toast } from "sonner";
 import type { CartItemType } from "@/features/cart/schema";
 
 interface LocalCartState {
@@ -89,9 +88,8 @@ export const useLocalCartStore = create<LocalCartState>()(
             };
           });
 
-          toast.success("Added to cart successfully!", {
-            description: "Sign in to sync your cart",
-          });
+          // Note: Toast notifications are now handled by the calling component
+          // to prevent duplicate messages and provide better context
         },
 
         setIsCartOpen: (isOpen) => {
@@ -115,7 +113,7 @@ export const useLocalCartStore = create<LocalCartState>()(
             lastUpdated: new Date(),
           }));
 
-          toast.success("Item removed from cart");
+          // Note: Toast notifications are now handled by the calling component
         },
 
         updateQuantity: (productId, courseId, selectedVariantSku, quantity) => {

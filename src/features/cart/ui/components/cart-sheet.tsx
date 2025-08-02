@@ -22,11 +22,12 @@ import { urlFor } from "@/sanity/lib/image";
 import Image from "next/image";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
-import { toast } from "sonner";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { CartType } from "@/features/cart/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
+import { useThrottle } from "@/hooks/use-debounce";
+import { useCartToasts } from "@/features/cart/hooks/use-cart-toasts";
 
 type Props = {
   totalItems: number;
@@ -45,9 +46,30 @@ export function CartSheet({ totalItems, userCart }: Props) {
     itemCount: getLocalItemCount,
   } = useLocalCartStore();
 
+  // Track loading states for individual items
+  const [itemLoadingStates, setItemLoadingStates] = useState<Record<string, boolean>>({});
+
+  // Helper functions for item loading states
+  const setItemLoading = (itemKey: string, loading: boolean) => {
+    setItemLoadingStates(prev => ({ ...prev, [itemKey]: loading }));
+  };
+
+  const getItemKey = (expandedProduct: ExpandedProduct) => {
+    return `${expandedProduct._id}-${expandedProduct.VariantSku || "no-variant"}`;
+  };
+
+  const getCourseKey = (courseId: string) => {
+    return `course-${courseId}`;
+  };
+
+  const isItemLoading = (itemKey: string) => {
+    return itemLoadingStates[itemKey] || false;
+  };
+
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { updateQuantitySuccess, removeItemSuccess, updateCartError } = useCartToasts();
 
   // Simplify cart data flow - use single source of truth with memoization
   const cartData = useMemo(() => {
@@ -98,6 +120,9 @@ export function CartSheet({ totalItems, userCart }: Props) {
   const updateServerCartMutation = useMutation(
     trpc.cart.updateCartItem.mutationOptions({
       onMutate: async (variables) => {
+        // Set loading state for the specific item
+        // Note: We'll get the itemKey in the calling function
+        
         // Cancel any outgoing refetches to avoid race conditions
         await queryClient.cancelQueries(trpc.cart.getUserCart.queryOptions());
         await queryClient.cancelQueries({
@@ -151,15 +176,25 @@ export function CartSheet({ totalItems, userCart }: Props) {
             context.previousCart
           );
         }
-        toast.error(`Failed to update cart: ${error.message}`);
+        updateCartError(error.message);
       },
-      onSuccess: () => {
+      onSuccess: (data, variables) => {
         // Force refetch to ensure data consistency
         queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
         queryClient.refetchQueries({
           queryKey: ["cart", "getDisplayData"],
         });
-        toast.success("Cart updated successfully!");
+        
+        // Show appropriate success message based on operation
+        if (variables.quantity === 0) {
+          removeItemSuccess();
+        } else {
+          updateQuantitySuccess();
+        }
+      },
+      onSettled: () => {
+        // Clear all loading states when mutation completes (success or error)
+        setItemLoadingStates({});
       },
     })
   );
@@ -233,18 +268,25 @@ export function CartSheet({ totalItems, userCart }: Props) {
     return Math.max(0, total); // Ensure total is never negative
   }, [cartData, expandedProducts, cartDisplayData?.courses]);
 
-  // Handle quantity updates
-  const handleUpdateQuantity = (
+  // Handle quantity updates (internal function)
+  const handleUpdateQuantityInternal = (
     expandedProduct: ExpandedProduct,
     newQuantity: number
   ) => {
     // Ensure quantity is between 1 and 99
     const safeQuantity = Math.max(1, Math.min(99, newQuantity));
+    const itemKey = getItemKey(expandedProduct);
+
+    // Prevent if already loading this specific item
+    if (isItemLoading(itemKey)) return;
 
     if (isSignedIn && userCart?._id) {
       // Server cart update
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
+
+      // Set loading state immediately
+      setItemLoading(itemKey, true);
 
       updateServerCartMutation.mutate({
         cartId: userCart._id,
@@ -252,22 +294,39 @@ export function CartSheet({ totalItems, userCart }: Props) {
         quantity: safeQuantity,
       });
     } else {
-      // Local cart update
+      // Local cart update with temporary loading state
+      setItemLoading(itemKey, true);
+      
       updateLocalQuantity(
         expandedProduct.originalProductId,
         "", // courseId not needed for products
         expandedProduct.VariantSku,
         safeQuantity
       );
+
+      // Show success toast and clear loading state
+      updateQuantitySuccess();
+      setTimeout(() => setItemLoading(itemKey, false), 300);
     }
   };
 
-  // Handle item removal
-  const handleRemoveItem = (expandedProduct: ExpandedProduct) => {
+  // Throttled version to prevent rapid clicks
+  const handleUpdateQuantity = useThrottle(handleUpdateQuantityInternal, 500);
+
+  // Handle item removal (internal function)
+  const handleRemoveItemInternal = (expandedProduct: ExpandedProduct) => {
+    const itemKey = getItemKey(expandedProduct);
+
+    // Prevent if already loading this specific item
+    if (isItemLoading(itemKey)) return;
+
     if (isSignedIn && userCart?._id) {
       // Server cart removal
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
+
+      // Set loading state immediately
+      setItemLoading(itemKey, true);
 
       updateServerCartMutation.mutate({
         cartId: userCart._id,
@@ -275,14 +334,62 @@ export function CartSheet({ totalItems, userCart }: Props) {
         quantity: 0,
       });
     } else {
-      // Local cart removal
+      // Local cart removal with temporary loading state
+      setItemLoading(itemKey, true);
+      
       removeLocalItem(
         expandedProduct.originalProductId,
         "", // courseId not needed for products
         expandedProduct.VariantSku
       );
+
+      // Show success toast and clear loading state
+      removeItemSuccess(expandedProduct.title);
+      setTimeout(() => setItemLoading(itemKey, false), 300);
     }
   };
+
+  // Throttled version to prevent rapid clicks
+  const handleRemoveItem = useThrottle(handleRemoveItemInternal, 500);
+
+  // Course removal handler (internal function)
+  const handleRemoveCourseInternal = (courseId: string) => {
+    const courseKey = getCourseKey(courseId);
+    
+    // Prevent if already loading this specific course
+    if (isItemLoading(courseKey)) return;
+    
+    setItemLoading(courseKey, true);
+
+    if (isSignedIn && userCart?._id) {
+      // Server cart removal for courses
+      const itemIndex = cartData.findIndex(
+        (item) =>
+          item.type === "course" &&
+          item.courseId === courseId
+      );
+      if (itemIndex !== -1) {
+        updateServerCartMutation.mutate({
+          cartId: userCart._id,
+          itemIndex,
+          quantity: 0,
+        });
+      }
+    } else {
+      // Local cart removal for courses
+      removeLocalItem(
+        "", // productId not needed for courses
+        courseId,
+        undefined
+      );
+      // Show success toast and clear loading state
+      removeItemSuccess();
+      setTimeout(() => setItemLoading(courseKey, false), 300);
+    }
+  };
+
+  // Throttled version for course removal
+  const handleRemoveCourse = useThrottle(handleRemoveCourseInternal, 500);
 
   // Get current total items count
   const currentTotalItems = isSignedIn ? totalItems : getLocalItemCount();
@@ -296,7 +403,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
     }
 
     if (!userCart?._id) {
-      toast.error("Cart not found. Please try refreshing the page.");
+      updateCartError("Cart not found. Please try refreshing the page.");
       return;
     }
 
@@ -330,10 +437,15 @@ export function CartSheet({ totalItems, userCart }: Props) {
               // Enhanced key for better re-rendering
               const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
 
+              const currentItemKey = getItemKey(expandedProduct);
+              const isCurrentItemLoading = isItemLoading(currentItemKey);
+
               return (
                 <div
                   key={itemKey}
-                  className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                  className={`flex items-center space-x-4 bg-gray-50 p-4 rounded-lg transition-opacity ${
+                    isCurrentItemLoading ? 'opacity-60' : ''
+                  }`}
                 >
                   <Image
                     src={urlFor(expandedProduct.defaultImage)
@@ -382,12 +494,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         )
                       }
                       disabled={
+                        isCurrentItemLoading ||
                         updateServerCartMutation.isPending ||
                         cartItem.quantity <= 1
                       }
                       className="h-8 w-8 p-0"
                     >
-                      <Minus className="h-3 w-3" />
+                      {isCurrentItemLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Minus className="h-3 w-3" />
+                      )}
                     </Button>
                     <span className="text-sm font-medium w-8 text-center">
                       {cartItem.quantity}
@@ -402,21 +519,30 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         )
                       }
                       disabled={
+                        isCurrentItemLoading ||
                         updateServerCartMutation.isPending ||
                         cartItem.quantity >= 99
                       }
                       className="h-8 w-8 p-0"
                     >
-                      <Plus className="h-3 w-3" />
+                      {isCurrentItemLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleRemoveItem(expandedProduct)}
-                      disabled={updateServerCartMutation.isPending}
+                      disabled={isCurrentItemLoading || updateServerCartMutation.isPending}
                       className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {isCurrentItemLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -432,11 +558,15 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
               // Enhanced key for courses
               const courseKey = `course-${course._id}-${cartItem.quantity}`;
+              const currentCourseKey = getCourseKey(course._id);
+              const isCourseLoading = isItemLoading(currentCourseKey);
 
               return (
                 <div
                   key={courseKey}
-                  className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                  className={`flex items-center space-x-4 bg-gray-50 p-4 rounded-lg transition-opacity ${
+                    isCourseLoading ? 'opacity-60' : ''
+                  }`}
                 >
                   <Image
                     src={urlFor(course.defaultImage).width(80).height(80).url()}
@@ -484,34 +614,15 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        if (isSignedIn && userCart?._id) {
-                          // Server cart removal for courses
-                          const itemIndex = cartData.findIndex(
-                            (item) =>
-                              item.type === "course" &&
-                              item.courseId === course._id
-                          );
-                          if (itemIndex !== -1) {
-                            updateServerCartMutation.mutate({
-                              cartId: userCart._id,
-                              itemIndex,
-                              quantity: 0,
-                            });
-                          }
-                        } else {
-                          // Local cart removal for courses
-                          removeLocalItem(
-                            "", // productId not needed for courses
-                            course._id,
-                            undefined
-                          );
-                        }
-                      }}
-                      disabled={updateServerCartMutation.isPending}
+                      onClick={() => handleRemoveCourse(course._id)}
+                      disabled={isItemLoading(getCourseKey(course._id)) || updateServerCartMutation.isPending}
                       className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {isItemLoading(getCourseKey(course._id)) ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 </div>

@@ -3,7 +3,6 @@
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { CartItemType } from "../../schema";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
@@ -11,6 +10,8 @@ import { useEffect, useState } from "react";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useThrottle } from "@/hooks/use-debounce";
+import { useCartToasts } from "@/features/cart/hooks/use-cart-toasts";
 
 type Props = {
   product: CartItemType;
@@ -21,6 +22,7 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
   const { addLocalCartItem, isInCart } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const { isSyncing } = useCartSync();
+  const { addToCartSuccess, updateQuantitySuccess } = useCartToasts();
 
   const isProductInCart = isInCart(
     product.productId ?? undefined,
@@ -28,7 +30,10 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
     product.selectedVariantSku ?? undefined
   );
 
-  const handleAddToCart = async () => {
+  const handleAddToCartInternal = async () => {
+    // Prevent if already loading or syncing
+    if (isLoading || isSyncing) return;
+
     setIsLoading(true);
 
     try {
@@ -40,20 +45,20 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
         quantity: quantity,
       });
 
+      // Show appropriate toast based on whether item was already in cart
       if (isProductInCart) {
-        toast.success("Quantity updated!", {
-          description: "Item quantity increased in cart",
-        });
+        updateQuantitySuccess();
       } else {
-        toast.success("Added to cart!", {
-          description: "Sign in to sync your cart",
-        });
+        addToCartSuccess(false, quantity); // false = not signed in
       }
     } finally {
       // Add small delay for better UX
       setTimeout(() => setIsLoading(false), 500);
     }
   };
+
+  // Throttled version to prevent rapid clicks
+  const handleAddToCart = useThrottle(handleAddToCartInternal, 600);
 
   return (
     <div className="relative flex-1">
@@ -93,6 +98,7 @@ export const AddToServerCartButton = ({
   const [isInCart, setIsInCart] = useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { addToCartSuccess, updateQuantitySuccess, addToCartError } = useCartToasts();
 
 
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
@@ -128,29 +134,30 @@ export const AddToServerCartButton = ({
           queryKey: ["cart", "getDisplayData"],
         });
 
+        // Show appropriate toast based on whether item was already in cart
         if (isInCart) {
-          toast.success("Quantity updated!", {
-            description: "Item quantity increased in cart",
-          });
+          updateQuantitySuccess();
         } else {
-          toast.success("Added to cart!", {
-            description: "Item successfully added to your cart",
-          });
+          addToCartSuccess(true, quantity); // true = signed in
         }
       },
       onError: (error) => {
-        toast.error("Failed to add to cart", {
-          description: error.message,
-        });
+        addToCartError(error.message);
       },
     })
   );
+
+  // Throttled mutation function to prevent rapid clicks
+  const handleServerAddToCart = useThrottle(() => {
+    if (addItemToCart.isPending) return; // Prevent if already pending
+    addItemToCart.mutate({ ...product, quantity });
+  }, 600);
 
   return (
     <div className="relative flex-1">
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
-        onClick={() => addItemToCart.mutate({ ...product, quantity })}
+        onClick={handleServerAddToCart}
         disabled={addItemToCart.isPending}
       >
         {addItemToCart.isPending ? (
