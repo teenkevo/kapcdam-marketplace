@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function CoursesSection() {
   const trpc = useTRPC();
-  
+
   // Fetch featured courses first
   const { data: featuredCourses, isLoading: featuredLoading } = useQuery({
     ...trpc.courses.getFeatured.queryOptions(),
@@ -20,16 +20,17 @@ export function CoursesSection() {
     ...trpc.courses.getMany.queryOptions({
       page: 1,
       pageSize: 3,
-      sortBy: "newest"
+      sortBy: "newest",
     }),
-    enabled: !featuredLoading && (!featuredCourses || featuredCourses.length === 0)
+    enabled:
+      !featuredLoading && (!featuredCourses || featuredCourses.length === 0),
   });
 
-  const courses = featuredCourses && featuredCourses.length > 0 
-    ? featuredCourses 
-    : allCourses?.items || [];
+  const courses =
+    featuredCourses && featuredCourses.length > 0
+      ? featuredCourses
+      : allCourses?.items || [];
   const isLoading = featuredLoading || allLoading;
-
 
   return (
     <section className="py-16 bg-gray-50">
@@ -40,7 +41,9 @@ export function CoursesSection() {
             Featured Courses
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Develop practical skills through our hands-on courses. Learn directly from experienced professionals in a supportive learning environment.
+            Develop practical skills through our hands-on courses. Learn
+            directly from experienced professionals in a supportive learning
+            environment.
           </p>
         </div>
 
@@ -61,23 +64,11 @@ export function CoursesSection() {
         {/* Courses Grid */}
         {courses && courses.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 ">
               {courses.slice(0, 3).map((course) => (
                 <CourseCard key={course._id} course={course} />
               ))}
             </div>
-
-            {/* View All Courses Button */}
-            {/* <div className="text-center">
-              <Link href="/courses">
-                <Button 
-                  size="lg" 
-                  className="bg-[#C5F82A] text-black hover:bg-[#B4E729]"
-                >
-                  View All Courses
-                </Button>
-              </Link>
-            </div> */}
           </>
         )}
 

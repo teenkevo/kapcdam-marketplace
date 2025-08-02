@@ -1,7 +1,7 @@
 import ProductCategoriesAbout from "@/components/product-categories-about";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Clock, CheckCircle, LockIcon } from "lucide-react";
+import {CheckCircle, LockIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function MarketPlaceTeaser() {
