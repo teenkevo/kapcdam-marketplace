@@ -65,22 +65,27 @@ export function ProductsHeader({
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Products and Courses</h1>
-          {selectedType === "all"&&<p className="text-muted-foreground mt-1">
-            {isLoading
-              ? "Loading items..."
-              : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "item" : "items"} found`}
-          </p>}
-          {selectedType === "course"&&<p className="text-muted-foreground mt-1">
-            {isLoading
-              ? "Loading courses..."
-              : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "course" : "courses"} found`}
-          </p>}
-          {selectedType === "product"&&<p className="text-muted-foreground mt-1">
-            {isLoading
-              ? "Loading products..."
-              : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "product" : "products"} found`}
-          </p>}
-          
+          {selectedType === "all" && (
+            <p className="text-muted-foreground mt-1">
+              {isLoading
+                ? "Loading items..."
+                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "item" : "items"} found`}
+            </p>
+          )}
+          {selectedType === "course" && (
+            <p className="text-muted-foreground mt-1">
+              {isLoading
+                ? "Loading courses..."
+                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "course" : "courses"} found`}
+            </p>
+          )}
+          {selectedType === "product" && (
+            <p className="text-muted-foreground mt-1">
+              {isLoading
+                ? "Loading products..."
+                : `${resultsCount.toLocaleString()} ${resultsCount === 1 ? "product" : "products"} found`}
+            </p>
+          )}
         </div>
       </div>
       {isMobile && (
@@ -96,7 +101,7 @@ export function ProductsHeader({
       )}
 
       {/* Controls Row: Category, Search, Sort */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         {/* Category Button */}
         <div className={cn("flex-shrink-0 flex items-center gap-2")}>
           <Button
