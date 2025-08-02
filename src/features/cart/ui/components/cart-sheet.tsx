@@ -20,6 +20,7 @@ import { NumericFormat } from "react-number-format";
 import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from "lucide-react";
 import { urlFor } from "@/sanity/lib/image";
 import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
@@ -49,34 +50,40 @@ export function CartSheet({ totalItems, userCart }: Props) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Simplify cart data flow - use single source of truth with memoization
-  const cartData = useMemo(() => {
+  // Initial cart data for query parameters (use prop initially)
+  const initialCartData = useMemo(() => {
     return isSignedIn ? userCart?.cartItems || [] : localItems;
   }, [isSignedIn, userCart?.cartItems, localItems]);
 
   // Memoize cartIds calculation for better performance
   const { productIds, courseIds, selectedSKUs } = useMemo(() => {
-    if (!cartData || cartData.length === 0) {
+    if (!initialCartData || initialCartData.length === 0) {
       return { productIds: [], courseIds: [], selectedSKUs: [] };
     }
 
-    const productIds = cartData
+    const productIds = initialCartData
       .filter((item) => item.type === "product" && item.productId)
       .map((item) => item.productId!)
       .filter((id, index, arr) => arr.indexOf(id) === index);
 
-    const courseIds = cartData
+    const courseIds = initialCartData
       .filter((item) => item.type === "course" && item.courseId)
       .map((item) => item.courseId!)
       .filter((id, index, arr) => arr.indexOf(id) === index);
 
-    const selectedSKUs = cartData
+    const selectedSKUs = initialCartData
       .filter((item) => item.type === "product" && item.selectedVariantSku)
       .map((item) => item.selectedVariantSku!)
       .filter((sku, index, arr) => arr.indexOf(sku) === index);
 
     return { productIds, courseIds, selectedSKUs };
-  }, [cartData]);
+  }, [initialCartData]);
+
+  // Fetch server cart data directly for signed-in users
+  const { data: serverCart } = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    enabled: isSignedIn,
+  });
 
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
@@ -86,6 +93,11 @@ export function CartSheet({ totalItems, userCart }: Props) {
       selectedSKUs,
     })
   );
+
+  // Final cart data for rendering (use serverCart for signed-in users to reflect optimistic updates)
+  const cartData = useMemo(() => {
+    return isSignedIn ? serverCart?.cartItems || [] : localItems;
+  }, [isSignedIn, serverCart?.cartItems, localItems]);
 
   // Expand cart variants for display
   const expandedProducts = useMemo(() => {
@@ -164,11 +176,8 @@ export function CartSheet({ totalItems, userCart }: Props) {
         });
       },
       onSuccess: () => {
-        // Force refetch to ensure data consistency
-        queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
-        queryClient.refetchQueries({
-          queryKey: ["cart", "getDisplayData"],
-        });
+        // No need to invalidate queries since optimistic updates keep cache fresh
+        // This prevents the second loading state
       },
     })
   );
@@ -250,13 +259,14 @@ export function CartSheet({ totalItems, userCart }: Props) {
     // Ensure quantity is between 1 and 99
     const safeQuantity = Math.max(1, Math.min(99, newQuantity));
 
-    if (isSignedIn && userCart?._id) {
+    const cartId = serverCart?._id || userCart?._id;
+    if (isSignedIn && cartId) {
       // Server cart update
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
 
       updateServerCartMutation.mutate({
-        cartId: userCart._id,
+        cartId,
         itemIndex,
         quantity: safeQuantity,
       });
@@ -273,13 +283,14 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Handle item removal
   const handleRemoveItem = (expandedProduct: ExpandedProduct) => {
-    if (isSignedIn && userCart?._id) {
+    const cartId = serverCart?._id || userCart?._id;
+    if (isSignedIn && cartId) {
       // Server cart removal
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
 
       updateServerCartMutation.mutate({
-        cartId: userCart._id,
+        cartId,
         itemIndex,
         quantity: 0,
       });
@@ -293,8 +304,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
     }
   };
 
-  // Get current total items count
-  const currentTotalItems = isSignedIn ? totalItems : getLocalItemCount();
+  // Get current total items count from the same data source used for rendering
+  const currentTotalItems = useMemo(() => {
+    return cartData.reduce((total, item) => total + item.quantity, 0);
+  }, [cartData]);
 
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
@@ -304,7 +317,8 @@ export function CartSheet({ totalItems, userCart }: Props) {
       return;
     }
 
-    if (!userCart?._id) {
+    const cartId = serverCart?._id || userCart?._id;
+    if (!cartId) {
       toast.error("Cart not found. Please try refreshing the page.", {
         classNames: {
           toast: "bg-[#ffebeb] border-[#ef4444]",
@@ -321,11 +335,29 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
     // Close cart sheet and navigate to checkout with cart ID
     setIsCartOpen(false);
-    router.push(`/checkout/c/${userCart._id}`);
+    router.push(`/checkout/c/${cartId}`);
   };
 
   const CartContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Loading Overlay */}
+      <AnimatePresence>
+        {updateServerCartMutation.isPending && (
+          <motion.div
+            className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+              <span className="text-sm text-gray-600">Updating...</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -342,7 +374,8 @@ export function CartSheet({ totalItems, userCart }: Props) {
         ) : (
           <div className="space-y-4">
             {/* Render Products */}
-            {expandedProducts.map((expandedProduct) => {
+            <AnimatePresence mode="popLayout">
+              {expandedProducts.map((expandedProduct) => {
               const cartItem = findCartItemForProduct(expandedProduct);
               if (!cartItem) return null;
 
@@ -350,8 +383,18 @@ export function CartSheet({ totalItems, userCart }: Props) {
               const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
 
               return (
-                <div
+                <motion.div
                   key={itemKey}
+                  layout
+                  initial={{ opacity: 1, x: 0, scale: 1 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    x: -100,
+                    scale: 0.8,
+                    transition: { duration: 0.3, ease: "easeInOut" },
+                  }}
+                  transition={{ duration: 0.2 }}
                   className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                 >
                   <Image
@@ -438,12 +481,14 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
 
             {/* Render Courses */}
-            {cartDisplayData?.courses.map((course) => {
+            <AnimatePresence mode="popLayout">
+              {cartDisplayData?.courses.map((course) => {
               const cartItem = cartData.find(
                 (item) => item.type === "course" && item.courseId === course._id
               );
@@ -453,8 +498,18 @@ export function CartSheet({ totalItems, userCart }: Props) {
               const courseKey = `course-${course._id}-${cartItem.quantity}`;
 
               return (
-                <div
+                <motion.div
                   key={courseKey}
+                  layout
+                  initial={{ opacity: 1, x: 0, scale: 1 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    x: -100,
+                    scale: 0.8,
+                    transition: { duration: 0.3, ease: "easeInOut" },
+                  }}
+                  transition={{ duration: 0.2 }}
                   className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                 >
                   <Image
@@ -506,10 +561,11 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        if (isSignedIn && userCart?._id) {
+                        const cartId = serverCart?._id || userCart?._id;
+                        if (isSignedIn && cartId) {
                           console.log(
-                            "cart-sheet-handleRemoveItem-userCart",
-                            userCart
+                            "cart-sheet-handleRemoveItem-serverCart",
+                            serverCart
                           );
                           // Server cart removal for courses
                           const itemIndex = cartData.findIndex(
@@ -519,7 +575,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                           );
                           if (itemIndex !== -1) {
                             updateServerCartMutation.mutate({
-                              cartId: userCart._id,
+                              cartId,
                               itemIndex,
                               quantity: 0,
                             });
@@ -539,9 +595,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
           </div>
         )}
       </div>
