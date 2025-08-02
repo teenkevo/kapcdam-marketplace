@@ -1,3 +1,4 @@
+import { PriceInput } from "@/sanity/components/price-input";
 import { defineType, defineField, defineArrayMember } from "sanity";
 
 export const course = defineType({
@@ -28,6 +29,17 @@ export const course = defineType({
         maxLength: 96,
       },
       validation: (rule) => rule.required().error("URL slug is required"),
+    }),
+    defineField({
+      name: "category",
+      title: "Category",
+      type: "reference",
+      to: [{ type: "category" }],
+      description: "Select a child category for this product.",
+      options: {
+        filter: "defined(parent)",
+      },
+      validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "startDate",
@@ -114,16 +126,22 @@ export const course = defineType({
     defineField({
       name: "price",
       title: "Course Price (UGX)",
-      type: "number",
+      type: "string",
       description: "Price of the course",
+      components: {
+        input: PriceInput,
+      },
       validation: (rule) =>
         rule.required().min(0).error("Course should have a price"),
     }),
     defineField({
       name: "compareAtPrice",
       title: "Compare At Price (UGX)",
-      type: "number",
+      type: "string",
       description: "Original price before discount (optional)",
+      components: {
+        input: PriceInput,
+      },
       validation: (rule) => rule.min(0),
     }),
     defineField({
@@ -139,7 +157,7 @@ export const course = defineType({
           description: "Discount percentage %",
           validation: (rule) =>
             rule
-              .required()
+
               .min(1)
               .max(100)
               .error("Discount value must be between 1% and 100%"),
@@ -156,8 +174,6 @@ export const course = defineType({
           title: "Campaign Start Date",
           type: "datetime",
           description: "When this discount campaign begins",
-          validation: (rule) =>
-            rule.required().error("Campaign start date is required"),
         }),
         defineField({
           name: "endDate",
@@ -166,7 +182,6 @@ export const course = defineType({
           description: "When this discount campaign ends",
           validation: (rule) =>
             rule
-              .required()
               .error("Campaign end date is required")
               .custom((endDate, context) => {
                 const startDate = context.document?.startDate as string;
@@ -188,8 +203,6 @@ export const course = defineType({
           title: "Campaign Name",
           type: "string",
           description: "Name of the discount campaign",
-          validation: (rule) =>
-            rule.required().error("Campaign name is required"),
         }),
       ],
     }),

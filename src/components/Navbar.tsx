@@ -87,7 +87,6 @@ const Navbar = () => {
                     <ShoppingCartIcon itemCount={5} />
                   </Link>
                   <UserButton />
-                  {/* <LightDarkToggle /> */}
                 </>
               ) : (
                 <>
@@ -114,7 +113,7 @@ const Navbar = () => {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search products, categories, "
+                placeholder="Search marketplace, categories, "
                 className="w-full rounded-none bg-background pl-8 md:w-[400px]"
               />
             </div>

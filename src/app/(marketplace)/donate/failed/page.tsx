@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { XCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
-export default function DonationFailedPage() {
+function DonationFailedContent() {
   const searchParams = useSearchParams();
   const donationRef = searchParams.get("ref");
 
@@ -62,5 +63,19 @@ export default function DonationFailedPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function DonationFailedPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-500"></div>
+        </div>
+      }
+    >
+      <DonationFailedContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,8 @@
 import ProductCategoriesAbout from "@/components/product-categories-about";
-import { Button } from "@/components/ui/button";
-import { Clock, CheckCircle, LockIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {CheckCircle, LockIcon } from "lucide-react";
+import Link from "next/link";
 
 export default function MarketPlaceTeaser() {
   return (
@@ -74,9 +76,15 @@ export default function MarketPlaceTeaser() {
                   </span>
                 </div>
 
-                <Button className="bg-white text-gray-900 hover:bg-gray-100 font-medium px-8 py-3 rounded-full">
+                <Link
+                  href={"/marketplace"}
+                  className={cn(
+                    buttonVariants({ variant: "default" }),
+                    "bg-white text-gray-900 hover:bg-gray-100 font-medium px-8 py-3 rounded-full"
+                  )}
+                >
                   Visit Marketplace
-                </Button>
+                </Link>
               </div>
             </div>
             <ProductCategoriesAbout />

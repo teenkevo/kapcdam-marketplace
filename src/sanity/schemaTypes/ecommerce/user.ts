@@ -61,18 +61,16 @@ export const user = defineType({
     }),
 
     defineField({
-      name: "addresses",
-      title: "Addresses",
+      name: "likedProducts",
+      title: "Liked Products",
       type: "array",
-      description:
-        "Customer delivery addresses. At least one address required with exactly one default.",
       of: [
         defineArrayMember({
-          type: "address",
+          type: "reference",
+          to: [{ type: "product" }],
         }),
       ],
     }),
-
     defineField({
       name: "preferences",
       title: "User Preferences",

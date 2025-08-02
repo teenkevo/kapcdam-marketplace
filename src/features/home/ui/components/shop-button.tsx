@@ -1,15 +1,20 @@
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function ShopButton() {
   const [shopIsHovered, setShopIsHovered] = useState(false);
 
   return (
-    <Button
-      size="lg"
-      className="text-lime-400 w-32 border shadow-lg rounded-full border-lime-400"
+    <Link
+      href={"/marketplace"}
+      className={cn(
+        buttonVariants({ size: "lg" }),
+        "text-lime-400 w-32 border shadow-lg rounded-full border-lime-400"
+      )}
       onMouseEnter={() => setShopIsHovered(true)}
       onMouseLeave={() => setShopIsHovered(false)}
     >
@@ -22,6 +27,6 @@ export default function ShopButton() {
       >
         <ArrowRight className="h-5 w-5 text-white" />
       </motion.div>
-    </Button>
+    </Link>
   );
 }

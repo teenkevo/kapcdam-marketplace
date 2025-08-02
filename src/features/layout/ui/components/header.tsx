@@ -1,31 +1,27 @@
-"use client";
-
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, UserButton } from "@clerk/nextjs";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { LogIn } from "lucide-react";
+
 import {
-  LogIn,
-  DollarSign,
-  Handshake,
-  Users,
-  Target,
-  Sparkles,
-  BookOpen,
-  BarChart2,
-  Eye,
-  LinkIcon,
-  Droplet,
-  HeartPulse,
-  TrendingDown,
-  Lightbulb,
-  MapPin,
-} from "lucide-react";
-import DonateButton from "@/features/home/ui/components/donate-button";
-import { CartNavButton } from "@/features/cart/ui/components/cart-nav-button";
-import { CartProvider } from "@/features/cart/lib/contexts/cart-context";
+  CartNavButtonFallBack,
+  CartNavButtonWrapper,
+  CartNavButtonLocalWrapper,
+} from "@/features/cart/ui/components/cart-nav-button";
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
+import { auth } from "@clerk/nextjs/server";
+import { Suspense } from "react";
+import { sanityFetch } from "@/sanity/lib/live";
+import {
+  CART_DISPLAY_QUERY,
+  CART_ITEMS_QUERY,
+} from "@/features/cart/server/query";
+import { CartType } from "@/features/cart/schema";
+import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
+import { expandCartVariants } from "@/features/cart/helpers";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -36,19 +32,19 @@ const takeActionSections = [
         title: "Donate Now",
         description: "Support our mission with a contribution.",
         href: "/donate",
-        icon: DollarSign,
+        icon: "DollarSign" as const,
       },
       {
         title: "Start a Fundraiser",
         description: "Create your own campaign to raise awareness.",
         href: "/fundraise",
-        icon: Handshake,
+        icon: "Handshake" as const,
       },
       {
         title: "Volunteer",
         description: "Join our team on the ground or remotely.",
         href: "/volunteer",
-        icon: Users,
+        icon: "Users" as const,
       },
     ],
   },
@@ -59,13 +55,13 @@ const takeActionSections = [
         title: "Our Campaigns",
         description: "Discover current and past initiatives.",
         href: "/campaigns",
-        icon: Target,
+        icon: "Target" as const,
       },
       {
         title: "Success Stories",
         description: "Read about the impact of your support.",
         href: "/stories",
-        icon: Sparkles,
+        icon: "Sparkles" as const,
       },
     ],
   },
@@ -79,19 +75,19 @@ const aboutUsSections = [
         title: "Our Story",
         description: "Learn about our origins and mission.",
         href: "/about/story",
-        icon: BookOpen,
+        icon: "BookOpen" as const,
       },
       {
         title: "Our Team",
         description: "Meet the dedicated individuals behind our work.",
         href: "/about/team",
-        icon: Users,
+        icon: "Users" as const,
       },
       {
         title: "Financials",
         description: "Transparency in our operations and spending.",
         href: "/about/financials",
-        icon: BarChart2,
+        icon: "BarChart2" as const,
       },
     ],
   },
@@ -102,13 +98,13 @@ const aboutUsSections = [
         title: "Vision & Mission",
         description: "Our long-term goals and daily purpose.",
         href: "/about/vision",
-        icon: Eye,
+        icon: "Eye" as const,
       },
       {
         title: "Partnerships",
         description: "Collaborating for greater impact.",
         href: "/about/partnerships",
-        icon: LinkIcon,
+        icon: "LinkIcon" as const,
       },
     ],
   },
@@ -122,20 +118,20 @@ const whyKAPCDAMSections = [
         title: "Facts & Figures",
         description: "Statistics and realities faced by disabled children.",
         href: "/why-disabled-children/facts",
-        icon: Droplet, // Consider changing icon if you have a more relevant one
+        icon: "Droplet" as const, // Consider changing icon if you have a more relevant one
       },
       {
         title: "Health & Wellbeing",
         description: "Unique health needs and care for disabled children.",
         href: "/why-disabled-children/health",
-        icon: HeartPulse,
+        icon: "HeartPulse" as const,
       },
       {
         title: "Social Inclusion",
         description:
           "The importance of community and inclusion for disabled children.",
         href: "/why-disabled-children/inclusion",
-        icon: Users,
+        icon: "Users" as const,
       },
     ],
   },
@@ -146,19 +142,52 @@ const whyKAPCDAMSections = [
         title: "Support Programs",
         description: "How we support and empower disabled children.",
         href: "/why-disabled-children/support",
-        icon: Lightbulb,
+        icon: "Lightbulb" as const,
       },
       {
         title: "Success Stories",
         description: "Real-life impact and testimonials from families.",
         href: "/why-disabled-children/stories",
-        icon: Sparkles,
+        icon: "Sparkles" as const,
       },
     ],
   },
 ];
 
-export default function Header() {
+export default async function Header() {
+  const { userId } = await auth();
+
+  let cartData: CartType | null = null;
+  if (userId) {
+    const { data } = await sanityFetch({
+      query: CART_ITEMS_QUERY,
+      params: { clerkUserId: userId },
+    });
+    cartData = data;
+  }
+  const cartIds = () => {
+    if (!cartData?.cartItems)
+      return { productIds: [], courseIds: [], selectedSKUs: [] };
+
+    const productIds = cartData?.cartItems
+      .filter((item) => item.type === "product" && item.productId)
+      .map((item) => item.productId!)
+      .filter((id, index, arr) => arr.indexOf(id) === index);
+
+    const courseIds = cartData?.cartItems
+      .filter((item) => item.type === "course" && item.courseId)
+      .map((item) => item.courseId!)
+      .filter((id, index, arr) => arr.indexOf(id) === index);
+
+    const selectedSKUs = cartData?.cartItems
+      .filter((item) => item.type === "product" && item.selectedVariantSku)
+      .map((item) => item.selectedVariantSku!)
+      .filter((sku, index, arr) => arr.indexOf(sku) === index);
+
+    return { productIds, courseIds, selectedSKUs };
+  };
+
+
   return (
     <header className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,7 +196,7 @@ export default function Header() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <Image
-                src="https://kapcdam.org/wp-content/uploads/2022/08/cropped-kapcdam-logo-2.jpg"
+                src="https://res.cloudinary.com/teenkevo-cloud/image/upload/v1754117385/logo-kapcdam_h9goky.webp"
                 alt="KAPCDAM Logo"
                 width={280}
                 height={280}
@@ -181,16 +210,34 @@ export default function Header() {
             <MegaMenu label="About Us" sections={aboutUsSections} />
             <MegaMenu label="Why KAPCDAM?" sections={whyKAPCDAMSections} />
           </nav>
-          {/* Auth & CTA */}
+
           <div className="flex items-center space-x-4">
-            <SignInButton>
-              <Button variant="outline" className="rounded-full">
-                <LogIn size={20} strokeWidth={1.75} />
-              </Button>
-            </SignInButton>
-            {/* Cart Components */}
-            <CartSheet />
-            <CartNavButton />
+            {userId ? (
+              <>
+                <UserButton />
+                <HydrationBoundary>
+                  <Suspense fallback={<CartNavButtonFallBack />}>
+                    <CartNavButtonWrapper
+                      totalItems={cartData?.itemCount ?? 0}
+                    />
+                  </Suspense>
+                </HydrationBoundary>
+              </>
+            ) : (
+              <>
+                <SignInButton>
+                  <Button variant="outline" className="rounded-full">
+                    <LogIn size={20} strokeWidth={1.75} />
+                  </Button>
+                </SignInButton>
+                <CartNavButtonLocalWrapper />
+              </>
+            )}
+            <CartSheet
+              totalItems={cartData?.itemCount ?? 0}
+              userCart={cartData}
+            />
+            <CartBubble totalItems={cartData?.itemCount ?? 0} />
           </div>
         </div>
       </div>
