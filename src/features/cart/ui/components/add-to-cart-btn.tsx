@@ -39,16 +39,6 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
         selectedVariantSku: product.selectedVariantSku,
         quantity: quantity,
       });
-
-      if (isProductInCart) {
-        toast.success("Quantity updated!", {
-          description: "Item quantity increased in cart",
-        });
-      } else {
-        toast.success("Added to cart!", {
-          description: "Sign in to sync your cart",
-        });
-      }
     } finally {
       // Add small delay for better UX
       setTimeout(() => setIsLoading(false), 500);
@@ -94,7 +84,6 @@ export const AddToServerCartButton = ({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
 
   useEffect(() => {
@@ -131,16 +120,43 @@ export const AddToServerCartButton = ({
         if (isInCart) {
           toast.success("Quantity updated!", {
             description: "Item quantity increased in cart",
+            classNames: {
+              toast: "bg-[#e8f8e8] border-green-500",
+              icon: "text-[#03a53e]",
+              title: "text-[#03a53e]",
+              description: "text-black",
+              actionButton: "bg-zinc-400",
+              cancelButton: "bg-orange-400",
+              closeButton: "bg-lime-400",
+            },
           });
         } else {
           toast.success("Added to cart!", {
             description: "Item successfully added to your cart",
+            classNames: {
+              toast: "bg-[#e8f8e8] border-green-500",
+              icon: "text-[#03a53e]",
+              title: "text-[#03a53e]",
+              description: "text-black",
+              actionButton: "bg-zinc-400",
+              cancelButton: "bg-orange-400",
+              closeButton: "bg-lime-400",
+            },
           });
         }
       },
       onError: (error) => {
         toast.error("Failed to add to cart", {
           description: error.message,
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
         });
       },
     })
@@ -169,7 +185,13 @@ export const AddToServerCartButton = ({
   );
 };
 
-export const AddToCartButton = ({ product, quantity }: { product: CartItemType; quantity?: number }) => {
+export const AddToCartButton = ({
+  product,
+  quantity,
+}: {
+  product: CartItemType;
+  quantity?: number;
+}) => {
   const user = useUser();
 
   return user.isSignedIn ? (

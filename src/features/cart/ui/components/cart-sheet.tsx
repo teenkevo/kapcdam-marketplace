@@ -151,7 +151,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
             context.previousCart
           );
         }
-        toast.error(`Failed to update cart: ${error.message}`);
+        toast.error(`Failed to update cart: ${error.message}`, {
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
       },
       onSuccess: () => {
         // Force refetch to ensure data consistency
@@ -159,7 +169,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
         queryClient.refetchQueries({
           queryKey: ["cart", "getDisplayData"],
         });
-        toast.success("Cart updated successfully!");
       },
     })
   );
@@ -296,7 +305,17 @@ export function CartSheet({ totalItems, userCart }: Props) {
     }
 
     if (!userCart?._id) {
-      toast.error("Cart not found. Please try refreshing the page.");
+      toast.error("Cart not found. Please try refreshing the page.", {
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+          actionButton: "bg-zinc-400",
+          cancelButton: "bg-orange-400",
+          closeButton: "bg-lime-400",
+        },
+      });
       return;
     }
 
@@ -346,7 +365,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     className="w-16 h-16 object-cover rounded-md"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 
+                    <h4
                       className="text-sm font-medium text-gray-900 truncate"
                       title={expandedProduct.originalTitle} // Tooltip with full title
                     >
@@ -449,7 +468,9 @@ export function CartSheet({ totalItems, userCart }: Props) {
                     <h4 className="text-sm font-medium text-gray-900 truncate">
                       {course.title}
                     </h4>
-                    <p className="text-sm text-gray-500">Kapcdam Course • Qty: 1 (fixed)</p>
+                    <p className="text-sm text-gray-500">
+                      Kapcdam Course • Qty: 1 (fixed)
+                    </p>
                     <div className="flex items-center">
                       <NumericFormat
                         thousandSeparator={true}

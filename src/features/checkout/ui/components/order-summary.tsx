@@ -213,7 +213,6 @@ export function OrderSummary({
             trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
           );
         }
-        toast.success("Cart updated successfully!");
       },
     })
   );
@@ -406,7 +405,9 @@ export function OrderSummary({
           setCouponError(null);
 
           // Notify parent component about the applied coupon with dynamic amount
-          const dynamicDiscountAmount = Math.round((finalSubtotal * couponData.discount.percentage) / 100);
+          const dynamicDiscountAmount = Math.round(
+            (finalSubtotal * couponData.discount.percentage) / 100
+          );
           onCouponChange?.({
             code: couponData.code,
             discountAmount: dynamicDiscountAmount,
@@ -459,7 +460,7 @@ export function OrderSummary({
 
   // Calculate final totals with dynamic coupon calculation
   const tax = 0; // No tax for now
-  const couponDiscount = appliedCoupon 
+  const couponDiscount = appliedCoupon
     ? Math.round((finalSubtotal * appliedCoupon.discount.percentage) / 100)
     : 0;
   const finalTotal = finalSubtotal + shippingCost + tax - couponDiscount;
@@ -467,7 +468,7 @@ export function OrderSummary({
   // Use ref to track the last notified discount amount to prevent unnecessary updates
   const lastNotifiedDiscountRef = useRef<number>(0);
   const onCouponChangeRef = useRef(onCouponChange);
-  
+
   // Update ref when onCouponChange changes
   useEffect(() => {
     onCouponChangeRef.current = onCouponChange;
@@ -477,13 +478,18 @@ export function OrderSummary({
   useEffect(() => {
     if (appliedCoupon) {
       // Check if minimum order amount is still met
-      if (appliedCoupon.minimumOrderAmount && finalSubtotal < appliedCoupon.minimumOrderAmount) {
+      if (
+        appliedCoupon.minimumOrderAmount &&
+        finalSubtotal < appliedCoupon.minimumOrderAmount
+      ) {
         // Remove coupon if minimum order amount is no longer met
         setAppliedCouponState(null);
         setCouponError(null);
         onCouponChangeRef.current?.(null);
         lastNotifiedDiscountRef.current = 0;
-        toast.error(`Coupon removed: Minimum order amount of UGX ${appliedCoupon.minimumOrderAmount.toLocaleString()} required`);
+        toast.error(
+          `Coupon removed: Minimum order amount of UGX ${appliedCoupon.minimumOrderAmount.toLocaleString()} required`
+        );
         return;
       }
 
@@ -497,10 +503,15 @@ export function OrderSummary({
       }
 
       // Calculate new discount amount
-      const dynamicDiscountAmount = Math.round((finalSubtotal * appliedCoupon.discount.percentage) / 100);
-      
+      const dynamicDiscountAmount = Math.round(
+        (finalSubtotal * appliedCoupon.discount.percentage) / 100
+      );
+
       // Only notify parent if the discount amount has actually changed
-      if (onCouponChangeRef.current && dynamicDiscountAmount !== lastNotifiedDiscountRef.current) {
+      if (
+        onCouponChangeRef.current &&
+        dynamicDiscountAmount !== lastNotifiedDiscountRef.current
+      ) {
         lastNotifiedDiscountRef.current = dynamicDiscountAmount;
         onCouponChangeRef.current({
           code: appliedCoupon.code,
@@ -512,7 +523,12 @@ export function OrderSummary({
       // Reset ref when no coupon is applied
       lastNotifiedDiscountRef.current = 0;
     }
-  }, [finalSubtotal, appliedCoupon?.code, appliedCoupon?.discount.percentage, appliedCoupon?.minimumOrderAmount]);
+  }, [
+    finalSubtotal,
+    appliedCoupon?.code,
+    appliedCoupon?.discount.percentage,
+    appliedCoupon?.minimumOrderAmount,
+  ]);
 
   return (
     <div

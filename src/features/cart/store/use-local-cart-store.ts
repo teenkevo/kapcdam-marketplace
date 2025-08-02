@@ -91,6 +91,15 @@ export const useLocalCartStore = create<LocalCartState>()(
 
           toast.success("Added to cart successfully!", {
             description: "Sign in to sync your cart",
+            classNames: {
+              toast: "bg-[#e8f8e8] border-green-500",
+              icon: "text-[#03a53e]",
+              title: "text-[#03a53e]",
+              description: "text-black",
+              actionButton: "bg-zinc-400",
+              cancelButton: "bg-orange-400",
+              closeButton: "bg-lime-400",
+            },
           });
         },
 
@@ -114,8 +123,6 @@ export const useLocalCartStore = create<LocalCartState>()(
             }),
             lastUpdated: new Date(),
           }));
-
-          toast.success("Item removed from cart");
         },
 
         updateQuantity: (productId, courseId, selectedVariantSku, quantity) => {
