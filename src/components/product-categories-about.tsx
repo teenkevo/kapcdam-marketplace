@@ -73,7 +73,7 @@ export default function ProductCategoriesAbout() {
                 href={`/marketplace?category=${category._id}`}
                 className="group"
               >
-                <CardContent className="p-4">
+                <CardContent className="p-1">
                   <div className="aspect-video relative p-2">
                     <Image
                       src={
