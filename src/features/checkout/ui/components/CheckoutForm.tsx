@@ -254,9 +254,9 @@ export default function CheckoutForm({
                         onValueChange={field.onChange}
                         className="space-y-3"
                       >
-                        <div
-                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer p-4 ${
-                            // Increased padding
+                        <label
+                          htmlFor="local_delivery"
+                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer p-4 w-full ${
                             field.value === "local_delivery"
                               ? "border-primary bg-primary/5"
                               : "hover:bg-primary/5 hover:border-primary/50"
@@ -267,27 +267,24 @@ export default function CheckoutForm({
                             id="local_delivery"
                             className="sr-only"
                           />
-                          <label
-                            htmlFor="local_delivery"
-                            className="font-medium cursor-pointer flex-1"
-                          >
+                          <div className="font-medium cursor-pointer flex-1">
                             <div className="flex w-full justify-between items-center gap-2">
                               Local Delivery
                               <LiaShippingFastSolid
-                                className={`size-4 ${field.value === "local_delivery" ? "text-primary" : "text-muted-foreground"}`} // Consistent icon color
+                                className={`size-4 ${field.value === "local_delivery" ? "text-primary" : "text-muted-foreground"}`}
                               />
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
                               We'll deliver to your address
                             </p>
-                          </label>
-                        </div>
-                        <div
-                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer p-4 ${
-                            // Increased padding
+                          </div>
+                        </label>
+                        <label
+                          htmlFor="pickup"
+                          className={`flex items-center space-x-3 border rounded-lg transition-all cursor-pointer p-4 w-full ${
                             field.value === "pickup"
-                              ? "border-primary bg-primary/5" // Simpler active state
-                              : "hover:bg-primary/5 hover:border-primary/50" // Simpler hover state
+                              ? "border-primary bg-primary/5"
+                              : "hover:bg-primary/5 hover:border-primary/50"
                           }`}
                         >
                           <RadioGroupItem
@@ -295,22 +292,18 @@ export default function CheckoutForm({
                             id="pickup"
                             className="sr-only"
                           />
-                          <label
-                            htmlFor="pickup"
-                            className="font-medium cursor-pointer flex-1"
-                          >
+                          <div className="font-medium cursor-pointer flex-1">
                             <div className="flex w-full justify-between items-center gap-2">
                               Pick up
                               <MdStorefront
                                 className={`size-4 ${field.value === "pickup" ? "text-primary" : "text-muted-foreground"}`}
-                              />{" "}
-                              {/* Consistent icon color */}
+                              />
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
                               Pick up from our offices
                             </p>
-                          </label>
-                        </div>
+                          </div>
+                        </label>
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />
