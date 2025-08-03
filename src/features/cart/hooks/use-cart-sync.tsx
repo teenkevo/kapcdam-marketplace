@@ -27,9 +27,15 @@ export function useCartSync() {
           startTransition(() => {
             // Force refetch for consistency with other cart operations
             queryClient.refetchQueries(trpc.cart.getUserCart.queryOptions());
+
             queryClient.refetchQueries({
               queryKey: ["cart", "getDisplayData"],
             });
+            if ("cartId" in result && result?.cartId) {
+              queryClient.refetchQueries(
+                trpc.cart.getCartById.queryOptions({ cartId: result?.cartId })
+              );
+            }
           });
 
           // Show concise success message
@@ -84,7 +90,9 @@ export function useCartSync() {
         : false, // Don't show syncing if no local items or not signed in
     isError: syncCartMutation.isError,
     error: syncCartMutation.error,
-    canSync: Boolean(isLoaded && userId && hasItems() && !syncCartMutation.isPending),
+    canSync: Boolean(
+      isLoaded && userId && hasItems() && !syncCartMutation.isPending
+    ),
   };
 }
 

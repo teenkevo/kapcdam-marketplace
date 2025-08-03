@@ -25,7 +25,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
   const { data: userCart, isLoading: isCartLoading } = useQuery(
     trpc.cart.getCartById.queryOptions({ cartId })
   );
-
   const {
     formState,
     handleFormValidChange,
