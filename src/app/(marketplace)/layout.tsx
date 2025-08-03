@@ -10,6 +10,17 @@ export const metadata: Metadata = {
     "Kampala Parents of Children with Disabilities Association – Makindye (KAPCDAM)",
   description:
     "KAPCDAM is a non-profit organization that provides support to children with disabilities and their families.",
+  metadataBase: new URL("https://kapcdam.org"),
+  openGraph: {
+    title: "KAPCDAM",
+    description:
+      "KAPCDAM is a non-profit organization that provides support to children with disabilities and their families.",
+    images: [
+      {
+        url: "https://res.cloudinary.com/teenkevo-cloud/image/upload/q_71/v1754259997/Home-OG_ykwsx2.webp",
+      },
+    ],
+  },
 };
 
 export default function MarketplaceLayout({
