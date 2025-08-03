@@ -71,21 +71,24 @@ export default function PaymentMethodSelector({
 
       {paymentMethod === "bank" && (
         <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h4 className="text-sm text-gray-900 font-medium mb-3">
+          <h4 className="text-sm text-gray-900 font-bold mb-3">
             Bank Transfer Details
           </h4>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-600">Bank Name:</span>
-              <span className="font-medium">Stanbic Bank Uganda</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-600">Account Name:</span>
-              <span className="font-medium">KAPCDAM Uganda</span>
+              <span className="font-medium">Equity Bank Uganda</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-gray-600">Account Number:</span>
-              <span className="font-medium">1234567890</span>
+              <span className="font-medium">100320072660</span>
+            </div>
+            <div className="flex border-t border-gray-300 pt-2 mt-3 flex-col text-xs">
+              <span className="text-gray-600">Account Name:</span>
+              <span className="font-medium">
+                Kampala Parents of Children with Disabilities Association
+                Makindye
+              </span>
             </div>
             <div className="flex justify-between border-t border-gray-300 pt-2 mt-3 text-xs">
               <span className="text-gray-600">Payment Reference:</span>
