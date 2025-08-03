@@ -22,52 +22,7 @@ import {
 } from "./query";
 import { revalidatePath } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/live";
-import { createClerkClient } from "@clerk/nextjs/server";
 
-// Helper function to get or create user in Sanity (for cart sync only)
-async function getOrCreateUserForSync(clerkUserId: string) {
-  // First, try to get user from Sanity
-  let user = await client.fetch(
-    groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
-    { clerkUserId }
-  );
-
-  if (user) {
-    return user;
-  }
-
-  // User doesn't exist in Sanity, fetch from Clerk and create
-  const clerkClient = createClerkClient({
-    secretKey: process.env.CLERK_SECRET_KEY,
-  });
-
-  try {
-    const clerkUser = await clerkClient.users.getUser(clerkUserId);
-    
-    // Create user in Sanity using the same structure as webhook
-    user = await client.createIfNotExists({
-      _id: `user-${clerkUserId}`,
-      _type: "user",
-      clerkUserId: clerkUserId,
-      email: clerkUser.emailAddresses[0]?.emailAddress || "",
-      firstName: clerkUser.firstName || "",
-      lastName: clerkUser.lastName || "",
-      phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
-      preferences: {
-        notifications: true,
-        marketing: false,
-      },
-    });
-
-    return user;
-  } catch (error) {
-    console.error("Error creating user from Clerk data:", error);
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to create user account",
-    });
-  }
-}
 
 export const cartRouter = createTRPCRouter({
   /**
@@ -490,8 +445,18 @@ export const cartRouter = createTRPCRouter({
           return { success: true, message: "No items to sync" };
         }
 
-        // Get or create user document for sync
-        const user = await getOrCreateUserForSync(ctx.auth.userId);
+        // Check if user exists in Sanity
+        const user = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: ctx.auth.userId }
+        );
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found. Please sign out and sign back in.",
+          });
+        }
 
         // Get existing user cart
         let userCart = await client.fetch(
@@ -599,30 +564,61 @@ export const cartRouter = createTRPCRouter({
           const existingItems = userCart.cartItems || [];
           const mergedItems = [...existingItems];
 
-          processedItems.forEach((newItem) => {
-            const existingIndex = mergedItems.findIndex((existing) => {
-              if (newItem.type === "product") {
-                return (
-                  existing.product?._ref === newItem.product?._ref &&
-                  existing.selectedVariantSku === newItem.selectedVariantSku
-                );
-              }
-              return existing.course?._ref === newItem.course?._ref;
-            });
+           for (const newItem of processedItems) {
+             const existingIndex = mergedItems.findIndex((existing) => {
+               if (newItem.type === "product") {
+                 return (
+                   existing.product?._ref === newItem.product?._ref &&
+                   existing.selectedVariantSku === newItem.selectedVariantSku
+                 );
+               }
+               return existing.course?._ref === newItem.course?._ref;
+             });
 
-            if (existingIndex !== -1) {
-              // Update quantity to the higher value as per user requirement
-              const newQuantity = Math.max(
-                mergedItems[existingIndex].quantity,
-                newItem.quantity
-              );
-              mergedItems[existingIndex].quantity = newQuantity;
-              mergedItems[existingIndex].lastUpdated = new Date().toISOString();
-            } else {
-              // Add new item
-              mergedItems.push(newItem);
-            }
-          });
+             if (existingIndex !== -1) {
+               const newQuantity = Math.max(
+                 mergedItems[existingIndex].quantity,
+                 newItem.quantity
+               );
+
+               if (newItem.type === "product" && newItem.product?._ref) {
+                 const currentProduct = await client.fetch(
+                   groq`*[_type == "product" && _id == $productId][0]{
+                    hasVariants, totalStock,
+                    "selectedVariant": variants[sku == $selectedVariantSku][0] { sku, stock }
+                  }`,
+                   {
+                     productId: newItem.product._ref,
+                     selectedVariantSku: newItem.selectedVariantSku || "",
+                   }
+                 );
+
+                 if (currentProduct) {
+                   const availableStock = currentProduct.hasVariants
+                     ? currentProduct.selectedVariant?.stock
+                     : currentProduct.totalStock;
+
+                   if (availableStock && newQuantity > availableStock) {
+                     mergedItems[existingIndex].quantity = availableStock;
+                     console.warn(
+                       `Stock validation: Adjusted quantity from ${newQuantity} to ${availableStock} for product ${newItem.product._ref}`
+                     );
+                   } else {
+                     mergedItems[existingIndex].quantity = newQuantity;
+                   }
+                 } else {
+                   mergedItems[existingIndex].quantity = newQuantity;
+                 }
+               } else {
+                 mergedItems[existingIndex].quantity = newQuantity;
+               }
+
+               mergedItems[existingIndex].lastUpdated =
+                 new Date().toISOString();
+             } else {
+               mergedItems.push(newItem);
+             }
+           }
 
           // Calculate new item count
           const mergedItemCount = mergedItems.reduce(

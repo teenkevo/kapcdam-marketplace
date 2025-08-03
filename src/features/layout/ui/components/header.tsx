@@ -14,12 +14,6 @@ import {
 import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
-import { sanityFetch } from "@/sanity/lib/live";
-import {
-  CART_DISPLAY_QUERY,
-  CART_ITEMS_QUERY,
-} from "@/features/cart/server/query";
-import { CartType } from "@/features/cart/schema";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { expandCartVariants } from "@/features/cart/helpers";
 
@@ -157,37 +151,6 @@ const whyKAPCDAMSections = [
 export default async function Header() {
   const { userId } = await auth();
 
-  let cartData: CartType | null = null;
-  if (userId) {
-    const { data } = await sanityFetch({
-      query: CART_ITEMS_QUERY,
-      params: { clerkUserId: userId },
-    });
-    cartData = data;
-  }
-  const cartIds = () => {
-    if (!cartData?.cartItems)
-      return { productIds: [], courseIds: [], selectedSKUs: [] };
-
-    const productIds = cartData?.cartItems
-      .filter((item) => item.type === "product" && item.productId)
-      .map((item) => item.productId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
-
-    const courseIds = cartData?.cartItems
-      .filter((item) => item.type === "course" && item.courseId)
-      .map((item) => item.courseId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
-
-    const selectedSKUs = cartData?.cartItems
-      .filter((item) => item.type === "product" && item.selectedVariantSku)
-      .map((item) => item.selectedVariantSku!)
-      .filter((sku, index, arr) => arr.indexOf(sku) === index);
-
-    return { productIds, courseIds, selectedSKUs };
-  };
-
-
   return (
     <header className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -217,9 +180,7 @@ export default async function Header() {
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButtonWrapper
-                      totalItems={cartData?.itemCount ?? 0}
-                    />
+                    <CartNavButtonWrapper />
                   </Suspense>
                 </HydrationBoundary>
               </>
@@ -233,11 +194,8 @@ export default async function Header() {
                 <CartNavButtonLocalWrapper />
               </>
             )}
-            <CartSheet
-              totalItems={cartData?.itemCount ?? 0}
-              userCart={cartData}
-            />
-            <CartBubble totalItems={cartData?.itemCount ?? 0} />
+            <CartSheet />
+            <CartBubble />
           </div>
         </div>
       </div>

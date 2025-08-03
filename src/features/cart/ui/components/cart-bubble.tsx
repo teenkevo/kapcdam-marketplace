@@ -6,20 +6,18 @@ import {
   CartNavButtonLocal,
   CartNavButtonFallBack,
 } from "./cart-nav-button";
-import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 
-export function CartBubble({ totalItems }: { totalItems: number }) {
+export function CartBubble() {
   const { isSignedIn } = useUser();
-  const { isSyncing } = useCartSync();
-
-  console.log("cart-bubble-totalItems", totalItems);
+  const { isSyncing } = useCartSyncContext();
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {isSyncing ? (
         <CartNavButtonFallBack />
       ) : isSignedIn ? (
-        <CartNavButton totalItems={totalItems} />
+        <CartNavButton />
       ) : (
         <CartNavButtonLocal />
       )}

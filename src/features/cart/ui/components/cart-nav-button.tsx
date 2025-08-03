@@ -4,14 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/nextjs";
+import { useMemo } from "react";
 
-type Props = {
-  totalItems: number;
-};
-
-export function CartNavButton({ totalItems }: Props) {
+export function CartNavButton() {
   const { setIsCartOpen } = useLocalCartStore();
+  const { isSignedIn } = useUser();
+  const trpc = useTRPC();
+
+  // Get cart data using the same query as cart-sheet
+  const { data: userCart } = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    enabled: isSignedIn,
+  });
+
+  const totalItems = useMemo(() => {
+    return userCart?.itemCount ?? 0;
+  }, [userCart?.itemCount]);
 
   return (
     <Button
@@ -71,19 +83,19 @@ export const CartNavButtonFallBack = () => (
 );
 
 // Wrapper component that handles syncing state for navigation
-export function CartNavButtonWrapper({ totalItems }: Props) {
-  const { isSyncing } = useCartSync();
+export function CartNavButtonWrapper() {
+  const { isSyncing } = useCartSyncContext();
 
   if (isSyncing) {
     return <CartNavButtonFallBack />;
   }
 
-  return <CartNavButton totalItems={totalItems} />;
+  return <CartNavButton />;
 }
 
 // Wrapper component that handles syncing state for local navigation
 export function CartNavButtonLocalWrapper() {
-  const { isSyncing } = useCartSync();
+  const { isSyncing } = useCartSyncContext();
 
   if (isSyncing) {
     return <CartNavButtonFallBack />;

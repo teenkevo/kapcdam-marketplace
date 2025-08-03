@@ -322,6 +322,25 @@ export function OrderSummary({
     expandedProduct: ExpandedProduct,
     newQuantity: number
   ) => {
+    // Check stock availability
+    const availableStock = parseInt(expandedProduct.totalStock || "0");
+    if (availableStock > 0 && newQuantity > availableStock) {
+      toast.error("Insufficient stock", {
+        description: `Only ${availableStock} items available`,
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+        },
+      });
+      return;
+    }
+
+    // Ensure quantity is between 1 and available stock (or 99 if no stock limit)
+    const maxQuantity = availableStock > 0 ? Math.min(availableStock, 99) : 99;
+    const safeQuantity = Math.max(1, Math.min(maxQuantity, newQuantity));
+
     if (isSignedIn && userCart?._id) {
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
@@ -329,14 +348,15 @@ export function OrderSummary({
       updateServerCartMutation.mutate({
         cartId: userCart._id,
         itemIndex,
-        quantity: newQuantity,
+        quantity: safeQuantity,
       });
     } else {
       updateLocalQuantity(
         expandedProduct.originalProductId,
         "",
         expandedProduct.VariantSku,
-        newQuantity
+        safeQuantity,
+        availableStock > 0 ? availableStock : undefined
       );
     }
   };
@@ -701,7 +721,11 @@ export function OrderSummary({
                                 cartItem.quantity + 1
                               )
                             }
-                            disabled={updateServerCartMutation.isPending}
+                            disabled={
+                              updateServerCartMutation.isPending ||
+                              (parseInt(expandedProduct.totalStock || "0") > 0 && 
+                               cartItem.quantity >= parseInt(expandedProduct.totalStock || "0"))
+                            }
                             className="h-8 w-8 p-0"
                           >
                             <Plus className="h-3 w-3" />
@@ -745,7 +769,11 @@ export function OrderSummary({
                               cartItem.quantity + 1
                             )
                           }
-                          disabled={updateServerCartMutation.isPending}
+                          disabled={
+                            updateServerCartMutation.isPending ||
+                            (parseInt(expandedProduct.totalStock || "0") > 0 && 
+                             cartItem.quantity >= parseInt(expandedProduct.totalStock || "0"))
+                          }
                           className="h-8 w-8 p-0"
                         >
                           <Plus className="h-3 w-3" />
