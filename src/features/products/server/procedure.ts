@@ -7,7 +7,6 @@ import {
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import {
-  
   getManyProductsInputSchema,
   getOneProductInputSchema,
   getRelatedProductsInputSchema,
@@ -38,18 +37,21 @@ function cleanProductData(data: any) {
     totalStock: data.totalStock ?? 0,
     totalReviews: data.totalReviews ?? 0,
     hasDiscount: data.hasDiscount ?? false,
-    variants: data.variants === null ? null : Array.isArray(data.variants) 
-      ? data.variants.map((variant: any) => ({
-          ...variant,
-          sku: variant.sku ?? "",
-          price: variant.price ?? "0",
-          stock: variant.stock ?? 0,
-          isDefault: variant.isDefault ?? false,
-          attributes: Array.isArray(variant.attributes)
-            ? variant.attributes
-            : [],
-        }))
-      : [],
+    variants:
+      data.variants === null
+        ? null
+        : Array.isArray(data.variants)
+          ? data.variants.map((variant: any) => ({
+              ...variant,
+              sku: variant.sku ?? "",
+              price: variant.price ?? "0",
+              stock: variant.stock ?? 0,
+              isDefault: variant.isDefault ?? false,
+              attributes: Array.isArray(variant.attributes)
+                ? variant.attributes
+                : [],
+            }))
+          : [],
     variantOptions: Array.isArray(data.variantOptions)
       ? data.variantOptions.map((variant: any) => ({
           ...variant,
@@ -67,7 +69,8 @@ function cleanProductData(data: any) {
       hasParent: data.category?.hasParent ?? false,
     },
     images: data.images === null ? null : data.images,
-    detailedDescription: data.detailedDescription === null ? null : data.detailedDescription,
+    detailedDescription:
+      data.detailedDescription === null ? null : data.detailedDescription,
     discountInfo:
       data.hasDiscount && data.discountInfo ? data.discountInfo : null,
   };
@@ -184,7 +187,17 @@ export const productsRouter = createTRPCRouter({
   getMany: baseProcedure
     .input(getManyProductsInputSchema)
     .query(async ({ input }) => {
-      const { search, pageSize, page, categoryId, minPrice, maxPrice, sortBy, status, type } = input;
+      const {
+        search,
+        pageSize,
+        page,
+        categoryId,
+        minPrice,
+        maxPrice,
+        sortBy,
+        status,
+        type,
+      } = input;
       const offset = (page - 1) * pageSize;
 
       try {
@@ -193,14 +206,22 @@ export const productsRouter = createTRPCRouter({
 
         // Fetch products if type is "all" or "products"
         if (type === "all" || type === "products") {
-          const productConditions = [`_type == "product"`, `status == "${status}"`, `totalStock > 0`];
+          const productConditions = [
+            `_type == "product"`,
+            `status == "${status}"`,
+            `totalStock > 0`,
+          ];
 
           if (search) {
-            productConditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
+            productConditions.push(
+              `(title match $search + "*" || title match "*" + $search + "*")`
+            );
           }
 
           if (categoryId) {
-            productConditions.push(`(category._ref == $categoryId || category->parent._ref == $categoryId)`);
+            productConditions.push(
+              `(category._ref == $categoryId || category->parent._ref == $categoryId)`
+            );
           }
 
           if (minPrice !== null && minPrice !== undefined) {
@@ -218,7 +239,7 @@ export const productsRouter = createTRPCRouter({
           }
 
           const productFilter = productConditions.join(" && ");
-          
+
           const productQuery = groq`{
             "items": *[${productFilter}] {
               _id,
@@ -275,8 +296,10 @@ export const productsRouter = createTRPCRouter({
           if (categoryId) params.categoryId = categoryId;
 
           const productResult = await client.fetch(productQuery, params);
-          const cleanedProducts = (productResult.items || []).map(cleanProductData);
-          
+          const cleanedProducts = (productResult.items || []).map(
+            cleanProductData
+          );
+
           allItems.push(...cleanedProducts);
           totalCount += productResult.total || 0;
         }
@@ -286,7 +309,9 @@ export const productsRouter = createTRPCRouter({
           const courseConditions = [`_type == "course"`, `isActive == true`];
 
           if (search) {
-            courseConditions.push(`(title match $search + "*" || title match "*" + $search + "*")`);
+            courseConditions.push(
+              `(title match $search + "*" || title match "*" + $search + "*")`
+            );
           }
 
           // Price filtering for courses (simpler structure)
@@ -299,7 +324,7 @@ export const productsRouter = createTRPCRouter({
           }
 
           const courseFilter = courseConditions.join(" && ");
-          
+
           const courseQuery = groq`{
             "items": *[${courseFilter}] {
               _id,
@@ -339,16 +364,21 @@ export const productsRouter = createTRPCRouter({
           if (search) courseParams.search = search;
 
           const courseResult = await client.fetch(courseQuery, courseParams);
-          const cleanedCourses = (courseResult.items || []).map((course: any) => ({
-            ...course,
-            isActive: course.isActive ?? true,
-            isFeatured: course.isFeatured ?? false,
-            price: course.price ?? "0",
-            hasDiscount: course.hasDiscount ?? false,
-            discountInfo: course.hasDiscount && course.discountInfo ? course.discountInfo : null,
-            createdBy: course.createdBy === null ? null : course.createdBy,
-          }));
-          
+          const cleanedCourses = (courseResult.items || []).map(
+            (course: any) => ({
+              ...course,
+              isActive: course.isActive ?? true,
+              isFeatured: course.isFeatured ?? false,
+              price: course.price ?? "0",
+              hasDiscount: course.hasDiscount ?? false,
+              discountInfo:
+                course.hasDiscount && course.discountInfo
+                  ? course.discountInfo
+                  : null,
+              createdBy: course.createdBy === null ? null : course.createdBy,
+            })
+          );
+
           allItems.push(...cleanedCourses);
           totalCount += courseResult.total || 0;
         }
@@ -372,8 +402,12 @@ export const productsRouter = createTRPCRouter({
         allItems.sort((a, b) => {
           const aVal = getSortValue(a);
           const bVal = getSortValue(b);
-          
-          if (sortBy === "price-desc" || sortBy === "name-desc" || sortBy === "newest") {
+
+          if (
+            sortBy === "price-desc" ||
+            sortBy === "name-desc" ||
+            sortBy === "newest"
+          ) {
             return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
           } else {
             return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
@@ -525,7 +559,7 @@ export const productsRouter = createTRPCRouter({
         if (isAlreadyLiked) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Product is already liked",
+            message: "Product is already in your wishlist",
           });
         }
 
@@ -599,7 +633,7 @@ export const productsRouter = createTRPCRouter({
 
       try {
         let query = "";
-        
+
         const params: any = { productId, limit };
 
         if (categoryId) {
@@ -751,9 +785,14 @@ export const productsRouter = createTRPCRouter({
             )
           }`;
 
-          const fallbackProducts = await client.fetch(fallbackQuery, { productId, categoryId });
-          const cleanedFallbackProducts = (fallbackProducts || []).map(cleanProductData);
-          
+          const fallbackProducts = await client.fetch(fallbackQuery, {
+            productId,
+            categoryId,
+          });
+          const cleanedFallbackProducts = (fallbackProducts || []).map(
+            cleanProductData
+          );
+
           cleanedProducts.push(...cleanedFallbackProducts);
         }
 
