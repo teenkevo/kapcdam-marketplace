@@ -9,14 +9,18 @@ import { urlFor } from "@/sanity/lib/image";
 
 export default function ProductCategoriesAbout() {
   const trpc = useTRPC();
-  
+
   // Fetch categories from Sanity
-  const { data: categories, isLoading, error } = useQuery(
-    trpc.products.getCategories.queryOptions()
-  );
+  const {
+    data: categories,
+    isLoading,
+    error,
+  } = useQuery(trpc.products.getCategories.queryOptions());
 
   // Filter to get only parent categories (top 3)
-  const parentCategories = categories?.filter(cat => !cat.hasParent || !cat.parent)?.slice(0, 3) || [];
+  const parentCategories =
+    categories?.filter((cat) => !cat.hasParent || !cat.parent)?.slice(0, 3) ||
+    [];
 
   if (isLoading) {
     return (
@@ -24,7 +28,10 @@ export default function ProductCategoriesAbout() {
         <div className="container">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
-              <Card key={i} className="overflow-hidden rounded-[15px] border-white">
+              <Card
+                key={i}
+                className="overflow-hidden rounded-[15px] border-white"
+              >
                 <CardContent className="p-0">
                   <div className="aspect-video relative p-2">
                     <div className="w-full h-full bg-gray-200 animate-pulse rounded-[12px]" />
@@ -62,13 +69,21 @@ export default function ProductCategoriesAbout() {
               key={category._id}
               className="overflow-hidden rounded-[15px] border-white"
             >
-              <Link href={`/marketplace?category=${category._id}`} className="group">
-                <CardContent className="p-0">
+              <Link
+                href={`/marketplace?category=${category._id}`}
+                className="group"
+              >
+                <CardContent className="p-1">
                   <div className="aspect-video relative p-2">
                     <Image
                       src={
-                        category.displayImage 
-                          ? urlFor(category.displayImage).width(400).height(225).fit('crop').auto('format').url()
+                        category.displayImage
+                          ? urlFor(category.displayImage)
+                              .width(400)
+                              .height(225)
+                              .fit("crop")
+                              .auto("format")
+                              .url()
                           : "https://images.unsplash.com/photo-1590439471364-192aa70c0b53?q=80&w=3087&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                       }
                       alt={category.name}

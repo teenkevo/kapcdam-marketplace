@@ -16,10 +16,10 @@ export default async function HomeView() {
     <div className="min-h-screen">
       <main>
         <HeroSection />
+        <ProductList />
         <AboutUsSummary />
         <CoursesSection />
         <MarketPlaceTeaser />
-        <ProductList />
       </main>
     </div>
   );
