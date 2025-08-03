@@ -150,7 +150,7 @@ export default function AboutUsSummary() {
 
   return (
     <div className="min-h-[200vh] bg-white">
-      <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-10 md:py-16 px-4 sm:px-6 lg:px-8">
         {/* Sticky stack wrapper */}
         <div
           className="relative flex flex-col gap-8 md:gap-12"
