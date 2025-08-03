@@ -127,6 +127,7 @@ export default function VariantSelector({
                 quantity: 1,
                 addedAt: new Date().toISOString(),
               }}
+              availableStock={selectedVariant.stock}
             />
           </div>
         </div>

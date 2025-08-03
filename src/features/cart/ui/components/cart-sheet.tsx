@@ -248,8 +248,24 @@ export function CartSheet() {
     expandedProduct: ExpandedProduct,
     newQuantity: number
   ) => {
-    // Ensure quantity is between 1 and 99
-    const safeQuantity = Math.max(1, Math.min(99, newQuantity));
+    // Check stock availability
+    const availableStock = parseInt(expandedProduct.totalStock || "0");
+    if (availableStock > 0 && newQuantity > availableStock) {
+      toast.error("Insufficient stock", {
+        description: `Only ${availableStock} items available`,
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+        },
+      });
+      return;
+    }
+
+    // Ensure quantity is between 1 and available stock (or 99 if no stock limit)
+    const maxQuantity = availableStock > 0 ? Math.min(availableStock, 99) : 99;
+    const safeQuantity = Math.max(1, Math.min(maxQuantity, newQuantity));
 
     const cartId = userCart?._id;
     if (isSignedIn && cartId) {
@@ -268,7 +284,8 @@ export function CartSheet() {
         expandedProduct.originalProductId,
         "", // courseId not needed for products
         expandedProduct.VariantSku,
-        safeQuantity
+        safeQuantity,
+        availableStock > 0 ? availableStock : undefined
       );
     }
   };
@@ -383,6 +400,36 @@ export function CartSheet() {
                       <p className="text-sm text-gray-500">
                         Kapcdam Marketplace
                       </p>
+                      {/* Stock Information and Plus Button Feedback */}
+                      {(() => {
+                        const availableStock = parseInt(
+                          expandedProduct.totalStock || "0"
+                        );
+                        const isAtStockLimit =
+                          availableStock > 0 &&
+                          cartItem.quantity >= availableStock;
+                        const isLowStock =
+                          availableStock > 0 && availableStock <= 5;
+
+                        if (isAtStockLimit || isLowStock) {
+                          return (
+                            <div className="mt-1 text-xs">
+                              {isAtStockLimit && (
+                                <p className="text-orange-600 font-medium">
+                                  Maximum stock reached ({availableStock}{" "}
+                                  available)
+                                </p>
+                              )}
+                              {isLowStock && !isAtStockLimit && (
+                                <p className="text-orange-600">
+                                  Only {availableStock} left in stock
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       <div className="flex items-center">
                         <NumericFormat
                           thousandSeparator={true}
@@ -423,7 +470,12 @@ export function CartSheet() {
                             cartItem.quantity + 1
                           )
                         }
-                        disabled={cartItem.quantity >= 99}
+                        disabled={
+                          cartItem.quantity >= 99 ||
+                          (parseInt(expandedProduct.totalStock || "0") > 0 &&
+                            cartItem.quantity >=
+                              parseInt(expandedProduct.totalStock || "0"))
+                        }
                         className="h-8 w-8 p-0"
                       >
                         <Plus className="h-3 w-3" />

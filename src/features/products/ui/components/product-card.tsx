@@ -182,6 +182,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   quantity: 1,
                   addedAt: new Date().toISOString(),
                 }}
+                availableStock={availableStock}
               />
             )}
           </div>

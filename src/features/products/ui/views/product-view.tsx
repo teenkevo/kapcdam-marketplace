@@ -690,7 +690,11 @@ export default function ProductView({ slug }: ProductViewProps) {
           {/* Action Buttons */}
           <div className="flex gap-4">
             {cartItem && (
-              <AddToCartButton product={cartItem} quantity={quantity} />
+              <AddToCartButton 
+                product={cartItem} 
+                quantity={quantity} 
+                availableStock={getCurrentStock()}
+              />
             )}
             {product && <LikeProductButton productId={product._id} />}
             <Button variant="outline" size="icon">

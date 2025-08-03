@@ -15,10 +15,11 @@ import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
 type Props = {
   product: CartItemType;
   quantity?: number;
+  availableStock?: number;
 };
 
-export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
-  const { addLocalCartItem, isInCart } = useLocalCartStore();
+export const AddToLocalCartButton = ({ product, quantity = 1, availableStock }: Props) => {
+  const { addLocalCartItem, isInCart, items } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const { isSyncing } = useCartSync();
 
@@ -28,7 +29,46 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
     product.selectedVariantSku ?? undefined
   );
 
+  // Get current quantity in local cart
+  const currentCartQuantity = items.find((item) => {
+    if (product.type === "product" && product.productId) {
+      if (product.selectedVariantSku) {
+        return (
+          item.type === "product" &&
+          item.productId === product.productId &&
+          item.selectedVariantSku === product.selectedVariantSku
+        );
+      } else {
+        return (
+          item.type === "product" &&
+          item.productId === product.productId &&
+          !item.selectedVariantSku
+        );
+      }
+    } else if (product.type === "course" && product.courseId) {
+      return item.type === "course" && item.courseId === product.courseId;
+    }
+    return false;
+  })?.quantity || 0;
+
   const handleAddToCart = async () => {
+    // Validate stock considering current cart quantity
+    if (availableStock !== undefined && availableStock > 0) {
+      const totalQuantityAfterAdd = currentCartQuantity + quantity;
+      if (totalQuantityAfterAdd > availableStock) {
+        toast.error("Maximum stock reached", {
+          description: `${availableStock} available, ${currentCartQuantity} already in cart`,
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+          },
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -50,7 +90,11 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full relative"
         onClick={handleAddToCart}
-        disabled={isLoading || isSyncing}
+        disabled={
+          isLoading || isSyncing ||
+          (availableStock !== undefined && availableStock === 0) ||
+          (availableStock !== undefined && availableStock > 0 && currentCartQuantity >= availableStock)
+        }
       >
         {isLoading ? (
           <>
@@ -76,11 +120,14 @@ export const AddToLocalCartButton = ({ product, quantity = 1 }: Props) => {
 export const AddToServerCartButton = ({
   product,
   quantity = 1,
+  availableStock,
 }: {
   product: CartItemType;
   quantity?: number;
+  availableStock?: number;
 }) => {
   const [isInCart, setIsInCart] = useState(false);
+  const [currentCartQuantity, setCurrentCartQuantity] = useState(0);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -88,7 +135,8 @@ export const AddToServerCartButton = ({
 
   useEffect(() => {
     if (cart.data) {
-      const inCart = cart.data?.cartItems.some((cartItem) => {
+      // Find matching cart item and get its quantity
+      const matchingItem = cart.data?.cartItems.find((cartItem) => {
         if (product.type === "product" && product.productId) {
           if (product.selectedVariantSku) {
             return (
@@ -104,7 +152,9 @@ export const AddToServerCartButton = ({
         return false;
       });
 
-      setIsInCart(inCart ?? false);
+      const currentQuantity = matchingItem?.quantity || 0;
+      setCurrentCartQuantity(currentQuantity);
+      setIsInCart(currentQuantity > 0);
     }
   }, [cart.data, product]);
 
@@ -148,12 +198,37 @@ export const AddToServerCartButton = ({
     })
   );
 
+  const handleAddToCart = () => {
+    // Validate stock considering current cart quantity
+    if (availableStock !== undefined && availableStock > 0) {
+      const totalQuantityAfterAdd = currentCartQuantity + quantity;
+      if (totalQuantityAfterAdd > availableStock) {
+        toast.error("Maximum stock reached", {
+          description: `${availableStock} available, ${currentCartQuantity} already in cart`,
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+          },
+        });
+        return;
+      }
+    }
+    
+    addItemToCart.mutate({ ...product, quantity });
+  };
+
   return (
     <div className="relative flex-1">
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
-        onClick={() => addItemToCart.mutate({ ...product, quantity })}
-        disabled={addItemToCart.isPending}
+        onClick={handleAddToCart}
+        disabled={
+          addItemToCart.isPending || 
+          (availableStock !== undefined && availableStock === 0) ||
+          (availableStock !== undefined && availableStock > 0 && currentCartQuantity >= availableStock)
+        }
       >
         {addItemToCart.isPending ? (
           <>
@@ -174,15 +249,17 @@ export const AddToServerCartButton = ({
 export const AddToCartButton = ({
   product,
   quantity,
+  availableStock,
 }: {
   product: CartItemType;
   quantity?: number;
+  availableStock?: number;
 }) => {
   const user = useUser();
 
   return user.isSignedIn ? (
-    <AddToServerCartButton product={product} quantity={quantity} />
+    <AddToServerCartButton product={product} quantity={quantity} availableStock={availableStock} />
   ) : (
-    <AddToLocalCartButton product={product} quantity={quantity} />
+    <AddToLocalCartButton product={product} quantity={quantity} availableStock={availableStock} />
   );
 };
