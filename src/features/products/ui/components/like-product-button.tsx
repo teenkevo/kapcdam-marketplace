@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { debouncedToast } from "@/lib/toast-utils";
 import { useState } from "react";
@@ -42,7 +42,7 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        debouncedToast.success("Product liked!");
+        debouncedToast.success("Added to wishlist");
       },
       onError: (error) => {
         toast.error(error.message);
@@ -56,7 +56,7 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        debouncedToast.success("Product removed from favorites!");
+        debouncedToast.success("Removed from wishlist");
         setShowRemoveDialog(false);
       },
       onError: (error) => {
@@ -110,17 +110,27 @@ const LikeProductButton = ({ productId }: Props) => {
         onClick={handleLikeProduct}
         disabled={likeProductMutation.isPending}
       >
-        <Heart
-          className={cn("w-4 h-4", isLiked && "fill-red-500 text-red-500")}
-        />
+        {likeProductMutation.isPending || unlikeProductMutation.isPending ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Heart
+            className={cn(
+              "w-4 h-4 transition-all duration-300",
+              isLiked && "fill-black",
+              (likeProductMutation.isPending ||
+                unlikeProductMutation.isPending) &&
+                "scale-125"
+            )}
+          />
+        )}
       </Button>
 
       <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove from favorites?</AlertDialogTitle>
+            <AlertDialogTitle>Remove from wishlist?</AlertDialogTitle>
             <AlertDialogDescription>
-              This product will be removed from your liked products.
+              This product will be removed from your wishlist.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
