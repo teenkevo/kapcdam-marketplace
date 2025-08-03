@@ -10,7 +10,7 @@ import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 
 type Props = {
   product: CartItemType;
@@ -21,7 +21,7 @@ type Props = {
 export const AddToLocalCartButton = ({ product, quantity = 1, availableStock }: Props) => {
   const { addLocalCartItem, isInCart, items } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
-  const { isSyncing } = useCartSync();
+  const { isSyncing } = useCartSyncContext();
 
   const isProductInCart = isInCart(
     product.productId ?? undefined,

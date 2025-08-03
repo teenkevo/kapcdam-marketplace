@@ -39,7 +39,7 @@ export function useCartSync() {
         }
       },
       onError: (error) => {
-        hasAttemptedSync.current = false; // Reset on error to allow retry
+        hasAttemptedSync.current = false;
         const errorMessage = getCartErrorMessage(error);
         toast.error(`Failed to sync cart: ${errorMessage}`);
       },
@@ -51,7 +51,6 @@ export function useCartSync() {
     const hasLocalItems = hasItems();
     const itemsLength = items.length;
 
-    // Only sync if user just signed in and has local items
     if (
       isLoaded &&
       userId &&
@@ -85,7 +84,7 @@ export function useCartSync() {
         : false, // Don't show syncing if no local items or not signed in
     isError: syncCartMutation.isError,
     error: syncCartMutation.error,
-    canSync: isLoaded && userId && hasItems() && !syncCartMutation.isPending,
+    canSync: Boolean(isLoaded && userId && hasItems() && !syncCartMutation.isPending),
   };
 }
 

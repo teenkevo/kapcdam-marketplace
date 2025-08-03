@@ -18,7 +18,7 @@ import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
-import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 
 type Props = {
   title: string;
@@ -39,7 +39,7 @@ export default function VariantSelector({
   const { isInCart } = useLocalCartStore();
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
-  const { isSyncing } = useCartSync();
+  const { isSyncing } = useCartSyncContext();
 
   // Check if any variant is in cart for visual indication
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());

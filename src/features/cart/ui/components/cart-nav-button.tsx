@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { useCartSync } from "@/features/cart/hooks/use-cart-sync";
+import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
@@ -84,7 +84,7 @@ export const CartNavButtonFallBack = () => (
 
 // Wrapper component that handles syncing state for navigation
 export function CartNavButtonWrapper() {
-  const { isSyncing } = useCartSync();
+  const { isSyncing } = useCartSyncContext();
 
   if (isSyncing) {
     return <CartNavButtonFallBack />;
@@ -95,7 +95,7 @@ export function CartNavButtonWrapper() {
 
 // Wrapper component that handles syncing state for local navigation
 export function CartNavButtonLocalWrapper() {
-  const { isSyncing } = useCartSync();
+  const { isSyncing } = useCartSyncContext();
 
   if (isSyncing) {
     return <CartNavButtonFallBack />;
