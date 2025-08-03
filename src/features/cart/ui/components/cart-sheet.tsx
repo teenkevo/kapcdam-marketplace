@@ -28,6 +28,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { CartType } from "@/features/cart/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
+import { cn } from "@/lib/utils";
 
 type Props = {
   totalItems: number;
@@ -312,7 +313,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
     const cartId = serverCart?._id || userCart?._id;
-    
+
     if (!isSignedIn) {
       // If we have a cartId, redirect to sign-in with checkout URL for redirect after auth
       if (cartId) {
@@ -383,235 +384,247 @@ export function CartSheet({ totalItems, userCart }: Props) {
             {/* Render Products */}
             <AnimatePresence mode="popLayout">
               {expandedProducts.map((expandedProduct) => {
-              const cartItem = findCartItemForProduct(expandedProduct);
-              if (!cartItem) return null;
+                const cartItem = findCartItemForProduct(expandedProduct);
+                if (!cartItem) return null;
 
-              // Enhanced key for better re-rendering
-              const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
+                // Enhanced key for better re-rendering
+                const itemKey = `${expandedProduct._id}-${cartItem.quantity}-${expandedProduct.VariantSku || "no-variant"}`;
 
-              return (
-                <motion.div
-                  key={itemKey}
-                  layout
-                  initial={{ opacity: 1, x: 0, scale: 1 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{
-                    opacity: 0,
-                    x: -100,
-                    scale: 0.8,
-                    transition: { duration: 0.3, ease: "easeInOut" },
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
-                >
-                  <Image
-                    src={urlFor(expandedProduct.defaultImage)
-                      .width(80)
-                      .height(80)
-                      .url()}
-                    alt={expandedProduct.title}
-                    width={64}
-                    height={64}
-                    className="w-16 h-16 object-cover rounded-md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4
-                      className="text-sm font-medium text-gray-900 truncate"
-                      title={expandedProduct.originalTitle} // Tooltip with full title
-                    >
-                      {expandedProduct.title}
-                    </h4>
-                    {expandedProduct.variantDetails && (
-                      <p className="text-xs text-gray-600 truncate">
-                        {expandedProduct.variantDetails}
+                return (
+                  <motion.div
+                    key={itemKey}
+                    layout
+                    initial={{ opacity: 1, x: 0, scale: 1 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{
+                      opacity: 0,
+                      x: -100,
+                      scale: 0.8,
+                      transition: { duration: 0.3, ease: "easeInOut" },
+                    }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                  >
+                    <Image
+                      src={urlFor(expandedProduct.defaultImage)
+                        .width(80)
+                        .height(80)
+                        .url()}
+                      alt={expandedProduct.title}
+                      width={64}
+                      height={64}
+                      className="w-16 h-16 object-cover rounded-md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4
+                        className="text-sm font-medium text-gray-900 truncate"
+                        title={expandedProduct.originalTitle} // Tooltip with full title
+                      >
+                        {expandedProduct.title}
+                      </h4>
+                      {expandedProduct.variantDetails && (
+                        <p className="text-xs text-gray-600 truncate">
+                          {expandedProduct.variantDetails}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-500">
+                        Kapcdam Marketplace
                       </p>
-                    )}
-                    <p className="text-sm text-gray-500">Kapcdam Marketplace</p>
-                    <div className="flex items-center">
-                      <NumericFormat
-                        thousandSeparator={true}
-                        displayType="text"
-                        prefix="UGX "
-                        value={Math.max(
-                          0,
-                          parseInt(expandedProduct.price) || 0
-                        )}
-                        className="text-sm font-semibold"
-                      />
+                      <div className="flex items-center">
+                        <NumericFormat
+                          thousandSeparator={true}
+                          displayType="text"
+                          prefix="UGX "
+                          value={Math.max(
+                            0,
+                            parseInt(expandedProduct.price) || 0
+                          )}
+                          className="text-sm font-semibold"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleUpdateQuantity(
-                          expandedProduct,
-                          cartItem.quantity - 1
-                        )
-                      }
-                      disabled={
-                        updateServerCartMutation.isPending ||
-                        cartItem.quantity <= 1
-                      }
-                      className="h-8 w-8 p-0"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="text-sm font-medium w-8 text-center">
-                      {cartItem.quantity}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        handleUpdateQuantity(
-                          expandedProduct,
-                          cartItem.quantity + 1
-                        )
-                      }
-                      disabled={
-                        updateServerCartMutation.isPending ||
-                        cartItem.quantity >= 99
-                      }
-                      className="h-8 w-8 p-0"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRemoveItem(expandedProduct)}
-                      disabled={updateServerCartMutation.isPending}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </motion.div>
-              );
-            })}
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          handleUpdateQuantity(
+                            expandedProduct,
+                            cartItem.quantity - 1
+                          )
+                        }
+                        disabled={
+                          updateServerCartMutation.isPending ||
+                          cartItem.quantity <= 1
+                        }
+                        className="h-8 w-8 p-0"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-sm font-medium w-8 text-center">
+                        {cartItem.quantity}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          handleUpdateQuantity(
+                            expandedProduct,
+                            cartItem.quantity + 1
+                          )
+                        }
+                        disabled={
+                          updateServerCartMutation.isPending ||
+                          cartItem.quantity >= 99
+                        }
+                        className="h-8 w-8 p-0"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemoveItem(expandedProduct)}
+                        disabled={updateServerCartMutation.isPending}
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
 
             {/* Render Courses */}
             <AnimatePresence mode="popLayout">
               {cartDisplayData?.courses.map((course) => {
-              const cartItem = cartData.find(
-                (item) => item.type === "course" && item.courseId === course._id
-              );
-              if (!cartItem) return null;
+                const cartItem = cartData.find(
+                  (item) =>
+                    item.type === "course" && item.courseId === course._id
+                );
+                if (!cartItem) return null;
 
-              // Enhanced key for courses
-              const courseKey = `course-${course._id}-${cartItem.quantity}`;
+                // Enhanced key for courses
+                const courseKey = `course-${course._id}-${cartItem.quantity}`;
 
-              return (
-                <motion.div
-                  key={courseKey}
-                  layout
-                  initial={{ opacity: 1, x: 0, scale: 1 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{
-                    opacity: 0,
-                    x: -100,
-                    scale: 0.8,
-                    transition: { duration: 0.3, ease: "easeInOut" },
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
-                >
-                  <Image
-                    src={urlFor(course.defaultImage).width(80).height(80).url()}
-                    alt={course.title}
-                    width={64}
-                    height={64}
-                    className="w-16 h-16 object-cover rounded-md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 truncate">
-                      {course.title}
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      Kapcdam Course • Qty: 1 (fixed)
-                    </p>
-                    <div className="flex items-center">
-                      <NumericFormat
-                        thousandSeparator={true}
-                        displayType="text"
-                        prefix="UGX "
-                        value={Math.max(0, parseInt(course.price) || 0)}
-                        className="text-sm font-semibold"
-                      />
+                return (
+                  <motion.div
+                    key={courseKey}
+                    layout
+                    initial={{ opacity: 1, x: 0, scale: 1 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{
+                      opacity: 0,
+                      x: -100,
+                      scale: 0.8,
+                      transition: { duration: 0.3, ease: "easeInOut" },
+                    }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
+                  >
+                    <Image
+                      src={urlFor(course.defaultImage)
+                        .width(80)
+                        .height(80)
+                        .url()}
+                      alt={course.title}
+                      width={64}
+                      height={64}
+                      className="w-16 h-16 object-cover rounded-md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        {course.title}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        Kapcdam Course • Qty: 1 (fixed)
+                      </p>
+                      <div className="flex items-center">
+                        <NumericFormat
+                          thousandSeparator={true}
+                          displayType="text"
+                          prefix="UGX "
+                          value={Math.max(0, parseInt(course.price) || 0)}
+                          className="text-sm font-semibold"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {/* Disabled quantity controls for courses */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={true}
-                      className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="text-sm font-medium w-8 text-center text-gray-500">
-                      1
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={true}
-                      className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const cartId = serverCart?._id || userCart?._id;
-                        if (isSignedIn && cartId) {
-                          console.log(
-                            "cart-sheet-handleRemoveItem-serverCart",
-                            serverCart
-                          );
-                          // Server cart removal for courses
-                          const itemIndex = cartData.findIndex(
-                            (item) =>
-                              item.type === "course" &&
-                              item.courseId === course._id
-                          );
-                          if (itemIndex !== -1) {
-                            updateServerCartMutation.mutate({
-                              cartId,
-                              itemIndex,
-                              quantity: 0,
-                            });
+                    <div className="flex items-center space-x-2">
+                      {/* Disabled quantity controls for courses */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={true}
+                        className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-sm font-medium w-8 text-center text-gray-500">
+                        1
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={true}
+                        className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const cartId = serverCart?._id || userCart?._id;
+                          if (isSignedIn && cartId) {
+                            console.log(
+                              "cart-sheet-handleRemoveItem-serverCart",
+                              serverCart
+                            );
+                            // Server cart removal for courses
+                            const itemIndex = cartData.findIndex(
+                              (item) =>
+                                item.type === "course" &&
+                                item.courseId === course._id
+                            );
+                            if (itemIndex !== -1) {
+                              updateServerCartMutation.mutate({
+                                cartId,
+                                itemIndex,
+                                quantity: 0,
+                              });
+                            }
+                          } else {
+                            // Local cart removal for courses
+                            removeLocalItem(
+                              "", // productId not needed for courses
+                              course._id,
+                              undefined
+                            );
                           }
-                        } else {
-                          // Local cart removal for courses
-                          removeLocalItem(
-                            "", // productId not needed for courses
-                            course._id,
-                            undefined
-                          );
-                        }
-                      }}
-                      disabled={updateServerCartMutation.isPending}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </motion.div>
-              );
-            })}
+                        }}
+                        disabled={updateServerCartMutation.isPending}
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}
       </div>
 
       {currentTotalItems > 0 && (
-        <div className="border-t p-4 space-y-4">
+        <div
+          className={cn(
+            isMobile
+              ? "border-t p-4 space-y-4 fixed bottom-0 left-0 right-0 bg-white"
+              : "border-t p-4 space-y-4"
+          )}
+        >
           <div className="flex justify-between items-center">
             <span className="text-lg font-semibold">Total:</span>
             <NumericFormat
@@ -637,7 +650,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
   if (isMobile) {
     return (
       <Drawer open={isCartOpen} onOpenChange={setIsCartOpen}>
-        <DrawerContent className="h-[80vh]">
+        <DrawerContent className="h-[90vh] pb-52">
           <DrawerHeader>
             <DrawerTitle>Shopping Cart ({currentTotalItems} items)</DrawerTitle>
           </DrawerHeader>
