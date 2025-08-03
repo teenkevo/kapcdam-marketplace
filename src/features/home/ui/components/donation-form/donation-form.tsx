@@ -135,7 +135,6 @@ export default function DonationForm() {
         setIsOpen(false);
         form.reset();
         setPaymentMethod("card");
-        setSelectedAmount(null);
         setCustomAmount("");
         setIsCustomSelected(false);
         setBankDonationRecordDialogOpen(true);

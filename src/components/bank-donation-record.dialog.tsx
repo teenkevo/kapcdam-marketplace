@@ -57,7 +57,7 @@ export function BankDonationRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader className="text-center">
           <div className="mx-auto mb-4 relative">
             {/* Animated background circle */}
@@ -81,12 +81,11 @@ export function BankDonationRecordDialog({
             </div>
           </div>
 
-          <DialogTitle className="text-xl font-semibold text-gray-900">
+          <DialogTitle className="text-xl font-semibold text-gray-900 text-center">
             Thank You for Your Donation!
           </DialogTitle>
-          <DialogDescription className="text-gray-600 mt-2">
-            Your donation has been recorded. Please complete the payment using
-            the bank transfer details below.
+          <DialogDescription className="text-gray-600 mt-2 text-center">
+            Your donation has been recorded. Awaiting payment confirmation.
           </DialogDescription>
         </DialogHeader>
 
@@ -128,20 +127,22 @@ export function BankDonationRecordDialog({
           {/* Amount */}
 
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <h4 className="text-xs text-gray-900 font-medium mb-2">
+            <h4 className="text-sm text-gray-900 font-bold mb-2">
               Bank Transfer Details
             </h4>
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">Bank Name:</span>
+                <span className="text-gray-600 font-medium">Bank Name:</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">Stanbic Bank Uganda</span>
+                  <span className="font-medium">
+                    Equity Bank (Katwe Branch)
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() =>
                       copyToClipboard(
-                        "Stanbic Bank Uganda",
+                        "Equity Bank (Katwe Branch)",
                         "Bank name",
                         "bank"
                       )
@@ -158,35 +159,16 @@ export function BankDonationRecordDialog({
               </div>
 
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">Account Name:</span>
+                <span className="text-gray-600 font-medium">
+                  Account Number:
+                </span>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">KAPCDAM Uganda</span>
+                  <span className="font-medium font-mono">100320072660</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      copyToClipboard("KAPCDAM Uganda", "Account name", "acc")
-                    }
-                    className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-gray-200"
-                  >
-                    {copied["acc"] ? (
-                      <Check className="h-2.5 w-2.5 text-green-600" />
-                    ) : (
-                      <Copy className="h-2.5 w-2.5" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">Account Number:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium font-mono">1234567890</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      copyToClipboard("1234567890", "Account number", "num")
+                      copyToClipboard("100320072660", "Account number", "num")
                     }
                     className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-gray-200"
                   >
@@ -199,8 +181,38 @@ export function BankDonationRecordDialog({
                 </div>
               </div>
 
+              <div className="flex flex-col border-t border-gray-300 pt-2 mt-3 text-xs">
+                <span className="text-gray-600 font-medium">Account Name:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    Kampala Parents of Children with Disabilities Association
+                    Makindye
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      copyToClipboard(
+                        "Kampala Parents of Children with Disabilities Association Makindye",
+                        "Account name",
+                        "acc"
+                      )
+                    }
+                    className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-gray-200"
+                  >
+                    {copied["acc"] ? (
+                      <Check className="h-2.5 w-2.5 text-green-600" />
+                    ) : (
+                      <Copy className="h-2.5 w-2.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
               <div className="flex justify-between items-center border-t border-gray-300 pt-1.5 mt-2 text-xs">
-                <span className="text-gray-600">Payment Reference:</span>
+                <span className="text-gray-600 font-medium">
+                  Payment Reference:
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-green-600 bg-green-100 px-2 py-1 rounded text-xs font-mono">
                     {donation.donationId}
@@ -226,7 +238,7 @@ export function BankDonationRecordDialog({
                 </div>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-600">Amount:</span>
+                <span className="text-gray-600 font-medium">Amount:</span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">USD {donation.amount}</span>
                   <Button
