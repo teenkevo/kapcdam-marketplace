@@ -148,7 +148,9 @@ const LikeProductButton = ({ productId }: Props) => {
         variant="outline"
         className="shrink-0"
         onClick={handleLikeProduct}
-        disabled={likeProductMutation.isPending}
+        disabled={
+          likeProductMutation.isPending || unlikeProductMutation.isPending
+        }
       >
         {likeProductMutation.isPending || unlikeProductMutation.isPending ? (
           <Loader2 className="w-4 h-4 animate-spin" />
