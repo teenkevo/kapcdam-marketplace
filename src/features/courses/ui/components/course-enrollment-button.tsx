@@ -13,13 +13,24 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calendar, ShoppingCart, CheckCircle } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  ShoppingCart,
+  CheckCircle,
+} from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CartItemType } from "@/features/cart/schema";
 import { useUser } from "@clerk/nextjs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
 
 interface CourseEnrollmentButtonProps {
   courseId: string;
@@ -166,11 +177,11 @@ export function CourseEnrollmentButton({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+          <DialogTitle className="flex gap-2">
+            <CalendarIcon className="w-5 h-5" />
             Course Enrollment
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-start">
             Select your preferred start date for this course. This helps us
             better plan the course schedule.
           </DialogDescription>
@@ -181,15 +192,37 @@ export function CourseEnrollmentButton({
             <Label htmlFor="preferred-date" className="text-sm font-medium">
               Preferred Start Date *
             </Label>
-            <Input
-              id="preferred-date"
-              type="date"
-              value={preferredStartDate}
-              onChange={(e) => setPreferredStartDate(e.target.value)}
-              min={today}
-              className="w-full"
-              required
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  data-empty={!preferredStartDate}
+                  className="data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon />
+                  {preferredStartDate ? (
+                    format(new Date(preferredStartDate), "PPP")
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={
+                    preferredStartDate
+                      ? new Date(preferredStartDate)
+                      : undefined
+                  }
+                  onSelect={(date) =>
+                    date &&
+                    setPreferredStartDate(date.toISOString().split("T")[0])
+                  }
+                  fromDate={new Date()}
+                />
+              </PopoverContent>
+            </Popover>
             <p className="text-xs text-gray-500">
               Note: The actual course start date may differ based on enrollment
               and scheduling.
