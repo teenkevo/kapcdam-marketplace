@@ -16,37 +16,37 @@ import ContactUsButton from "./contact-us-button";
 
 function MarketplaceLinks() {
   const trpc = useTRPC();
-  
+
   // Fetch categories from Sanity
   const { data: categories, isLoading } = useQuery(
     trpc.products.getCategories.queryOptions()
   );
 
   // Filter to get only parent categories (top 3)
-  const parentCategories = categories?.filter(cat => !cat.hasParent || !cat.parent)?.slice(0, 3) || [];
+  const parentCategories =
+    categories?.filter((cat) => !cat.hasParent || !cat.parent)?.slice(0, 3) ||
+    [];
 
   return (
     <div>
       <h4 className="font-bold text-gray-900 mb-4">OUR MARKETPLACE</h4>
       <ul className="space-y-2 text-sm">
-        {isLoading ? (
-          [...Array(3)].map((_, i) => (
-            <li key={i}>
-              <div className="h-4 bg-gray-200 animate-pulse rounded w-32" />
-            </li>
-          ))
-        ) : (
-          parentCategories.map((category) => (
-            <li key={category._id}>
-              <Link
-                href={`/marketplace?category=${category._id}`}
-                className="text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                {category.name}
-              </Link>
-            </li>
-          ))
-        )}
+        {isLoading
+          ? [...Array(3)].map((_, i) => (
+              <li key={i}>
+                <div className="h-4 bg-gray-200 animate-pulse rounded w-32" />
+              </li>
+            ))
+          : parentCategories.map((category) => (
+              <li key={category._id}>
+                <Link
+                  href={`/marketplace?category=${category._id}`}
+                  className="text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  {category.name}
+                </Link>
+              </li>
+            ))}
       </ul>
     </div>
   );
@@ -84,13 +84,17 @@ export default function Footer() {
 
               <div className="space-y-3 text-sm text-gray-700 my-10">
                 <div>
-                  <p className="font-medium">KAPCDAM account number:</p>
-                  <p>IBAN UG XX XXXX XXXX XXXX</p>
-                  <p>BIC XXXXXXXX</p>
+                  <p className="font-bold">KAPCDAM Bank Account:</p>
+                  <p>
+                    Kampala Parents of Children with Disabilities Association –
+                    Makindye (KAPCDAM)
+                  </p>
+                  <p>Equity Bank (Katwe Branch)</p>
+                  <p>100320072660</p>
                 </div>
                 <div>
-                  <p className="font-medium">KAPCDAM TIN Number:</p>
-                  <p>UGXXXXXXXXXX</p>
+                  <p className="font-bold">KAPCDAM TIN Number:</p>
+                  <p>1015745887</p>
                 </div>
               </div>
 
