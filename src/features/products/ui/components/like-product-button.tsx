@@ -42,10 +42,30 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        debouncedToast.success("Added to wishlist");
+        debouncedToast.success("Added to wishlist", {
+          classNames: {
+            toast: "bg-[#e8f8e8] border-green-500",
+            icon: "text-[#03a53e]",
+            title: "text-[#03a53e]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
       },
       onError: (error) => {
-        toast.error(error.message);
+        toast.error(error.message, {
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
       },
     })
   );
@@ -56,11 +76,31 @@ const LikeProductButton = ({ productId }: Props) => {
         queryClient.invalidateQueries(
           trpc.products.getLikedProducts.queryOptions()
         );
-        debouncedToast.success("Removed from wishlist");
+        debouncedToast.success("Removed from wishlist", {
+          classNames: {
+            toast: "bg-[#e8f8e8] border-green-500",
+            icon: "text-[#03a53e]",
+            title: "text-[#03a53e]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
         setShowRemoveDialog(false);
       },
       onError: (error) => {
-        toast.error(error.message);
+        toast.error(error.message, {
+          classNames: {
+            toast: "bg-[#ffebeb] border-[#ef4444]",
+            icon: "text-[#ef4444]",
+            title: "text-[#ef4444]",
+            description: "text-black",
+            actionButton: "bg-zinc-400",
+            cancelButton: "bg-orange-400",
+            closeButton: "bg-lime-400",
+          },
+        });
       },
     })
   );
