@@ -55,7 +55,7 @@ export function CourseCard({ course }: CourseCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="relative aspect-square">
+        <div className="relative">
           <Link href={`/course/${course.slug.current}`} className="block">
             {course.defaultImage ? (
               <Image
@@ -63,7 +63,7 @@ export function CourseCard({ course }: CourseCardProps) {
                 alt={course.title}
                 width={300}
                 height={300}
-                className="object-cover w-full h-full p-4 transition-transform duration-200 hover:scale-105"
+                className="object-cover w-full h-56 p-4 transition-transform duration-200 hover:scale-[1.01]"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">

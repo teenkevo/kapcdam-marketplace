@@ -1,7 +1,7 @@
 import ProductCategoriesAbout from "@/components/product-categories-about";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {CheckCircle, LockIcon } from "lucide-react";
+import { CheckCircle, LockIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function MarketPlaceTeaser() {
@@ -42,9 +42,9 @@ export default function MarketPlaceTeaser() {
                   </span>
                 </div>
 
-                <button className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                {/* <button className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
                   Learn more about our impact
-                </button>
+                </button> */}
               </div>
 
               {/* Right Panel - Dark with border */}

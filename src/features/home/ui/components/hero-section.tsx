@@ -32,11 +32,11 @@ export default function HeroSection() {
       </motion.div>
 
       {/* Content */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <div className="relative max-w-7xl mx-auto py-20 px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Side - Text Content with Animation */}
           <motion.div
-            className="flex flex-col justify-center px-4 md:px-8 space-y-10"
+            className="flex flex-col justify-center px-4 md:px-0 space-y-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}

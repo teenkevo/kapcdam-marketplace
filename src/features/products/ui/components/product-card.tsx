@@ -50,14 +50,14 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="relative aspect-square">
+        <div className="relative">
           <Link href={`/marketplace/${product.slug.current}`} className="block">
             <Image
               src={imageSrc}
               alt={product.title || "Product image"}
               width={300}
-              height={300}
-              className="object-cover w-full h-full p-4 transition-transform duration-200 hover:scale-105"
+              height={200}
+              className="object-cover w-full h-56 p-4 transition-transform duration-200 hover:scale-[1.01]"
             />
           </Link>
 
@@ -91,13 +91,15 @@ export function ProductCard({ product }: ProductCardProps) {
 
         <div className="p-4 space-y-3">
           <div>
-            <Link 
+            <Link
               href={`/marketplace/${product.slug.current}`}
               className="block"
               title={product.title}
             >
               <h3 className="font-semibold text-sm leading-tight line-clamp-2 hover:text-primary transition-colors cursor-pointer mb-2">
-                {product.title.length > 80 ? `${product.title.substring(0, 120)}...` : product.title}
+                {product.title.length > 80
+                  ? `${product.title.substring(0, 120)}...`
+                  : product.title}
               </h3>
             </Link>
             {product.category?.name && (
