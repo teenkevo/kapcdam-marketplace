@@ -1,24 +1,22 @@
 "use client";
 
-import { ProductCard } from "./product-card";
-import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
-import { UnifiedItem, UnifiedProductItem } from "../../schemas";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag } from "lucide-react";
+import type { UnifiedItem, UnifiedProductItem } from "../../schemas";
+import { useTRPC } from "@/trpc/client";
+import { Button } from "@/components/ui/button";
+import { ProductCard } from "./product-card";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Type guard function
+// Type guard function from your original code
 function isProductItem(item: UnifiedItem): item is UnifiedProductItem {
   return item.itemType === "product";
 }
 
 export function ProductList() {
   const trpc = useTRPC();
-  const isMobile = useIsMobile();
-
   const products = useQuery(
     trpc.products.getMany.queryOptions({
       page: 1,
@@ -26,6 +24,41 @@ export function ProductList() {
       type: "products",
     })
   );
+
+  // --- Start of new drag-to-scroll logic ---
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [isDown, setIsDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    if (!sliderRef.current) return;
+    setIsDown(true);
+    sliderRef.current.classList.add("cursor-grabbing");
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    if (!sliderRef.current) return;
+    setIsDown(false);
+    sliderRef.current.classList.remove("cursor-grabbing");
+  };
+
+  const handleMouseUp = () => {
+    if (!sliderRef.current) return;
+    setIsDown(false);
+    sliderRef.current.classList.remove("cursor-grabbing");
+  };
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!isDown || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+  // --- End of new drag-to-scroll logic ---
 
   return (
     <>
@@ -37,16 +70,15 @@ export function ProductList() {
           </h1>
           <Link href="/marketplace">
             <Button size="sm" variant="outline">
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-4 h-4 mr-2" />
               Marketplace
             </Button>
           </Link>
         </div>
-
         {products.isLoading ? (
           // Loading skeleton - horizontal carousel style
           <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide items-stretch">
-            {[...Array(6)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="flex-shrink-0 w-80 animate-pulse">
                 <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
                 <div className="h-4 bg-gray-200 rounded mb-2"></div>
@@ -56,8 +88,15 @@ export function ProductList() {
             ))}
           </div>
         ) : (
-          // Actual product carousel
-          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide items-stretch">
+          // Actual product carousel with drag-to-scroll functionality
+          <div
+            ref={sliderRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide items-stretch cursor-grab active:cursor-grabbing select-none"
+          >
             {products.data?.items.filter(isProductItem).map((product) => (
               <div key={product._id} className="flex-shrink-0 w-80">
                 <ProductCard product={product} />
