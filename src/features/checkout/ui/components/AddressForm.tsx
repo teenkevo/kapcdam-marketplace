@@ -22,15 +22,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import z from "zod";
-import { Card, CardHeader } from "@/components/ui/card";
-import { useEffect, useState, useCallback, useRef } from "react";
+import type z from "zod";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, Edit } from "lucide-react";
 import { type AddressInput, addressSchema } from "../../schemas/checkout-form";
 import { AddressSkeleton } from "./checkout-skeleton";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
 // Use the shared address schema
 export const addressFormSchema = addressSchema;
@@ -40,6 +47,7 @@ type NewAddressFormProps = {
   onSubmitSuccess?: () => void;
 };
 
+// This form is now used inside the dialog
 export function NewAddressForm({
   editingAddress,
   onSubmitSuccess,
@@ -66,113 +74,97 @@ export function NewAddressForm({
         },
   });
 
-  // Update form values when editingAddress changes
   useEffect(() => {
-    if (editingAddress) {
-      form.reset({
-        ...editingAddress,
-        landmark: editingAddress.landmark || "",
-        city: editingAddress.city || "",
-        deliveryInstructions: editingAddress.deliveryInstructions || "",
-      });
-    }
+    form.reset(
+      editingAddress
+        ? {
+            ...editingAddress,
+            landmark: editingAddress.landmark || "",
+            city: editingAddress.city || "",
+            deliveryInstructions: editingAddress.deliveryInstructions || "",
+          }
+        : {
+            label: "home",
+            fullName: "",
+            phone: "",
+            address: "",
+            landmark: "",
+            city: "",
+            country: "Uganda",
+            deliveryInstructions: "",
+            isDefault: false,
+          }
+    );
   }, [editingAddress, form]);
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Use create or update mutation based on whether we're editing
   const { mutate: createAddress, isPending: isCreating } = useMutation(
     trpc.addresses.createAddress.mutationOptions()
   );
-
   const { mutate: updateAddress, isPending: isUpdating } = useMutation(
     trpc.addresses.updateAddress.mutationOptions()
   );
-
   const isPending = isCreating || isUpdating;
 
   const handleFormSubmit = (data: z.infer<typeof addressFormSchema>) => {
-    try {
-      console.log("Form submission data:", data);
-      console.log("Editing address:", editingAddress);
+    const transformedData = {
+      ...data,
+      landmark: data.landmark || undefined,
+      city: data.city || undefined,
+      deliveryInstructions: data.deliveryInstructions || undefined,
+    };
 
-      // Transform empty strings to undefined for TRPC compatibility
-      const transformedData = {
-        ...data,
-        landmark: data.landmark || undefined,
-        city: data.city || undefined,
-        deliveryInstructions: data.deliveryInstructions || undefined,
-      };
-
-      if (editingAddress?._id) {
-        // Update existing address
-        updateAddress(
-          {
-            addressId: editingAddress._id,
-            ...transformedData,
-          },
-          {
-            onSuccess: (result: any) => {
-              console.log("Address update successful:", result);
-              toast.success("Address updated successfully!");
-              queryClient.invalidateQueries(
-                trpc.addresses.getUserAddresses.queryOptions()
-              );
-              onSubmitSuccess?.();
-            },
-            onError: (error: any) => {
-              console.error("Address update error:", error);
-              toast.error("Failed to update address. Please try again.");
-            },
-          }
+    const mutationOptions = {
+      onSuccess: () => {
+        toast.success(
+          `Address ${editingAddress ? "updated" : "saved"} successfully!`
         );
-      } else {
-        // Create new address
-        createAddress(transformedData, {
-          onSuccess: (result: any) => {
-            console.log("Address creation successful:", result);
-            toast.success("Address created successfully!");
-            queryClient.invalidateQueries(
-              trpc.addresses.getUserAddresses.queryOptions()
-            );
-            onSubmitSuccess?.();
-          },
-          onError: (error: any) => {
-            console.error("Address creation error:", error);
-            toast.error("Failed to create address. Please try again.");
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
+        queryClient.invalidateQueries(
+          trpc.addresses.getUserAddresses.queryOptions()
+        );
+        onSubmitSuccess?.();
+      },
+      onError: (error: any) => {
+        toast.error(
+          `Failed to ${editingAddress ? "update" : "save"} address. Please try again.`
+        );
+      },
+    };
+
+    if (editingAddress?._id) {
+      updateAddress(
+        { addressId: editingAddress._id, ...transformedData },
+        mutationOptions
+      );
+    } else {
+      createAddress(transformedData, mutationOptions);
     }
   };
 
   return (
     <Form {...form}>
-      {" "}
       <form
         onSubmit={form.handleSubmit(handleFormSubmit)}
-        className="space-y-4"
+        className="space-y-5 pt-4"
       >
-        <div className="space-y-4">
+        <div className="space-y-5 max-h-[60vh] overflow-y-auto px-1">
           <FormField
             control={form.control}
             name="label"
             render={({ field }) => (
               <FormItem>
                 <FormLabel required>Address Type</FormLabel>
-
                 <Select
                   onValueChange={field.onChange}
                   value={field.value}
-                  disabled={false}
+                  disabled={isPending}
                   defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="select addresss type" />
+                      <SelectValue placeholder="Select address type" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -185,8 +177,6 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Full Name */}
           <FormField
             control={form.control}
             name="fullName"
@@ -204,8 +194,6 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Phone Number */}
           <FormField
             control={form.control}
             name="phone"
@@ -216,7 +204,7 @@ export function NewAddressForm({
                   <PhoneInput
                     defaultCountry="UG"
                     disabled={isPending}
-                    placeholder="Enter phone number for delivery contact"
+                    placeholder="Enter phone number"
                     {...field}
                   />
                 </FormControl>
@@ -224,8 +212,6 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Complete Address */}
           <FormField
             control={form.control}
             name="address"
@@ -244,8 +230,6 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Landmark */}
           <FormField
             control={form.control}
             name="landmark"
@@ -254,7 +238,7 @@ export function NewAddressForm({
                 <FormLabel>Nearest Landmark</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Apartment, suite, nearest landmark, etc"
+                    placeholder="e.g. Apartment, suite, nearest landmark"
                     disabled={isPending}
                     rows={1}
                     {...field}
@@ -265,8 +249,6 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* City */}
           <FormField
             control={form.control}
             name="city"
@@ -285,49 +267,11 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Country (readonly) */}
-          <FormField
-            control={form.control}
-            name="country"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Country</FormLabel>
-                <FormControl>
-                  <Input {...field} value={"Uganda"} disabled />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Delivery Instructions */}
-          <FormField
-            control={form.control}
-            name="deliveryInstructions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Delivery Instructions</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder='Extra delivery details (e.g., "Blue gate", "Security code: 1234")'
-                    disabled={isPending}
-                    rows={2}
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Set as Default */}
           <FormField
             control={form.control}
             name="isDefault"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
                   <Checkbox
                     checked={field.value}
@@ -341,80 +285,22 @@ export function NewAddressForm({
               </FormItem>
             )}
           />
-
-          {/* Form Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button type="submit" disabled={isPending} className="flex-1">
-              {isPending
-                ? editingAddress
-                  ? "Updating..."
-                  : "Saving..."
-                : editingAddress
-                  ? "Update Address"
-                  : "Save Address"}
-            </Button>
-          </div>
+        </div>
+        <div className="flex gap-3 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full bg-transparent"
+            onClick={onSubmitSuccess}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending} className="w-full">
+            {isPending ? "Saving..." : "Save Address"}
+          </Button>
         </div>
       </form>
     </Form>
-  );
-}
-
-type AddressCardProps = {
-  addressDetails: AddressInput;
-  showAddressOptions: () => void;
-};
-
-export function AddressCard({
-  addressDetails,
-  showAddressOptions,
-}: AddressCardProps) {
-  const { address, landmark, city, country, label, phone, isDefault } =
-    addressDetails;
-  return (
-    <div className="space-y-4">
-      <div className="flex w-full justify-between items-center">
-        <h4 className="text-xl font-semibold">
-          {"Delivering to " + addressDetails.fullName}
-        </h4>
-        <Button variant={"link"} onClick={showAddressOptions}>
-          Change
-        </Button>
-      </div>
-
-      {/* Address details card similar to selection cards */}
-      <div className="p-3 border rounded bg-gray-50">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="font-medium text-sm capitalize">
-              {label && (
-                <span>
-                  {label} Address
-                  {isDefault && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                      Default
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-            <div className="text-sm font-medium">{addressDetails.fullName}</div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {[address, landmark, city, country]
-              .filter(
-                (part): part is string =>
-                  part !== undefined && part !== null && part.trim() !== ""
-              )
-              .map((part) => part.trim())
-              .join(", ")}
-          </div>
-          {phone && (
-            <div className="text-sm text-muted-foreground">Phone: {phone}</div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -427,37 +313,21 @@ export default function CheckOutAddress({
   selectedAddress,
   setSelectedAddress,
 }: CheckOutAddressProps) {
-  const [showAddresses, setShowAdresses] = useState<boolean>(false);
-  const [showNewAddressForm, setShowNewAddressForm] = useState<boolean>(false);
-  const [showEditForm, setShowEditForm] = useState<boolean>(false);
-  const [editingAddress, setEditingAddress] = useState<z.infer<
-    typeof addressFormSchema
-  > | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<AddressInput | null>(
+    null
+  );
 
-  const [tempSelectedAddress, setTempSelectedAddress] =
-    useState<AddressInput | null>(null);
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const { data: userAddresses, isLoading } = useQuery(
     trpc.addresses.getUserAddresses.queryOptions()
   ) as {
-    data: Array<z.infer<typeof addressFormSchema>> | undefined;
+    data: Array<AddressInput> | undefined;
     isLoading: boolean;
   };
 
-  // Use refs to track the current values to avoid dependency issues
-  const selectedAddressRef = useRef(selectedAddress);
-  const tempSelectedAddressRef = useRef(tempSelectedAddress);
-
-  // Update refs when state changes
-  selectedAddressRef.current = selectedAddress;
-  tempSelectedAddressRef.current = tempSelectedAddress;
-
-  console.log("User Addresses", userAddresses);
-
-  // Memoized function to create address data object
-  const createAddressData = useCallback(
-    (addr: any) => ({
+  const createAddressData = useCallback((addr: any): AddressInput => {
+    return {
       _id: addr._id,
       fullName: addr.fullName,
       address: addr.address,
@@ -468,260 +338,126 @@ export default function CheckOutAddress({
       phone: addr.phone,
       deliveryInstructions: addr.deliveryInstructions || "",
       isDefault: addr.isDefault,
-    }),
-    []
-  );
+    };
+  }, []);
 
-  // Set default address when query completes
   useEffect(() => {
-    if (userAddresses && !selectedAddressRef.current) {
+    if (userAddresses && !selectedAddress) {
       const defaultAddr = userAddresses.find((address) => address.isDefault);
-
       if (defaultAddr) {
-        const addressData = createAddressData(defaultAddr);
-        setSelectedAddress(addressData);
-        setTempSelectedAddress(addressData);
+        setSelectedAddress(createAddressData(defaultAddr));
+      } else if (userAddresses.length > 0) {
+        // If no default, select the first one
+        setSelectedAddress(createAddressData(userAddresses[0]));
       }
     }
-  }, [userAddresses, createAddressData, setSelectedAddress]);
+  }, [userAddresses, selectedAddress, setSelectedAddress, createAddressData]);
 
-  // Update tempSelectedAddress when selectedAddress changes
-  useEffect(() => {
-    if (selectedAddressRef.current && !tempSelectedAddressRef.current) {
-      setTempSelectedAddress(selectedAddressRef.current);
-    }
-  }, [selectedAddress]);
-
-  // Update tempSelectedAddress when userAddresses change (for real-time updates)
-  useEffect(() => {
-    if (userAddresses && tempSelectedAddressRef.current) {
-      const updatedAddress = userAddresses.find(
-        (addr) => addr._id === tempSelectedAddressRef.current?._id
-      );
-
-      if (updatedAddress) {
-        const newAddressData = createAddressData(updatedAddress);
-
-        // Only update if the data has actually changed
-        const current = tempSelectedAddressRef.current;
-        const hasChanged =
-          current.fullName !== newAddressData.fullName ||
-          current.address !== newAddressData.address ||
-          current.landmark !== newAddressData.landmark ||
-          current.city !== newAddressData.city ||
-          current.phone !== newAddressData.phone ||
-          current.isDefault !== newAddressData.isDefault;
-
-        if (hasChanged) {
-          setTempSelectedAddress(newAddressData);
-        }
-      }
-    }
-  }, [userAddresses, createAddressData]);
-
-  const handleSaveAddress = () => {
-    if (tempSelectedAddress) {
-      setSelectedAddress(tempSelectedAddress);
-    }
-    setShowAdresses(false);
-    setShowNewAddressForm(false);
-  };
-
-  const handleCancelSelection = () => {
-    setTempSelectedAddress(selectedAddress);
-    setShowAdresses(false);
-    setShowNewAddressForm(false);
-  };
-
-  const handleAddressSelect = (address: z.infer<typeof addressFormSchema>) => {
-    setTempSelectedAddress({
-      _id: address._id,
-      fullName: address.fullName,
-      address: address.address,
-      landmark: address.landmark || "",
-      city: address.city || "",
-      country: address.country,
-      label: address.label,
-      phone: address.phone,
-      deliveryInstructions: address.deliveryInstructions || "",
-      isDefault: address.isDefault,
-    });
-  };
-
-  const handleEditAddressFromSelector = (
-    address: z.infer<typeof addressFormSchema>
-  ) => {
-    if (userAddresses) {
-      setEditingAddress(address);
-      setShowEditForm(true);
-    }
-  };
-
-  const handleEditFormSuccess = () => {
-    setShowEditForm(false);
+  const handleAddNewAddress = () => {
     setEditingAddress(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditAddress = (address: AddressInput) => {
+    setEditingAddress(address);
+    setIsFormOpen(true);
   };
 
   if (isLoading) {
     return <AddressSkeleton />;
   }
 
-  if (!userAddresses || userAddresses.length === 0) {
-    return <NewAddressForm />;
-  }
-
-  if (!selectedAddress) {
-    return <div>Setting up address...</div>;
-  }
-
   return (
-    <div className="w-full">
-      {showAddresses ? (
-        <div className="space-y-4">
-          {showNewAddressForm ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">Add New Address</h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowNewAddressForm(false)}
-                >
-                  Back to addresses
-                </Button>
-              </div>
-              <NewAddressForm
-                onSubmitSuccess={() => setShowNewAddressForm(false)}
+    <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <div className="space-y-4">
+        <RadioGroup
+          value={selectedAddress?._id}
+          onValueChange={(addressId) => {
+            const newSelectedAddress = userAddresses?.find(
+              (addr) => addr._id === addressId
+            );
+            if (newSelectedAddress) {
+              setSelectedAddress(createAddressData(newSelectedAddress));
+            }
+          }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          {userAddresses?.map((address) => (
+            <div key={address._id}>
+              <RadioGroupItem
+                value={address._id || ""}
+                id={address._id || ""}
+                className="sr-only"
               />
-            </div>
-          ) : showEditForm ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">Edit Address</h3>
-                <Button variant="ghost" onClick={() => setShowEditForm(false)}>
-                  Back to addresses
-                </Button>
-              </div>
-              <NewAddressForm
-                editingAddress={editingAddress}
-                onSubmitSuccess={handleEditFormSuccess}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold">Select Address</h3>
-              </div>
-
-              {/* Address Cards */}
-              <div className="space-y-2">
-                {userAddresses.map((address) => (
-                  <div
-                    key={address._id}
-                    className={`p-3 border rounded transition-all cursor-pointer ${
-                      tempSelectedAddress?._id === address._id
-                        ? "border-[#C5F82A] bg-[#C5F82A]/10 ring-2 ring-[#C5F82A]/30"
-                        : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/20"
-                    }`}
-                    onClick={() =>
-                      handleAddressSelect(
-                        address as z.infer<typeof addressFormSchema>
-                      )
-                    }
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="font-medium text-sm capitalize">
-                          {address.label} Address
-                          {address.isDefault && (
-                            <span className="ml-2 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm font-medium">
-                          {address.fullName}
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {[
-                          address.address,
-                          address.landmark,
-                          address.city,
-                          address.country,
-                        ]
-                          .filter(
-                            (part): part is string =>
-                              part !== undefined &&
-                              part !== null &&
-                              part.trim() !== ""
-                          )
-                          .map((part) => part.trim())
-                          .join(", ")}
-                      </div>
-                      {address.phone && (
-                        <div className="text-sm text-muted-foreground">
-                          Phone: {address.phone}
-                        </div>
-                      )}
-                      {/* Action buttons for each address card */}
-                      <div className="pt-2 border-t border-gray-200 flex items-center justify-end">
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent card selection
-                            handleEditAddressFromSelector(
-                              address as z.infer<typeof addressFormSchema>
-                            );
-                          }}
-                          className="h-auto p-0 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                        >
-                          <Edit className="w-3 h-3" />
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add New Address Card */}
-                <div
-                  className="p-3 border border-dashed border-gray-300 rounded transition-all cursor-pointer hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/20"
-                  onClick={() => setShowNewAddressForm(true)}
-                >
-                  <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-                    <Plus className="w-4 h-4" />
-                    <span>Add new address</span>
-                  </div>
+              <Label
+                htmlFor={address._id}
+                className={`relative block p-4 border rounded-lg cursor-pointer transition-all hover:bg-gray-50 ${
+                  selectedAddress?._id === address._id
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-primary/5 hover:border-primary/50"
+                }`}
+              >
+                {address.isDefault && (
+                  <span className="absolute top-2 right-2 text-xs bg-black text-white px-2 py-0.5 rounded-full">
+                    Default
+                  </span>
+                )}
+                <div className="font-semibold capitalize mb-4">
+                  {address.label} Address
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={handleCancelSelection}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveAddress}
-                  className="flex-1 bg-[#C5F82A] text-black hover:bg-[#B4E729]"
-                  disabled={!tempSelectedAddress}
-                >
-                  Save Changes
-                </Button>
-              </div>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">
+                    {address.fullName}
+                  </p>
+                  <p>
+                    {address.address}
+                    {address.city && <span>, {address.city}</span>}{" "}
+                  </p>
+                  <p>{address.phone}</p>
+                </div>
+                <div className="text-right mt-3">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto text-sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleEditAddress(address);
+                    }}
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+              </Label>
             </div>
-          )}
-        </div>
-      ) : (
-        <AddressCard
-          addressDetails={selectedAddress}
-          showAddressOptions={() => setShowAdresses(true)}
+          ))}
+
+          <div
+            className="flex items-center justify-center p-4 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors min-h-[180px]"
+            onClick={handleAddNewAddress}
+          >
+            <div className="text-center text-slate-500">
+              <Plus className="mx-auto h-8 w-8 mb-2" />
+              <span className="font-semibold">Add a new address</span>
+            </div>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>
+            {editingAddress
+              ? "Edit Shipping Address"
+              : "Add a New Shipping Address"}
+          </DialogTitle>
+        </DialogHeader>
+        <NewAddressForm
+          editingAddress={editingAddress}
+          onSubmitSuccess={() => setIsFormOpen(false)}
         />
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

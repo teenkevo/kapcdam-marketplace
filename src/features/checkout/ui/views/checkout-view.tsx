@@ -52,19 +52,21 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
         // Comprehensive cache invalidation for cart-related queries
         try {
           // 1. Invalidate all cart queries
-          await queryClient.invalidateQueries({ queryKey: ['cart'] });
-          
+          await queryClient.invalidateQueries({ queryKey: ["cart"] });
+
           // 2. Remove all cart query cache to force fresh fetch
-          queryClient.removeQueries({ queryKey: ['cart'] });
-          
+          queryClient.removeQueries({ queryKey: ["cart"] });
+
           // 3. Specifically invalidate getUserCart query
-          await queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
-          
+          await queryClient.invalidateQueries(
+            trpc.cart.getUserCart.queryOptions()
+          );
+
           // 4. Invalidate cart display data queries
-          await queryClient.invalidateQueries({ 
-            queryKey: ['cart', 'getDisplayData']
+          await queryClient.invalidateQueries({
+            queryKey: ["cart", "getDisplayData"],
           });
-          
+
           // 5. Invalidate cart by ID query if it exists
           if (cartId) {
             await queryClient.invalidateQueries(
@@ -147,12 +149,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
 
   if (isCartLoading || !userCart) {
     return (
-      <div className="max-w-7xl mx-auto py-20">
-        {/* Page Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-center">Secure Checkout</h1>
-        </div>
-
+      <div className="max-w-7xl mx-auto py-10 md:py-16">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Checkout Form Skeleton */}
           <div>
@@ -169,7 +166,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-20 relative">
+    <div className="max-w-7xl mx-auto py-10 md:py-20 relative">
       {/* Processing Overlay */}
       {(createOrderMutation.isPending || isProcessingOrder) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -189,14 +186,9 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
         </div>
       )}
 
-      {/* Page Title */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-center">Secure Checkout</h1>
-      </div>
-
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Left Column - Checkout Form */}
-        <div>
+        <div className="border border-dashed rounded-lg px-5 py-1 m-4 md:m-0 bg-white">
           <CheckoutForm
             onFormValidChange={handleFormValidChange}
             onFormDataChange={handleFormDataChange}
