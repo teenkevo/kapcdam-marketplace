@@ -108,8 +108,8 @@ export function DeliveryZoneSelector({
                 key={zone._id}
                 className={`p-3 border rounded-lg transition-all cursor-pointer ${
                   selectedZone?._id === zone._id
-                    ? "border-[#C5F82A/]/50 bg-[#C5F82A]/5 ring-1 ring-[#C5F82A]/20"
-                    : "hover:bg-[#C5F82A]/5 hover:border-[#C5F82A]/50 hover:ring-1 hover:ring-[#C5F82A]/10"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-primary/5 hover:border-primary/50"
                 }`}
                 onClick={() =>
                   onZoneSelect({
@@ -124,7 +124,6 @@ export function DeliveryZoneSelector({
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h5 className="font-medium">{zone.zoneName}</h5>
-                     
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {zone.cities.join(", ")}

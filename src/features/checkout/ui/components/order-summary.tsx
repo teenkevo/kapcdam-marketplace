@@ -532,7 +532,7 @@ export function OrderSummary({
 
   return (
     <div
-      className={`bg-white border border-gray-200 rounded-lg p-6 relative ${className}`}
+      className={`bg-white border border-gray-400 rounded-lg p-6 m-4 md:m-0 relative shadow-lg ${className}`}
     >
       {/* Loading Overlay */}
       <AnimatePresence>
@@ -611,12 +611,10 @@ export function OrderSummary({
                         className="w-16 h-16 object-cover rounded-md"
                       />
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                        <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
                           {expandedProduct.title}
                         </h4>
-                        <p className="text-sm text-gray-500">
-                          Kapcdam Marketplace
-                        </p>
+
                         <div className="flex items-center gap-2">
                           {(() => {
                             const productData = cartDisplayData?.products.find(
@@ -674,8 +672,53 @@ export function OrderSummary({
                             }
                           })()}
                         </div>
+
+                        {/* Quantity controls - visible on mobile, hidden on desktop */}
+                        <div className="flex items-center space-x-2 mt-2 md:hidden">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleUpdateQuantity(
+                                expandedProduct,
+                                cartItem.quantity - 1
+                              )
+                            }
+                            disabled={updateServerCartMutation.isPending}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-medium w-8 text-center">
+                            {cartItem.quantity}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleUpdateQuantity(
+                                expandedProduct,
+                                cartItem.quantity + 1
+                              )
+                            }
+                            disabled={updateServerCartMutation.isPending}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRemoveItem(expandedProduct)}
+                            disabled={updateServerCartMutation.isPending}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      {/* Quantity controls - hidden on mobile, visible on desktop */}
+                      <div className="hidden md:flex items-center space-x-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -750,12 +793,10 @@ export function OrderSummary({
                         className="w-16 h-16 object-cover rounded-md"
                       />
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-900 truncate">
+                        <h4 className="text-sm flex-wrap font-medium text-gray-900 line-clamp-2">
                           {course.title}
                         </h4>
-                        <p className="text-sm text-gray-500">
-                          Kapcdam Course • Qty: 1 (fixed)
-                        </p>
+
                         <div className="flex items-center">
                           <NumericFormat
                             thousandSeparator={true}
@@ -765,8 +806,65 @@ export function OrderSummary({
                             className="text-sm font-semibold"
                           />
                         </div>
+
+                        {/* Quantity controls for courses - visible on mobile, hidden on desktop */}
+                        <div className="flex items-center space-x-2 mt-2 md:hidden">
+                          {/* Disabled quantity controls for courses */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={true}
+                            className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-medium w-8 text-center text-gray-500">
+                            1
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={true}
+                            className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (isSignedIn && userCart?._id) {
+                                // Server cart removal for courses
+                                const itemIndex = cartData.findIndex(
+                                  (item) =>
+                                    item.type === "course" &&
+                                    item.courseId === course._id
+                                );
+                                if (itemIndex !== -1) {
+                                  updateServerCartMutation.mutate({
+                                    cartId: userCart._id,
+                                    itemIndex,
+                                    quantity: 0,
+                                  });
+                                }
+                              } else {
+                                // Local cart removal for courses
+                                removeLocalItem(
+                                  "", // productId not needed for courses
+                                  course._id,
+                                  undefined
+                                );
+                              }
+                            }}
+                            disabled={updateServerCartMutation.isPending}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      {/* Quantity controls for courses - hidden on mobile, visible on desktop */}
+                      <div className="hidden md:flex items-center space-x-2">
                         {/* Disabled quantity controls for courses */}
                         <Button
                           size="sm"
