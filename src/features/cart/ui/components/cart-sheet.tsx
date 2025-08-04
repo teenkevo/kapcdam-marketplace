@@ -30,7 +30,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 import { cn } from "@/lib/utils";
 
-
 export function CartSheet() {
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -80,7 +79,6 @@ export function CartSheet() {
     return { productIds, courseIds, selectedSKUs };
   }, [cartData]);
 
-
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
     trpc.cart.getDisplayData.queryOptions({
@@ -89,7 +87,6 @@ export function CartSheet() {
       selectedSKUs,
     })
   );
-
 
   // Expand cart variants for display
   const expandedProducts = useMemo(() => {
@@ -168,8 +165,17 @@ export function CartSheet() {
         });
       },
       onSuccess: () => {
-        // No need to invalidate queries since optimistic updates keep cache fresh
-        // This prevents the second loading state
+        // Invalidate display data query to refresh order summary
+        queryClient.invalidateQueries({
+          queryKey: ["cart", "getDisplayData"],
+        });
+
+        // Also invalidate getCartById query used in checkout
+        if (userCart?._id) {
+          queryClient.invalidateQueries(
+            trpc.cart.getCartById.queryOptions({ cartId: userCart._id })
+          );
+        }
       },
     })
   );
@@ -335,7 +341,6 @@ export function CartSheet() {
 
   const CartContent = () => (
     <div className="flex flex-col h-full relative">
-
       <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
