@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const evt = await verifyWebhook(req);
 
     if (evt.type === "user.created" || evt.type === "user.updated") {
-
+      // Handle both user creation and updates with smart reactivation logic
       const result = await trpc.user.syncUserWebhook({
         eventType: evt.type,
         clerkUserId: evt.data.id,
@@ -25,15 +25,29 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
       }
 
-      const result = await trpc.user.deleteUserWebhook({
+      // Deactivate user instead of deleting
+      const result = await trpc.user.deactivateUserWebhook({
         clerkUserId: evt.data.id,
       });
 
       return NextResponse.json(result);
     }
 
-    return NextResponse.json({ status: 200 });
+    // Handle other webhook events if needed
+    return NextResponse.json({
+      status: "success",
+      message: "Webhook processed",
+    });
   } catch (error) {
-    return NextResponse.json({ status: 500 });
+    console.error("Webhook processing error:", error);
+
+    // Return more specific error information for debugging
+    return NextResponse.json(
+      {
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
   }
 }

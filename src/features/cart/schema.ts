@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Display schemas for cart UI rendering
 const CartDisplayProductSchema = z.object({
   _id: z.string(),
   title: z.string(),
@@ -56,6 +57,7 @@ const CartDisplayCourseSchema = z.object({
     .optional(),
 });
 
+// Core cart item schema - matches localStorage structure
 const CartItemSchema = z.object({
   type: z.enum(["product", "course"]),
   productId: z.string().nullable().optional(),
@@ -66,15 +68,17 @@ const CartItemSchema = z.object({
   preferredStartDate: z.string().nullable().optional(),
 });
 
+// Simplified cart schema for "forever cart"
 const CartSchema = z.object({
   _id: z.string(),
   cartItems: z.array(CartItemSchema).default([]),
   itemCount: z.number().nullable().optional().default(0),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  isActive: z.boolean().default(true),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  // Removed isActive - forever carts are always active
 });
 
+// Input schemas for tRPC procedures
 const addToCartSchema = CartItemSchema.refine((data) => {
   return (
     (data.type === "product" && data.productId) ||
@@ -85,13 +89,15 @@ const addToCartSchema = CartItemSchema.refine((data) => {
 const updateCartItemSchema = z.object({
   cartId: z.string(),
   itemIndex: z.number(),
-  quantity: z.number().min(0),
+  quantity: z.number().min(0), // 0 = remove item
 });
 
+// Simplified sync schema - only handles cart items
 const syncCartSchema = z.object({
   localCartItems: z.array(CartItemSchema),
 });
 
+// Export schemas and types
 export {
   CartSchema,
   addToCartSchema,
@@ -109,3 +115,11 @@ export type SyncCartType = z.infer<typeof syncCartSchema>;
 export type CartType = z.infer<typeof CartSchema>;
 export type CartDisplayProductType = z.infer<typeof CartDisplayProductSchema>;
 export type CartDisplayCourseType = z.infer<typeof CartDisplayCourseSchema>;
+
+// TODO: Create order schemas in separate file:
+//
+// OrderItemSchema - for items in an order (copied from cart)
+// OrderSchema - main order document with status tracking
+// CreateOrderSchema - input for converting cart to order
+// PaymentStatusSchema - for handling payment callbacks
+// PendingOrderSchema - for checking user's pending orders
