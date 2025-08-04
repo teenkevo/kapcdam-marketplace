@@ -30,7 +30,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 import { cn } from "@/lib/utils";
 
-
 export function CartSheet() {
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -80,7 +79,6 @@ export function CartSheet() {
     return { productIds, courseIds, selectedSKUs };
   }, [cartData]);
 
-
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
     trpc.cart.getDisplayData.queryOptions({
@@ -89,7 +87,6 @@ export function CartSheet() {
       selectedSKUs,
     })
   );
-
 
   // Expand cart variants for display
   const expandedProducts = useMemo(() => {
@@ -335,7 +332,6 @@ export function CartSheet() {
 
   const CartContent = () => (
     <div className="flex flex-col h-full relative">
-
       <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -397,9 +393,7 @@ export function CartSheet() {
                           {expandedProduct.variantDetails}
                         </p>
                       )}
-                      <p className="text-sm text-gray-500">
-                        Kapcdam Marketplace
-                      </p>
+
                       {/* Stock Information and Plus Button Feedback */}
                       {(() => {
                         const availableStock = parseInt(
@@ -442,8 +436,57 @@ export function CartSheet() {
                           className="text-sm font-semibold"
                         />
                       </div>
+
+                      {/* Quantity controls - visible on mobile, hidden on desktop */}
+                      <div className="flex items-center space-x-2 mt-2 md:hidden">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity - 1
+                            )
+                          }
+                          disabled={cartItem.quantity <= 1}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center">
+                          {cartItem.quantity}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity + 1
+                            )
+                          }
+                          disabled={
+                            cartItem.quantity >= 99 ||
+                            (parseInt(expandedProduct.totalStock || "0") > 0 &&
+                              cartItem.quantity >=
+                                parseInt(expandedProduct.totalStock || "0"))
+                          }
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRemoveItem(expandedProduct)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    {/* Quantity controls - hidden on mobile, visible on desktop */}
+                    <div className="hidden md:flex items-center space-x-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -547,8 +590,69 @@ export function CartSheet() {
                           className="text-sm font-semibold"
                         />
                       </div>
+
+                      {/* Quantity controls for courses - visible on mobile, hidden on desktop */}
+                      <div className="flex items-center space-x-2 mt-2 md:hidden">
+                        {/* Disabled quantity controls for courses */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center text-gray-500">
+                          1
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const cartId = userCart?._id;
+                            if (isSignedIn && cartId) {
+                              console.log(
+                                "cart-sheet-handleRemoveItem-userCart",
+                                userCart
+                              );
+                              // Server cart removal for courses
+                              const itemIndex = cartData.findIndex(
+                                (item) =>
+                                  item.type === "course" &&
+                                  item.courseId === course._id
+                              );
+                              if (itemIndex !== -1) {
+                                updateServerCartMutation.mutate({
+                                  cartId,
+                                  itemIndex,
+                                  quantity: 0,
+                                });
+                              }
+                            } else {
+                              // Local cart removal for courses
+                              removeLocalItem(
+                                "", // productId not needed for courses
+                                course._id,
+                                undefined
+                              );
+                            }
+                          }}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    {/* Quantity controls for courses - hidden on mobile, visible on desktop */}
+                    <div className="hidden md:flex items-center space-x-2">
                       {/* Disabled quantity controls for courses */}
                       <Button
                         size="sm"
