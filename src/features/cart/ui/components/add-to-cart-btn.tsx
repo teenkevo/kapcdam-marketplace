@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
-import { CartItemType } from "../../schema";
+import { LocalCartItemType } from "../../schema";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 
 type Props = {
-  product: CartItemType;
+  product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
 };
@@ -122,7 +122,7 @@ export const AddToServerCartButton = ({
   quantity = 1,
   availableStock,
 }: {
-  product: CartItemType;
+  product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
 }) => {
@@ -134,9 +134,9 @@ export const AddToServerCartButton = ({
   const cart = useQuery(trpc.cart.getUserCart.queryOptions());
 
   useEffect(() => {
-    if (cart.data) {
+    if (cart.data?.cartItems) {
       // Find matching cart item and get its quantity
-      const matchingItem = cart.data?.cartItems.find((cartItem) => {
+      const matchingItem = cart.data.cartItems.find((cartItem) => {
         if (product.type === "product" && product.productId) {
           if (product.selectedVariantSku) {
             return (
@@ -144,7 +144,7 @@ export const AddToServerCartButton = ({
               cartItem.selectedVariantSku === product.selectedVariantSku
             );
           } else {
-            return cartItem.productId === product.productId;
+            return cartItem.productId === product.productId && !cartItem.selectedVariantSku;
           }
         } else if (product.type === "course" && product.courseId) {
           return cartItem.courseId === product.courseId;
@@ -155,8 +155,11 @@ export const AddToServerCartButton = ({
       const currentQuantity = matchingItem?.quantity || 0;
       setCurrentCartQuantity(currentQuantity);
       setIsInCart(currentQuantity > 0);
+    } else {
+      setCurrentCartQuantity(0);
+      setIsInCart(false);
     }
-  }, [cart.data, product]);
+  }, [cart.data?.cartItems, product]);
 
   const addItemToCart = useMutation(
     trpc.cart.addToCart.mutationOptions({
@@ -251,7 +254,7 @@ export const AddToCartButton = ({
   quantity,
   availableStock,
 }: {
-  product: CartItemType;
+  product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
 }) => {

@@ -14,16 +14,18 @@ import {
   OrderSummarySkeleton,
 } from "../components/checkout-skeleton";
 
-interface CheckoutViewProps {
-  cartId: string;
-}
-
-export default function CheckoutView({ cartId }: CheckoutViewProps) {
+export default function CheckoutView() {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
+  
+  // Check for pending order first (as per lifecycle Phase 4, Scenario C)
+  const { data: pendingOrderData, isLoading: isPendingOrderLoading } = useQuery(
+    trpc.orders.getPendingOrder.queryOptions()
+  );
+  
   const { data: userCart, isLoading: isCartLoading } = useQuery(
-    trpc.cart.getCartById.queryOptions({ cartId })
+    trpc.cart.getUserCart.queryOptions()
   );
   const {
     formState,
@@ -66,12 +68,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             queryKey: ["cart", "getDisplayData"],
           });
 
-          // 5. Invalidate cart by ID query if it exists
-          if (cartId) {
-            await queryClient.invalidateQueries(
-              trpc.cart.getCartById.queryOptions({ cartId })
-            );
-          }
         } catch (error) {
           console.error("Cache invalidation error:", error);
           // Continue with order flow even if cache invalidation fails
@@ -114,6 +110,20 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     })
   );
 
+  // Cancel pending order mutation
+  const cancelPendingOrderMutation = useMutation(
+    trpc.orders.cancelPendingOrder.mutationOptions({
+      onSuccess: () => {
+        toast.success("Order cancelled successfully");
+        queryClient.invalidateQueries(trpc.orders.getPendingOrder.queryOptions());
+        queryClient.invalidateQueries(trpc.cart.getUserCart.queryOptions());
+      },
+      onError: (error) => {
+        toast.error(`Failed to cancel order: ${error.message}`);
+      },
+    })
+  );
+
   // Handler for coupon changes from OrderSummary
   const handleCouponChange = (
     coupon: {
@@ -134,7 +144,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     const { formData } = formState;
 
     const orderData = {
-      cartId,
       shippingAddress: formData.selectedAddress,
       deliveryMethod: formData.deliveryMethod,
       paymentMethod: formData.paymentMethod,
@@ -146,7 +155,26 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     createOrderMutation.mutate(orderData);
   };
 
-  if (isCartLoading || !userCart) {
+  const handleRetryPayment = () => {
+    if (!pendingOrderData) return;
+    
+    setIsProcessingOrder(true);
+    processPaymentMutation.mutate({ orderId: pendingOrderData._id }, {
+      onSuccess: (result) => {
+        window.location.href = result.paymentUrl;
+      },
+      onError: () => {
+        setIsProcessingOrder(false);
+      }
+    });
+  };
+
+  const handleCancelOrder = () => {
+    if (!pendingOrderData) return;
+    cancelPendingOrderMutation.mutate({ orderId: pendingOrderData._id });
+  };
+
+  if (isPendingOrderLoading || isCartLoading) {
     return (
       <div className="max-w-7xl mx-auto py-10 md:py-16">
         <div className="grid lg:grid-cols-2 gap-8">
@@ -160,6 +188,109 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             <OrderSummarySkeleton />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Handle pending order scenario (Lifecycle Phase 4, Scenario C)
+  if (pendingOrderData) {
+    return (
+      <div className="max-w-4xl mx-auto py-10 md:py-20">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-4">Complete Your Payment</h1>
+          <p className="text-lg text-muted-foreground">
+            You are in the middle of paying for Order #
+            {pendingOrderData.orderNumber}
+          </p>
+        </div>
+
+        <div className="bg-white border border-dashed rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+
+          <div className="space-y-3 mb-6">
+            {pendingOrder.orderItems?.map((item: any) => (
+              <div
+                key={item._id}
+                className="flex justify-between items-center py-2 border-b"
+              >
+                <div>
+                  <p className="font-medium">
+                    {item.product?.title ||
+                      item.course?.title ||
+                      item.variantSnapshot?.title ||
+                      item.courseSnapshot?.title}
+                  </p>
+                  {item.variantSnapshot?.variantInfo && (
+                    <p className="text-sm text-muted-foreground">
+                      {item.variantSnapshot.variantInfo}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Quantity: {item.quantity}
+                  </p>
+                </div>
+                <p className="font-medium">
+                  UGX {item.lineTotal.toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>UGX {pendingOrder.subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Shipping:</span>
+              <span>UGX {pendingOrder.shippingCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between font-bold text-lg border-t pt-2">
+              <span>Total:</span>
+              <span>UGX {pendingOrder.total.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={handleRetryPayment}
+            disabled={processPaymentMutation.isPending || isProcessingOrder}
+            className="px-8 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processPaymentMutation.isPending || isProcessingOrder
+              ? "Processing..."
+              : "Retry Payment"}
+          </button>
+
+          <button
+            onClick={handleCancelOrder}
+            disabled={cancelPendingOrderMutation.isPending}
+            className="px-8 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {cancelPendingOrderMutation.isPending
+              ? "Cancelling..."
+              : "Cancel Order"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty cart message if no cart or cart is empty
+  if (!userCart || !userCart.cartItems || userCart.cartItems.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto py-10 md:py-20 text-center">
+        <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
+        <p className="text-lg text-muted-foreground mb-8">
+          Add some items to your cart to proceed with checkout
+        </p>
+        <button
+          onClick={() => router.push('/marketplace')}
+          className="px-8 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625]"
+        >
+          Continue Shopping
+        </button>
       </div>
     );
   }
@@ -192,7 +323,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             onFormValidChange={handleFormValidChange}
             onFormDataChange={handleFormDataChange}
             onShippingAddressChange={handleShippingAddressChange}
-            cartId={cartId}
           />
         </div>
 

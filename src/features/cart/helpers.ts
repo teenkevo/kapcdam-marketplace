@@ -65,10 +65,10 @@ export function expandCartVariants(
   cartItems
     .filter(
       (item) =>
-        item.type === "product" && item.productId && item.selectedVariantSku
+        item.type === "product" && item.product?._ref && item.selectedVariantSku
     )
     .forEach((item) => {
-      const productId = item.productId!;
+      const productId = item.product!._ref;
       const sku = item.selectedVariantSku!;
 
       if (!cartVariantsMap.has(productId)) {

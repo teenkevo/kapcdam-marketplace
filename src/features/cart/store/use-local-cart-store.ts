@@ -1,20 +1,15 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { toast } from "sonner";
-import type { CartItemType } from "@/features/cart/schema";
+import type { LocalCartItemType } from "@/features/cart/schema";
 
 interface LocalCartState {
   // State
-  items: CartItemType[];
+  items: LocalCartItemType[];
   isCartOpen: boolean;
-  lastUpdated: Date | null;
-  syncAttempts: number; // Track sync failures for retry logic
 
   // Actions
-  addLocalCartItem: (
-    item: Omit<CartItemType, "addedAt">,
-    showToast?: boolean
-  ) => void;
+  addLocalCartItem: (item: LocalCartItemType, showToast?: boolean) => void;
   removeItem: (
     productId?: string,
     courseId?: string,
@@ -35,17 +30,10 @@ interface LocalCartState {
     selectedVariantSku?: string
   ) => boolean;
 
-  // New lifecycle methods
-  markSyncSuccess: () => void; // Call after successful sync to server
-  markSyncFailure: () => void; // Call when sync fails
-  resetSyncAttempts: () => void; // Reset sync attempts counter
-  shouldAttemptSync: () => boolean; // Check if we should try syncing
-
   // Computed
   itemCount: () => number;
   isEmpty: () => boolean;
   hasItems: () => boolean;
-  needsSync: () => boolean; // Check if localStorage has items that need syncing
 }
 
 export const useLocalCartStore = create<LocalCartState>()(
@@ -55,17 +43,10 @@ export const useLocalCartStore = create<LocalCartState>()(
         // Initial state
         items: [],
         isCartOpen: false,
-        lastUpdated: null,
-        syncAttempts: 0,
 
         // Actions
         addLocalCartItem: (newItem, showToast = true) => {
           set((state) => {
-            const itemWithTimestamp = {
-              ...newItem,
-              addedAt: new Date().toISOString(), // Use ISO string for consistency
-            };
-
             // Check if item already exists - handle variants properly
             const existingIndex = state.items.findIndex((item) => {
               if (newItem.type === "product") {
@@ -93,13 +74,10 @@ export const useLocalCartStore = create<LocalCartState>()(
               );
             } else {
               // Add new item
-              updatedItems = [...state.items, itemWithTimestamp];
+              updatedItems = [...state.items, newItem];
             }
 
-            return {
-              items: updatedItems,
-              lastUpdated: new Date(),
-            };
+            return { items: updatedItems };
           });
 
           // Show toast for anonymous users only
@@ -134,7 +112,6 @@ export const useLocalCartStore = create<LocalCartState>()(
                 return item.courseId !== courseId;
               }
             }),
-            lastUpdated: new Date(),
           }));
         },
 
@@ -184,41 +161,11 @@ export const useLocalCartStore = create<LocalCartState>()(
               }
               return item;
             }),
-            lastUpdated: new Date(),
           }));
         },
 
         clearCart: () => {
-          set({
-            items: [],
-            lastUpdated: new Date(),
-            syncAttempts: 0,
-          });
-        },
-
-        // New lifecycle methods
-        markSyncSuccess: () => {
-          set({
-            items: [], // Clear local cart after successful sync
-            syncAttempts: 0,
-            lastUpdated: new Date(),
-          });
-        },
-
-        markSyncFailure: () => {
-          set((state) => ({
-            syncAttempts: state.syncAttempts + 1,
-          }));
-        },
-
-        resetSyncAttempts: () => {
-          set({ syncAttempts: 0 });
-        },
-
-        shouldAttemptSync: () => {
-          const state = get();
-          // Don't sync if no items or too many failed attempts
-          return state.items.length > 0 && state.syncAttempts < 3;
+          set({ items: [] });
         },
 
         // Computed
@@ -231,10 +178,6 @@ export const useLocalCartStore = create<LocalCartState>()(
         },
 
         hasItems: () => {
-          return get().items.length > 0;
-        },
-
-        needsSync: () => {
           return get().items.length > 0;
         },
 
@@ -267,29 +210,26 @@ export const useLocalCartStore = create<LocalCartState>()(
         name: "kapcdam-cart-storage",
         partialize: (state) => ({
           items: state.items,
-          lastUpdated: state.lastUpdated,
-          syncAttempts: state.syncAttempts, // Persist sync attempts for retry logic
         }),
       }
     )
   )
 );
 
-// Hook for handling cart sync after login
+// Simple hook for handling cart sync after login
 export const useCartSync = () => {
-  const store = useLocalCartStore();
+  const { items, clearCart } = useLocalCartStore();
 
   return {
     // Check if sync is needed after login
-    needsSync: store.needsSync(),
-    shouldAttemptSync: store.shouldAttemptSync(),
+    hasItemsToSync: items.length > 0,
 
     // Get items for syncing to server
-    getLocalCartItems: () => store.items,
+    getLocalCartItems: () => items,
 
-    // Handle sync success/failure
+    // Handle sync success - clear localStorage
     handleSyncSuccess: () => {
-      store.markSyncSuccess();
+      clearCart();
       toast.success("Cart synced successfully!", {
         description: "Your items are now saved to your account",
         classNames: {
@@ -301,31 +241,17 @@ export const useCartSync = () => {
       });
     },
 
-    handleSyncFailure: (error?: string) => {
-      store.markSyncFailure();
-      const attempts = store.syncAttempts;
-
-      if (attempts >= 3) {
-        toast.error("Sync failed", {
-          description: "Items remain in your cart. Try refreshing the page.",
-          classNames: {
-            toast: "bg-[#ffebeb] border-[#ef4444]",
-            icon: "text-[#ef4444]",
-            title: "text-[#ef4444]",
-            description: "text-black",
-          },
-        });
-      } else {
-        toast.warning("Sync failed, retrying...", {
-          description: `Attempt ${attempts}/3`,
-          classNames: {
-            toast: "bg-[#fff3cd] border-[#ffc107]",
-            icon: "text-[#856404]",
-            title: "text-[#856404]",
-            description: "text-black",
-          },
-        });
-      }
+    // Handle sync failure - keep items in localStorage
+    handleSyncFailure: () => {
+      toast.error("Sync failed", {
+        description: "Items remain in your cart. Try refreshing the page.",
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+        },
+      });
     },
   };
 };

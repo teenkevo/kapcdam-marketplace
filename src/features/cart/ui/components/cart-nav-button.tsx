@@ -21,9 +21,12 @@ export function CartNavButton() {
     enabled: isSignedIn,
   });
 
+  console.log("userCart", userCart);
+
   const totalItems = useMemo(() => {
-    return userCart?.itemCount ?? 0;
-  }, [userCart?.itemCount]);
+    if (!userCart?.cartItems) return 0;
+    return userCart.cartItems.reduce((total, item) => total + item.quantity, 0);
+  }, [userCart?.cartItems]);
 
   return (
     <Button

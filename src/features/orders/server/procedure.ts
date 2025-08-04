@@ -16,7 +16,7 @@ import {
   type CreateOrderInput,
   type OrderResponse,
 } from "../schema";
-import { CART_BY_ID_QUERY } from "@/features/cart/server/query";
+import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
 import { CartSchema } from "@/features/cart/schema";
 import {
   submitOrderSchema,
@@ -52,7 +52,7 @@ function calculateOrderTotals(
 
     if (cartItem.type === "product" && cartDisplayData?.products) {
       const product = cartDisplayData.products.find(
-        (p: any) => p._id === cartItem.productId
+        (p: any) => p._id === cartItem.product?._ref
       );
       if (product) {
         // Handle variants
@@ -72,7 +72,7 @@ function calculateOrderTotals(
 
     if (cartItem.type === "course" && cartDisplayData?.courses) {
       const course = cartDisplayData.courses.find(
-        (c: any) => c._id === cartItem.courseId
+        (c: any) => c._id === cartItem.course?._ref
       );
       if (course) {
         itemPrice = parseInt(course.price);
@@ -258,7 +258,6 @@ export const ordersRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }): Promise<OrderResponse> => {
       try {
         const {
-          cartId,
           shippingAddress,
           deliveryMethod,
           paymentMethod,
@@ -267,9 +266,8 @@ export const ordersRouter = createTRPCRouter({
         } = input;
 
         // 1. Fetch and validate cart
-        const cart = await client.fetch(CART_BY_ID_QUERY, {
+        const cart = await client.fetch(CART_ITEMS_QUERY, {
           clerkUserId: ctx.auth.userId,
-          cartId,
         });
 
         if (!cart) {
@@ -364,10 +362,32 @@ export const ordersRouter = createTRPCRouter({
           shippingCost
         );
 
-        // 6. Generate order number
+        // 6. Check for existing pending orders and cancel them (as per lifecycle Phase 3)
+        const existingPendingOrders = await client.fetch(
+          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"]`,
+          { clerkUserId: ctx.auth.userId }
+        );
+
+        // Cancel any existing pending orders
+        if (existingPendingOrders.length > 0) {
+          await Promise.all(
+            existingPendingOrders.map((order: any) =>
+              client
+                .patch(order._id)
+                .set({
+                  status: "cancelled",
+                  paymentStatus: "cancelled",
+                  updatedAt: new Date().toISOString(),
+                })
+                .commit()
+            )
+          );
+        }
+
+        // 7. Generate order number
         const orderNumber = generateOrderNumber();
 
-        // 6.5. Get discount code reference if coupon is applied
+        // 8. Get discount code reference if coupon is applied
         let discountCodeRef = null;
         if (appliedCoupon) {
           const discountCode = await client.fetch(
@@ -379,7 +399,7 @@ export const ordersRouter = createTRPCRouter({
           }
         }
 
-        // 7. Validate shipping address (must be existing address ID only)
+        // 9. Validate shipping address (must be existing address ID only)
         let addressId: string;
 
         if ("addressId" in shippingAddress) {
@@ -407,7 +427,7 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        // 8. Create order document
+        // 10. Create order document
         const orderDoc = {
           _type: "order",
           orderNumber,
@@ -442,7 +462,7 @@ export const ordersRouter = createTRPCRouter({
 
         const createdOrder = await client.create(orderDoc);
 
-        // 9. Create order items
+        // 11. Create order items
         const orderItems = await Promise.all(
           validatedCart.cartItems.map(async (cartItem) => {
             let originalPrice = 0;
@@ -532,11 +552,11 @@ export const ordersRouter = createTRPCRouter({
               finalPrice,
               lineTotal,
               ...(cartItem.type === "product" && {
-                product: { _type: "reference", _ref: cartItem.productId },
+                product: cartItem.productId,
                 ...(productSnapshot && { variantSnapshot: productSnapshot }),
               }),
               ...(cartItem.type === "course" && {
-                course: { _type: "reference", _ref: cartItem.courseId },
+                course: cartItem.courseId,
                 ...(cartItem.preferredStartDate && {
                   preferredStartDate: cartItem.preferredStartDate,
                 }),
@@ -551,53 +571,31 @@ export const ordersRouter = createTRPCRouter({
           })
         );
 
-        // 10. Mark cart as converted
+        // 12. Clear the user's server cart (as per lifecycle Phase 3)
         await client
-          .patch(cartId)
+          .patch(cart._id)
           .set({
-            convertedToOrder: { _type: "reference", _ref: createdOrder._id },
-            convertedAt: new Date().toISOString(),
-            isActive: false,
+            cartItems: [], // Clear cart items - cart purpose is fulfilled
           })
           .commit();
 
-        // 10.5. Create new active cart for continued shopping
-        let newCartId = null;
-        try {
-          const newCart = {
-            _type: "cart",
-            user: { _type: "reference", _ref: user._id },
-            cartItems: [],
-            itemCount: 0,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          const createdNewCart = await client.create(newCart);
-          newCartId = createdNewCart._id;
-        } catch (error) {
-          console.error("Failed to create new cart:", error);
-          // Don't fail the order creation if new cart creation fails
-        }
-
-        // 10.6. Invalidate server-side caches to ensure fresh cart data
+        // 13. Invalidate server-side caches to ensure fresh cart data
         try {
           // Invalidate pages that depend on cart data
-          revalidatePath('/', 'layout'); // Invalidate layout cache (header with cart)
-          revalidatePath('/checkout', 'page'); // Invalidate checkout pages
-          revalidatePath('/cart', 'page'); // Invalidate cart page if it exists
-          
+          revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
+          revalidatePath("/checkout", "page"); // Invalidate checkout pages
+          revalidatePath("/cart", "page"); // Invalidate cart page if it exists
+
           // Invalidate Sanity Live cache tags for cart queries
-          revalidateTag('cart-items'); // Invalidate cart items queries
-          revalidateTag('cart-by-id'); // Invalidate cart by ID queries
-          revalidateTag('cart-display'); // Invalidate cart display data queries
+          revalidateTag("cart-items"); // Invalidate cart items queries
+          revalidateTag("cart-by-id"); // Invalidate cart by ID queries
+          revalidateTag("cart-display"); // Invalidate cart display data queries
         } catch (error) {
           console.error("Cache invalidation error:", error);
           // Don't fail the order creation if cache invalidation fails
         }
 
-        // 11. Apply coupon if provided and track usage
+        // 14. Apply coupon if provided and track usage
         if (appliedCoupon && ctx.auth.userId) {
           try {
             // Import coupon router to apply coupon
@@ -637,7 +635,6 @@ export const ordersRouter = createTRPCRouter({
             firstName: user.firstName,
             lastName: user.lastName,
           },
-          ...(newCartId && { newCartId }), // Include new cart ID if created successfully
         };
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -781,6 +778,96 @@ export const ordersRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch orders",
+        });
+      }
+    }),
+
+  /**
+   * Get pending order for user (for checkout back button handling)
+   */
+  getPendingOrder: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const pendingOrder = await client.fetch(
+        groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0] {
+            _id,
+            orderNumber,
+            orderDate,
+            subtotal,
+            shippingCost,
+            total,
+            currency,
+            paymentMethod,
+            "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
+              _id,
+              type,
+              quantity,
+              finalPrice,
+              lineTotal,
+              product->{title},
+              course->{title},
+              variantSnapshot,
+              courseSnapshot
+            }
+          }`,
+        { clerkUserId: ctx.auth.userId }
+      );
+
+      // console.log("pendingOrder", pendingOrder);
+
+      return pendingOrder;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Schema validation error:", error.errors);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Invalid cart data structure",
+        });
+      }
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch pending order",
+      });
+    }
+  }),
+
+  /**
+   * Cancel pending order (for checkout back button handling)
+   */
+  cancelPendingOrder: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verify order ownership and pending status
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0]`,
+          { orderId: input.orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pending order not found or access denied",
+          });
+        }
+
+        // Cancel the order
+        const cancelledOrder = await client
+          .patch(input.orderId)
+          .set({
+            status: "cancelled",
+            paymentStatus: "cancelled",
+            updatedAt: new Date().toISOString(),
+          })
+          .commit();
+
+        return { success: true, order: cancelledOrder };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to cancel order",
         });
       }
     }),

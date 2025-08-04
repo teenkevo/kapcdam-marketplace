@@ -40,7 +40,6 @@ export function CartSheet() {
     items: localItems,
     updateQuantity: updateLocalQuantity,
     removeItem: removeLocalItem,
-    itemCount: getLocalItemCount,
   } = useLocalCartStore();
 
   const { isSignedIn } = useUser();
@@ -51,6 +50,7 @@ export function CartSheet() {
     ...trpc.cart.getUserCart.queryOptions(),
     enabled: isSignedIn,
   });
+
 
   // Final cart data for rendering (use userCart for signed-in users to reflect optimistic updates)
   const cartData = useMemo(() => {
@@ -63,14 +63,14 @@ export function CartSheet() {
       return { productIds: [], courseIds: [], selectedSKUs: [] };
     }
     const productIds = cartData
-      .filter((item) => item.type === "product" && item.productId)
-      .map((item) => item.productId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
+      .filter((item) => item.type === "product" && (('product' in item && item.productId) || ('productId' in item && item.productId)))
+      .map((item) => ('product' in item && item.productId) ? item.productId : ('productId' in item ? item.productId! : ''))
+      .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const courseIds = cartData
-      .filter((item) => item.type === "course" && item.courseId)
-      .map((item) => item.courseId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
+      .filter((item) => item.type === "course" && (('course' in item && item.courseId) || ('courseId' in item && item.courseId)))
+      .map((item) => ('course' in item && item.courseId) ? item.courseId : ('courseId' in item ? item.courseId! : ''))
+      .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const selectedSKUs = cartData
       .filter((item) => item.type === "product" && item.selectedVariantSku)
@@ -131,16 +131,9 @@ export function CartSheet() {
               };
             }
 
-            // Recalculate totals
-            const itemCount = updatedItems.reduce(
-              (sum: number, item: any) => sum + item.quantity,
-              0
-            );
-
             return {
               ...old,
               cartItems: updatedItems,
-              itemCount,
             };
           }
         );
@@ -179,14 +172,18 @@ export function CartSheet() {
     return cartData.find((cartItem) => {
       if (cartItem.type !== "product") return false;
 
+      const cartProductId = ('product' in cartItem && cartItem.productId) 
+        ? cartItem.productId 
+        : ('productId' in cartItem ? cartItem.productId : null);
+
       if (expandedProduct.isVariant) {
         return (
-          cartItem.productId === expandedProduct.originalProductId &&
+          cartProductId === expandedProduct.originalProductId &&
           cartItem.selectedVariantSku === expandedProduct.VariantSku
         );
       }
 
-      return cartItem.productId === expandedProduct.originalProductId;
+      return cartProductId === expandedProduct.originalProductId;
     });
   };
 
@@ -196,14 +193,18 @@ export function CartSheet() {
     return cartData.findIndex((cartItem) => {
       if (cartItem.type !== "product") return false;
 
+      const cartProductId = ('product' in cartItem && cartItem.productId) 
+        ? cartItem.productId 
+        : ('productId' in cartItem ? cartItem.productId : null);
+
       if (expandedProduct.isVariant) {
         return (
-          cartItem.productId === expandedProduct.originalProductId &&
+          cartProductId === expandedProduct.originalProductId &&
           cartItem.selectedVariantSku === expandedProduct.VariantSku
         );
       }
 
-      return cartItem.productId === expandedProduct.originalProductId;
+      return cartProductId === expandedProduct.originalProductId;
     });
   };
 
@@ -211,14 +212,18 @@ export function CartSheet() {
   const totalPrice = useMemo(() => {
     const total = cartData.reduce((acc, cartItem) => {
       if (cartItem.type === "product") {
+        const cartProductId = ('product' in cartItem && cartItem.productId) 
+          ? cartItem.productId 
+          : ('productId' in cartItem ? cartItem.productId : null);
+          
         const expandedProduct = expandedProducts.find((p) => {
           if (cartItem.selectedVariantSku) {
             return (
-              p.originalProductId === cartItem.productId &&
+              p.originalProductId === cartProductId &&
               p.VariantSku === cartItem.selectedVariantSku
             );
           }
-          return p.originalProductId === cartItem.productId && !p.isVariant;
+          return p.originalProductId === cartProductId && !p.isVariant;
         });
 
         const price = expandedProduct
@@ -229,8 +234,12 @@ export function CartSheet() {
       }
 
       if (cartItem.type === "course") {
+        const cartCourseId = ('course' in cartItem && cartItem.courseId) 
+          ? cartItem.courseId 
+          : ('courseId' in cartItem ? cartItem.courseId : null);
+          
         const course = cartDisplayData?.courses.find(
-          (c) => c._id === cartItem.courseId
+          (c) => c._id === cartCourseId
         );
         const price = course ? Math.max(0, parseInt(course.price) || 0) : 0;
         const quantity = Math.max(0, cartItem.quantity || 0);
@@ -267,14 +276,13 @@ export function CartSheet() {
     const maxQuantity = availableStock > 0 ? Math.min(availableStock, 99) : 99;
     const safeQuantity = Math.max(1, Math.min(maxQuantity, newQuantity));
 
-    const cartId = userCart?._id;
-    if (isSignedIn && cartId) {
+    if (isSignedIn && userCart?._id) {
       // Server cart update
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
 
       updateServerCartMutation.mutate({
-        cartId,
+        cartId: userCart._id,
         itemIndex,
         quantity: safeQuantity,
       });
@@ -292,14 +300,13 @@ export function CartSheet() {
 
   // Handle item removal
   const handleRemoveItem = (expandedProduct: ExpandedProduct) => {
-    const cartId = userCart?._id;
-    if (isSignedIn && cartId) {
+    if (isSignedIn && userCart?._id) {
       // Server cart removal
       const itemIndex = findCartItemIndex(expandedProduct);
       if (itemIndex === -1) return;
 
       updateServerCartMutation.mutate({
-        cartId,
+        cartId: userCart._id,
         itemIndex,
         quantity: 0,
       });
@@ -318,19 +325,18 @@ export function CartSheet() {
     return cartData.reduce((total, item) => total + item.quantity, 0);
   }, [cartData]);
 
+
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
-    const cartId = userCart?._id;
-
     if (!isSignedIn) {
       const checkoutUrl = `/checkout`;
       router.push(`/sign-in?redirect_url=${encodeURIComponent(checkoutUrl)}`);
       return;
     }
 
-    // Close cart sheet and navigate to checkout with cart ID
+    // Close cart sheet and navigate to checkout
     setIsCartOpen(false);
-    router.push(`/checkout/c/${cartId}`);
+    router.push(`/checkout`);
   };
 
   const CartContent = () => (
@@ -338,12 +344,20 @@ export function CartSheet() {
 
       <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Your cart is empty
-            </h3>
-            <p className="text-gray-500">Add some products to get started!</p>
+          <div className="flex flex-col items-center justify-center h-full text-center p-6">
+            <ShoppingBag className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
+            <p className="text-muted-foreground mb-6">
+              Start shopping to add items to your cart
+            </p>
+            <Button
+              onClick={() => {
+                setIsCartOpen(false);
+                router.push("/marketplace");
+              }}
+            >
+              Continue Shopping
+            </Button>
           </div>
         ) : isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -498,8 +512,13 @@ export function CartSheet() {
             <AnimatePresence mode="popLayout">
               {cartDisplayData?.courses.map((course) => {
                 const cartItem = cartData.find(
-                  (item) =>
-                    item.type === "course" && item.courseId === course._id
+                  (item) => {
+                    if (item.type !== "course") return false;
+                    const cartCourseId = ('course' in item && item.courseId) 
+                      ? item.courseId 
+                      : ('courseId' in item ? item.courseId : null);
+                    return cartCourseId === course._id;
+                  }
                 );
                 if (!cartItem) return null;
 
@@ -573,21 +592,20 @@ export function CartSheet() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          const cartId = userCart?._id;
-                          if (isSignedIn && cartId) {
-                            console.log(
-                              "cart-sheet-handleRemoveItem-userCart",
-                              userCart
-                            );
+                          if (isSignedIn && userCart?._id) {
                             // Server cart removal for courses
                             const itemIndex = cartData.findIndex(
-                              (item) =>
-                                item.type === "course" &&
-                                item.courseId === course._id
+                              (item) => {
+                                if (item.type !== "course") return false;
+                                    const cartCourseId = ('course' in item && item.courseId) 
+                                  ? item.courseId 
+                                  : ('courseId' in item ? item.courseId : null);
+                                return cartCourseId === course._id;
+                              }
                             );
                             if (itemIndex !== -1) {
                               updateServerCartMutation.mutate({
-                                cartId,
+                                cartId: userCart._id,
                                 itemIndex,
                                 quantity: 0,
                               });

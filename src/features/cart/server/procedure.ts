@@ -16,13 +16,11 @@ import {
   CartDisplayProductType,
 } from "../schema";
 import { CART_DISPLAY_QUERY, CART_ITEMS_QUERY } from "./query";
-import { revalidatePath } from "next/cache";
 import { sanityFetch } from "@/sanity/lib/live";
 
 export const cartRouter = createTRPCRouter({
   /**
-   * Get the authenticated user's cart with full product/course details
-   * Only for authenticated users - the "forever cart"
+   * Get the authenticated user's "forever cart"
    */
   getUserCart: protectedProcedure.query(async ({ ctx }) => {
     try {
@@ -33,6 +31,8 @@ export const cartRouter = createTRPCRouter({
       if (!cart) {
         return null;
       }
+
+      console.log("cart", cart);
 
       return CartSchema.parse(cart);
     } catch (error) {
@@ -54,7 +54,6 @@ export const cartRouter = createTRPCRouter({
   /**
    * Add item to authenticated user's "forever cart"
    * Cart should already exist (created via Clerk webhook)
-   * If cart is missing (edge case), we'll create one safely
    */
   addToCart: protectedProcedure
     .input(addToCartSchema)
@@ -81,7 +80,6 @@ export const cartRouter = createTRPCRouter({
             `Cart missing for user ${ctx.auth.userId}, creating new one`
           );
 
-          // Get user document reference
           const user = await client.fetch(
             groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
             { clerkUserId: ctx.auth.userId }
@@ -94,7 +92,6 @@ export const cartRouter = createTRPCRouter({
             });
           }
 
-          // Create cart with consistent ID format (same as webhook)
           cart = await client.createIfNotExists({
             _id: `cart-${ctx.auth.userId}`,
             _type: "cart",
@@ -108,13 +105,8 @@ export const cartRouter = createTRPCRouter({
           const product = await client.fetch(
             groq`*[_type == "product" && _id == $productId][0] {
               hasVariants,
-              price,
               totalStock,
-              variants[]{
-                price,
-                sku,
-                stock
-              }
+              variants[]{ sku, stock }
             }`,
             { productId }
           );
@@ -145,7 +137,7 @@ export const cartRouter = createTRPCRouter({
               });
             }
 
-            if (parseInt(selectedVariant.stock) < quantity) {
+            if (selectedVariant.stock < quantity) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
                 message: "Insufficient stock for selected variant",
@@ -196,47 +188,33 @@ export const cartRouter = createTRPCRouter({
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
             quantity: updatedItems[existingItemIndex].quantity + quantity,
-            lastUpdated: new Date().toISOString(),
           };
         } else {
-          // Add new item
-          const newItem = {
-            _key: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          // Add new item (Sanity will auto-generate _key)
+          const newItem: any = {
+            _key: crypto.randomUUID(),
             type,
             quantity,
-            addedAt: new Date().toISOString(),
-            lastUpdated: new Date().toISOString(),
             ...(type === "product" &&
               productId && {
                 product: { _type: "reference", _ref: productId },
-                selectedVariantSku: selectedVariantSku || null,
+                ...(selectedVariantSku && { selectedVariantSku }),
               }),
             ...(type === "course" &&
               courseId && {
                 course: { _type: "reference", _ref: courseId },
-                preferredStartDate: preferredStartDate || null,
+                ...(preferredStartDate && { preferredStartDate }),
               }),
           };
           updatedItems.push(newItem);
         }
 
-        // Calculate item count
-        const itemCount = updatedItems.reduce(
-          (sum, item) => sum + item.quantity,
-          0
-        );
-
         // Update cart in Sanity
         const updatedCart = await client
           .patch(cart._id)
-          .set({
-            cartItems: updatedItems,
-            itemCount,
-            updatedAt: new Date().toISOString(),
-          })
+          .set({ cartItems: updatedItems })
           .commit();
 
-        revalidatePath("/");
         return updatedCart;
       } catch (error) {
         console.error("Error in addToCart:", error);
@@ -252,8 +230,7 @@ export const cartRouter = createTRPCRouter({
     }),
 
   /**
-   * Update quantity of specific cart item
-   * Uses item index since cart items are array elements
+   * Update quantity of specific cart item using item index
    */
   updateCartItem: protectedProcedure
     .input(updateCartItemSchema)
@@ -264,10 +241,7 @@ export const cartRouter = createTRPCRouter({
         // Get the cart and verify ownership
         const cart = await client.fetch(
           groq`*[_type == "cart" && _id == $cartId && user->clerkUserId == $clerkUserId][0]`,
-          {
-            cartId,
-            clerkUserId: ctx.auth.userId,
-          }
+          { cartId, clerkUserId: ctx.auth.userId }
         );
 
         if (!cart) {
@@ -295,23 +269,12 @@ export const cartRouter = createTRPCRouter({
           updatedItems[itemIndex] = {
             ...updatedItems[itemIndex],
             quantity,
-            lastUpdated: new Date().toISOString(),
           };
         }
 
-        // Recalculate item count
-        const itemCount = updatedItems.reduce(
-          (sum, item) => sum + item.quantity,
-          0
-        );
-
         const updatedCart = await client
           .patch(cartId)
-          .set({
-            cartItems: updatedItems,
-            itemCount,
-            updatedAt: new Date().toISOString(),
-          })
+          .set({ cartItems: updatedItems })
           .commit();
 
         return updatedCart;
@@ -337,10 +300,7 @@ export const cartRouter = createTRPCRouter({
         // Verify cart ownership
         const cart = await client.fetch(
           groq`*[_type == "cart" && _id == $cartId && user->clerkUserId == $clerkUserId][0]`,
-          {
-            cartId: input.cartId,
-            clerkUserId: ctx.auth.userId,
-          }
+          { cartId: input.cartId, clerkUserId: ctx.auth.userId }
         );
 
         if (!cart) {
@@ -352,11 +312,7 @@ export const cartRouter = createTRPCRouter({
 
         const updatedCart = await client
           .patch(input.cartId)
-          .set({
-            cartItems: [],
-            itemCount: 0,
-            updatedAt: new Date().toISOString(),
-          })
+          .set({ cartItems: [] })
           .commit();
 
         return updatedCart;
@@ -374,7 +330,6 @@ export const cartRouter = createTRPCRouter({
   /**
    * Sync localStorage cart items to user's Sanity cart
    * Used during Phase 2: Login & Syncing
-   * SIMPLIFIED: Only syncs items, doesn't handle user creation
    */
   syncCartToUser: protectedProcedure
     .input(syncCartSchema)
@@ -410,7 +365,6 @@ export const cartRouter = createTRPCRouter({
             });
           }
 
-          // Create cart with consistent ID format
           userCart = await client.createIfNotExists({
             _id: `cart-${ctx.auth.userId}`,
             _type: "cart",
@@ -419,21 +373,16 @@ export const cartRouter = createTRPCRouter({
           });
         }
 
-        // Convert local cart items to Sanity format and validate availability
+        // Convert local cart items to Sanity format and validate
         const processedItems = await Promise.all(
-          localCartItems.map(async (localItem, index) => {
-            // Validate item availability and stock
+          localCartItems.map(async (localItem) => {
+            // Validate product/course availability
             if (localItem.type === "product" && localItem.productId) {
               const product = await client.fetch(
                 groq`*[_type == "product" && _id == $productId][0]{
-                  price, 
                   hasVariants, 
                   totalStock,
-                  "selectedVariant": variants[sku == $selectedVariantSku][0] {
-                    sku,
-                    price,
-                    stock
-                  }
+                  "selectedVariant": variants[sku == $selectedVariantSku][0] { sku, stock }
                 }`,
                 {
                   productId: localItem.productId,
@@ -495,19 +444,22 @@ export const cartRouter = createTRPCRouter({
               }
             }
 
+            // Convert to Sanity format (Sanity will auto-generate _key)
             return {
-              _key: `synced-item-${Date.now()}-${index}`,
+              _key: crypto.randomUUID(),
               type: localItem.type,
               quantity: localItem.quantity,
-              addedAt: localItem.addedAt,
-              lastUpdated: new Date().toISOString(),
               ...(localItem.type === "product" && {
                 product: { _type: "reference", _ref: localItem.productId },
-                selectedVariantSku: localItem.selectedVariantSku || null,
+                ...(localItem.selectedVariantSku && {
+                  selectedVariantSku: localItem.selectedVariantSku,
+                }),
               }),
               ...(localItem.type === "course" && {
                 course: { _type: "reference", _ref: localItem.courseId },
-                preferredStartDate: localItem.preferredStartDate || null,
+                ...(localItem.preferredStartDate && {
+                  preferredStartDate: localItem.preferredStartDate,
+                }),
               }),
             };
           })
@@ -530,63 +482,19 @@ export const cartRouter = createTRPCRouter({
 
           if (existingIndex !== -1) {
             // Take the higher quantity (merge strategy)
-            const newQuantity = Math.max(
+            mergedItems[existingIndex].quantity = Math.max(
               mergedItems[existingIndex].quantity,
               newItem.quantity
             );
-
-            if (newItem.type === "product" && newItem.product?._ref) {
-              const currentProduct = await client.fetch(
-                groq`*[_type == "product" && _id == $productId][0]{
-                  hasVariants, totalStock,
-                  "selectedVariant": variants[sku == $selectedVariantSku][0] { sku, stock }
-                }`,
-                {
-                  productId: newItem.product._ref,
-                  selectedVariantSku: newItem.selectedVariantSku || "",
-                }
-              );
-
-              if (currentProduct) {
-                const availableStock = currentProduct.hasVariants
-                  ? currentProduct.selectedVariant?.stock
-                  : currentProduct.totalStock;
-
-                if (availableStock && newQuantity > availableStock) {
-                  mergedItems[existingIndex].quantity = availableStock;
-                  console.warn(
-                    `Stock validation: Adjusted quantity from ${newQuantity} to ${availableStock} for product ${newItem.product._ref}`
-                  );
-                } else {
-                  mergedItems[existingIndex].quantity = newQuantity;
-                }
-              } else {
-                mergedItems[existingIndex].quantity = newQuantity;
-              }
-            } else {
-              mergedItems[existingIndex].quantity = newQuantity;
-            }
-
-            mergedItems[existingIndex].lastUpdated = new Date().toISOString();
           } else {
             mergedItems.push(newItem);
           }
         }
 
-        // Calculate new item count
-        const mergedItemCount = mergedItems.reduce(
-          (sum, item) => sum + item.quantity,
-          0
-        );
-
         // Update cart
         userCart = await client
           .patch(userCart._id)
-          .set({
-            cartItems: mergedItems,
-            itemCount: mergedItemCount,
-            updatedAt: new Date().toISOString(),
-          })
+          .set({ cartItems: mergedItems })
           .commit();
 
         return {
@@ -608,7 +516,6 @@ export const cartRouter = createTRPCRouter({
 
   /**
    * Get display data for cart items (products and courses)
-   * Used for rendering cart UI with product/course details
    */
   getDisplayData: baseProcedure
     .input(
@@ -641,28 +548,87 @@ export const cartRouter = createTRPCRouter({
       };
     }),
 
-  // TODO: Create order management procedures in separate file:
-  //
-  // createOrderFromCart: protectedProcedure
-  //   - Convert cart items to order
-  //   - Set order status to 'pending_payment'
-  //   - Clear user's cart (Phase 3)
-  //   - Return order ID for payment processing
-  //
-  // handlePaymentSuccess: protectedProcedure
-  //   - Update order status to 'processing'
-  //   - Reduce inventory for sold items
-  //   - Send confirmation emails
-  //
-  // handlePaymentFailure: protectedProcedure
-  //   - Update order status to 'payment_failed'
-  //   - Keep order for retry attempts
-  //
-  // checkPendingOrder: protectedProcedure
-  //   - Check if user has pending_payment order
-  //   - Used for handling browser back button scenario
-  //
-  // cancelPendingOrder: protectedProcedure
-  //   - Update order status to 'cancelled'
-  //   - Used when user cancels checkout
+  /**
+   * Check if user has a pending payment order
+   * Used for handling browser back button scenario from payment page
+   */
+  checkPendingOrder: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const pendingOrder = await client.fetch(
+        groq`*[_type == "order" && user->clerkUserId == $clerkUserId && status == "pending_payment"][0] {
+          _id,
+          orderNumber,
+          status,
+          totalAmount,
+          createdAt,
+          orderItems[] {
+            type,
+            quantity,
+            unitPrice,
+            type == "product" => {
+              "productId": product._ref,
+              "productTitle": product->title,
+              "productImage": product->images[0]
+            },
+            type == "course" => {
+              "courseId": course._ref,
+              "courseTitle": course->title,
+              "courseImage": course->images[0]
+            }
+          }
+        }`,
+        { clerkUserId: ctx.auth.userId }
+      );
+
+      return pendingOrder || null;
+    } catch (error) {
+      console.error("Error checking pending order:", error);
+      return null;
+    }
+  }),
+
+  /**
+   * Cancel a pending payment order
+   * Used when user cancels checkout or wants to start over
+   */
+  cancelPendingOrder: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Verify order ownership and status
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && user->clerkUserId == $clerkUserId && status == "pending_payment"][0]`,
+          {
+            orderId: input.orderId,
+            clerkUserId: ctx.auth.userId,
+          }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pending order not found or access denied",
+          });
+        }
+
+        // Update order status to cancelled
+        const updatedOrder = await client
+          .patch(input.orderId)
+          .set({
+            status: "cancelled",
+            updatedAt: new Date().toISOString(),
+          })
+          .commit();
+
+        return updatedOrder;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to cancel order",
+        });
+      }
+    }),
 });

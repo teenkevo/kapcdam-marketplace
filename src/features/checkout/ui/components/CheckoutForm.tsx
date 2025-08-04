@@ -37,14 +37,12 @@ interface CheckoutFormProps {
   onFormValidChange: (isValid: boolean) => void;
   onFormDataChange: (data: CheckoutFormData) => void;
   onShippingAddressChange: (address: AddressInput) => void;
-  cartId: string;
 }
 
 export default function CheckoutForm({
   onFormValidChange,
   onFormDataChange,
   onShippingAddressChange,
-  cartId,
 }: CheckoutFormProps) {
   const [activeStep, setActiveStep] = useState("step-1"); // Start with Shipping Address
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
@@ -60,7 +58,7 @@ export default function CheckoutForm({
   } | null>(null);
   const trpc = useTRPC();
   const { data: userCart } = useQuery(
-    trpc.cart.getCartById.queryOptions({ cartId })
+    trpc.cart.getUserCart.queryOptions()
   );
 
   const cartComposition = analyzeCartComposition(userCart?.cartItems || []);

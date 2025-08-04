@@ -144,11 +144,18 @@ export const cart = defineType({
   preview: {
     select: {
       userEmail: "user.email",
-      itemCount: "cartItems.length",
+      cartItems: "cartItems",
     },
-    prepare({ userEmail, itemCount }) {
-      const itemsText = itemCount === 1 ? "item" : "items";
-      const subtitle = itemCount > 0 ? `${itemCount} ${itemsText}` : "Empty";
+    prepare({ userEmail, cartItems }) {
+      const totalItems =
+        cartItems?.reduce((total: number, item: any) => {
+          return total + (item.quantity || 0);
+        }, 0) || 0;
+
+      const itemsText = totalItems === 1 ? "item" : "items";
+      const subtitle =
+        totalItems > 0 ? `${totalItems} ${itemsText}` : "Empty cart";
+
       return {
         title: `Cart for ${userEmail || "Unknown User"}`,
         subtitle: subtitle,

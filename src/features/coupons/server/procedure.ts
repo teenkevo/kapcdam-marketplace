@@ -17,8 +17,8 @@ const validateCouponInput = z.object({
     .array(
       z.object({
         type: z.enum(["product", "course"]),
-        productId: z.string().optional(),
-        courseId: z.string().optional(),
+        productId: z.string().nullable().optional(),
+        courseId: z.string().nullable().optional(),
         quantity: z.number().min(1),
       })
     )

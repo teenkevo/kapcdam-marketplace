@@ -33,11 +33,6 @@ export function useCartSync() {
             queryClient.refetchQueries({
               queryKey: ["cart", "getDisplayData"],
             });
-            if ("cartId" in result && result?.cartId) {
-              queryClient.refetchQueries(
-                trpc.cart.getCartById.queryOptions({ cartId: result?.cartId })
-              );
-            }
           });
 
           // Show concise success message
@@ -45,12 +40,9 @@ export function useCartSync() {
             toast.success("Cart synced!");
           }
 
-          if (
-            pathname === "/checkout" &&
-            "cartId" in result &&
-            result?.cartId
-          ) {
-            router.push(`/checkout/c/${result?.cartId}`);
+          if (pathname === "/checkout") {
+            // Already on checkout, just refresh to get the synced cart
+            router.refresh();
           }
         }
       },
