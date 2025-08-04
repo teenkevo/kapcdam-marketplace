@@ -1,12 +1,13 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
-import { CourseCard } from "./course-card";
-import { Button } from "@/components/ui/button";
+import { useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
 import { GraduationCap } from "lucide-react";
+
+import { useTRPC } from "@/trpc/client";
+import { Button } from "@/components/ui/button";
+import { CourseCard } from "./course-card";
 
 export function CoursesSection() {
   const trpc = useTRPC();
@@ -31,7 +32,42 @@ export function CoursesSection() {
     featuredCourses && featuredCourses.length > 0
       ? featuredCourses
       : allCourses?.items || [];
-  const isLoading = featuredLoading || allLoading;
+  const isLoading = featuredLoading || (allCourses === undefined && allLoading);
+
+  // --- Start of new drag-to-scroll logic ---
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [isDown, setIsDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    if (!sliderRef.current) return;
+    setIsDown(true);
+    sliderRef.current.classList.add("cursor-grabbing");
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    if (!sliderRef.current) return;
+    setIsDown(false);
+    sliderRef.current.classList.remove("cursor-grabbing");
+  };
+
+  const handleMouseUp = () => {
+    if (!sliderRef.current) return;
+    setIsDown(false);
+    sliderRef.current.classList.remove("cursor-grabbing");
+  };
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!isDown || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+  // --- End of new drag-to-scroll logic ---
 
   return (
     <section className="py-16 bg-gray-50">
@@ -74,8 +110,15 @@ export function CoursesSection() {
         )}
 
         {/* Courses Carousel */}
-        {courses && courses.length > 0 && (
-          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide items-stretch">
+        {courses && courses.length > 0 && !isLoading && (
+          <div
+            ref={sliderRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide items-stretch cursor-grab active:cursor-grabbing select-none"
+          >
             {courses.slice(0, 3).map((course) => (
               <div key={course._id} className="flex-shrink-0 w-80">
                 <CourseCard course={course} />
