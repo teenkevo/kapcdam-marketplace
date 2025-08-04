@@ -532,17 +532,6 @@ export default function ProductView({ slug }: ProductViewProps) {
 
           {/* Desktop Price, Variants, Quantity - Hidden on mobile */}
           <div className="hidden lg:block space-y-6">
-            <div>
-              <p className="text-2xl font-bold">
-                UGX {getCurrentPrice().toLocaleString()}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {getCurrentStock() > 0
-                  ? `${getCurrentStock()} in stock`
-                  : "Out of stock"}
-              </p>
-            </div>
-
             {/* Variants */}
             {product.hasVariants &&
               product.variantOptions &&

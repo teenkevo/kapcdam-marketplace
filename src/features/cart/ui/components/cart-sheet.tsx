@@ -402,9 +402,7 @@ export function CartSheet() {
                           {expandedProduct.variantDetails}
                         </p>
                       )}
-                      <p className="text-sm text-gray-500">
-                        Kapcdam Marketplace
-                      </p>
+
                       {/* Stock Information and Plus Button Feedback */}
                       {(() => {
                         const availableStock = parseInt(
@@ -447,8 +445,57 @@ export function CartSheet() {
                           className="text-sm font-semibold"
                         />
                       </div>
+
+                      {/* Quantity controls - visible on mobile, hidden on desktop */}
+                      <div className="flex items-center space-x-2 mt-2 md:hidden">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity - 1
+                            )
+                          }
+                          disabled={cartItem.quantity <= 1}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center">
+                          {cartItem.quantity}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleUpdateQuantity(
+                              expandedProduct,
+                              cartItem.quantity + 1
+                            )
+                          }
+                          disabled={
+                            cartItem.quantity >= 99 ||
+                            (parseInt(expandedProduct.totalStock || "0") > 0 &&
+                              cartItem.quantity >=
+                                parseInt(expandedProduct.totalStock || "0"))
+                          }
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRemoveItem(expandedProduct)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    {/* Quantity controls - hidden on mobile, visible on desktop */}
+                    <div className="hidden md:flex items-center space-x-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -552,8 +599,69 @@ export function CartSheet() {
                           className="text-sm font-semibold"
                         />
                       </div>
+
+                      {/* Quantity controls for courses - visible on mobile, hidden on desktop */}
+                      <div className="flex items-center space-x-2 mt-2 md:hidden">
+                        {/* Disabled quantity controls for courses */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-sm font-medium w-8 text-center text-gray-500">
+                          1
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={true}
+                          className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const cartId = userCart?._id;
+                            if (isSignedIn && cartId) {
+                              console.log(
+                                "cart-sheet-handleRemoveItem-userCart",
+                                userCart
+                              );
+                              // Server cart removal for courses
+                              const itemIndex = cartData.findIndex(
+                                (item) =>
+                                  item.type === "course" &&
+                                  item.courseId === course._id
+                              );
+                              if (itemIndex !== -1) {
+                                updateServerCartMutation.mutate({
+                                  cartId,
+                                  itemIndex,
+                                  quantity: 0,
+                                });
+                              }
+                            } else {
+                              // Local cart removal for courses
+                              removeLocalItem(
+                                "", // productId not needed for courses
+                                course._id,
+                                undefined
+                              );
+                            }
+                          }}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    {/* Quantity controls for courses - hidden on mobile, visible on desktop */}
+                    <div className="hidden md:flex items-center space-x-2">
                       {/* Disabled quantity controls for courses */}
                       <Button
                         size="sm"
