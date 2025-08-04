@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useLocalCartStore } from "@/features/cart/store/use-local-cart-store";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { usePathname, useRouter } from "next/navigation";
 
 export function useCartSync() {
   const { userId, isLoaded } = useAuth();
   const { items, hasItems, clearCart } = useLocalCartStore();
   const hasAttemptedSync = useRef(false);
   const [isPending, startTransition] = useTransition();
-
+  const pathname = usePathname();
+  const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -41,6 +43,14 @@ export function useCartSync() {
           // Show concise success message
           if ("itemsAdded" in result && result.itemsAdded > 0) {
             toast.success("Cart synced!");
+          }
+
+          if (
+            pathname === "/checkout" &&
+            "cartId" in result &&
+            result?.cartId
+          ) {
+            router.push(`/checkout/c/${result?.cartId}`);
           }
         }
       },
