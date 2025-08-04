@@ -20,7 +20,8 @@ interface LocalCartState {
     productId: string,
     courseId: string,
     selectedVariantSku: string | undefined,
-    quantity: number
+    quantity: number,
+    availableStock?: number
   ) => void;
   clearCart: () => void;
   setIsCartOpen: (isOpen: boolean) => void;
@@ -128,9 +129,23 @@ export const useLocalCartStore = create<LocalCartState>()(
           }));
         },
 
-        updateQuantity: (productId, courseId, selectedVariantSku, quantity) => {
+        updateQuantity: (productId, courseId, selectedVariantSku, quantity, availableStock) => {
           if (quantity <= 0) {
             get().removeItem(productId, courseId, selectedVariantSku);
+            return;
+          }
+
+          // Validate stock if provided
+          if (availableStock !== undefined && availableStock > 0 && quantity > availableStock) {
+            toast.error("Insufficient stock", {
+              description: `Only ${availableStock} items available`,
+              classNames: {
+                toast: "bg-[#ffebeb] border-[#ef4444]",
+                icon: "text-[#ef4444]",
+                title: "text-[#ef4444]",
+                description: "text-black",
+              },
+            });
             return;
           }
 

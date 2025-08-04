@@ -30,12 +30,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 import { cn } from "@/lib/utils";
 
-type Props = {
-  totalItems: number;
-  userCart: CartType | null;
-};
 
-export function CartSheet({ totalItems, userCart }: Props) {
+export function CartSheet() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const {
@@ -51,40 +47,39 @@ export function CartSheet({ totalItems, userCart }: Props) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Initial cart data for query parameters (use prop initially)
-  const initialCartData = useMemo(() => {
+  const { data: userCart } = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    enabled: isSignedIn,
+  });
+
+  // Final cart data for rendering (use userCart for signed-in users to reflect optimistic updates)
+  const cartData = useMemo(() => {
     return isSignedIn ? userCart?.cartItems || [] : localItems;
   }, [isSignedIn, userCart?.cartItems, localItems]);
 
   // Memoize cartIds calculation for better performance
   const { productIds, courseIds, selectedSKUs } = useMemo(() => {
-    if (!initialCartData || initialCartData.length === 0) {
+    if (!cartData || cartData.length === 0) {
       return { productIds: [], courseIds: [], selectedSKUs: [] };
     }
-
-    const productIds = initialCartData
+    const productIds = cartData
       .filter((item) => item.type === "product" && item.productId)
       .map((item) => item.productId!)
       .filter((id, index, arr) => arr.indexOf(id) === index);
 
-    const courseIds = initialCartData
+    const courseIds = cartData
       .filter((item) => item.type === "course" && item.courseId)
       .map((item) => item.courseId!)
       .filter((id, index, arr) => arr.indexOf(id) === index);
 
-    const selectedSKUs = initialCartData
+    const selectedSKUs = cartData
       .filter((item) => item.type === "product" && item.selectedVariantSku)
       .map((item) => item.selectedVariantSku!)
       .filter((sku, index, arr) => arr.indexOf(sku) === index);
 
     return { productIds, courseIds, selectedSKUs };
-  }, [initialCartData]);
+  }, [cartData]);
 
-  // Fetch server cart data directly for signed-in users
-  const { data: serverCart } = useQuery({
-    ...trpc.cart.getUserCart.queryOptions(),
-    enabled: isSignedIn,
-  });
 
   // Fetch display data regardless of auth state
   const { data: cartDisplayData, isLoading } = useQuery(
@@ -95,10 +90,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
     })
   );
 
-  // Final cart data for rendering (use serverCart for signed-in users to reflect optimistic updates)
-  const cartData = useMemo(() => {
-    return isSignedIn ? serverCart?.cartItems || [] : localItems;
-  }, [isSignedIn, serverCart?.cartItems, localItems]);
 
   // Expand cart variants for display
   const expandedProducts = useMemo(() => {
@@ -257,10 +248,26 @@ export function CartSheet({ totalItems, userCart }: Props) {
     expandedProduct: ExpandedProduct,
     newQuantity: number
   ) => {
-    // Ensure quantity is between 1 and 99
-    const safeQuantity = Math.max(1, Math.min(99, newQuantity));
+    // Check stock availability
+    const availableStock = parseInt(expandedProduct.totalStock || "0");
+    if (availableStock > 0 && newQuantity > availableStock) {
+      toast.error("Insufficient stock", {
+        description: `Only ${availableStock} items available`,
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+        },
+      });
+      return;
+    }
 
-    const cartId = serverCart?._id || userCart?._id;
+    // Ensure quantity is between 1 and available stock (or 99 if no stock limit)
+    const maxQuantity = availableStock > 0 ? Math.min(availableStock, 99) : 99;
+    const safeQuantity = Math.max(1, Math.min(maxQuantity, newQuantity));
+
+    const cartId = userCart?._id;
     if (isSignedIn && cartId) {
       // Server cart update
       const itemIndex = findCartItemIndex(expandedProduct);
@@ -277,14 +284,15 @@ export function CartSheet({ totalItems, userCart }: Props) {
         expandedProduct.originalProductId,
         "", // courseId not needed for products
         expandedProduct.VariantSku,
-        safeQuantity
+        safeQuantity,
+        availableStock > 0 ? availableStock : undefined
       );
     }
   };
 
   // Handle item removal
   const handleRemoveItem = (expandedProduct: ExpandedProduct) => {
-    const cartId = serverCart?._id || userCart?._id;
+    const cartId = userCart?._id;
     if (isSignedIn && cartId) {
       // Server cart removal
       const itemIndex = findCartItemIndex(expandedProduct);
@@ -312,32 +320,11 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
-    const cartId = serverCart?._id || userCart?._id;
+    const cartId = userCart?._id;
 
     if (!isSignedIn) {
-      // If we have a cartId, redirect to sign-in with checkout URL for redirect after auth
-      if (cartId) {
-        const checkoutUrl = `/checkout/c/${cartId}`;
-        router.push(`/sign-in?redirect_url=${encodeURIComponent(checkoutUrl)}`);
-      } else {
-        // No cart available, just redirect to sign-in
-        router.push("/sign-in");
-      }
-      return;
-    }
-
-    if (!cartId) {
-      toast.error("Cart not found. Please try refreshing the page.", {
-        classNames: {
-          toast: "bg-[#ffebeb] border-[#ef4444]",
-          icon: "text-[#ef4444]",
-          title: "text-[#ef4444]",
-          description: "text-black",
-          actionButton: "bg-zinc-400",
-          cancelButton: "bg-orange-400",
-          closeButton: "bg-lime-400",
-        },
-      });
+      const checkoutUrl = `/checkout`;
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(checkoutUrl)}`);
       return;
     }
 
@@ -348,23 +335,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
 
   const CartContent = () => (
     <div className="flex flex-col h-full relative">
-      {/* Loading Overlay */}
-      <AnimatePresence>
-        {updateServerCartMutation.isPending && (
-          <motion.div
-            className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
-              <span className="text-sm text-gray-600">Updating...</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
@@ -430,6 +400,36 @@ export function CartSheet({ totalItems, userCart }: Props) {
                       <p className="text-sm text-gray-500">
                         Kapcdam Marketplace
                       </p>
+                      {/* Stock Information and Plus Button Feedback */}
+                      {(() => {
+                        const availableStock = parseInt(
+                          expandedProduct.totalStock || "0"
+                        );
+                        const isAtStockLimit =
+                          availableStock > 0 &&
+                          cartItem.quantity >= availableStock;
+                        const isLowStock =
+                          availableStock > 0 && availableStock <= 5;
+
+                        if (isAtStockLimit || isLowStock) {
+                          return (
+                            <div className="mt-1 text-xs">
+                              {isAtStockLimit && (
+                                <p className="text-orange-600 font-medium">
+                                  Maximum stock reached ({availableStock}{" "}
+                                  available)
+                                </p>
+                              )}
+                              {isLowStock && !isAtStockLimit && (
+                                <p className="text-orange-600">
+                                  Only {availableStock} left in stock
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       <div className="flex items-center">
                         <NumericFormat
                           thousandSeparator={true}
@@ -453,10 +453,7 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             cartItem.quantity - 1
                           )
                         }
-                        disabled={
-                          updateServerCartMutation.isPending ||
-                          cartItem.quantity <= 1
-                        }
+                        disabled={cartItem.quantity <= 1}
                         className="h-8 w-8 p-0"
                       >
                         <Minus className="h-3 w-3" />
@@ -474,8 +471,10 @@ export function CartSheet({ totalItems, userCart }: Props) {
                           )
                         }
                         disabled={
-                          updateServerCartMutation.isPending ||
-                          cartItem.quantity >= 99
+                          cartItem.quantity >= 99 ||
+                          (parseInt(expandedProduct.totalStock || "0") > 0 &&
+                            cartItem.quantity >=
+                              parseInt(expandedProduct.totalStock || "0"))
                         }
                         className="h-8 w-8 p-0"
                       >
@@ -485,7 +484,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         size="sm"
                         variant="outline"
                         onClick={() => handleRemoveItem(expandedProduct)}
-                        disabled={updateServerCartMutation.isPending}
                         className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -575,11 +573,11 @@ export function CartSheet({ totalItems, userCart }: Props) {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          const cartId = serverCart?._id || userCart?._id;
+                          const cartId = userCart?._id;
                           if (isSignedIn && cartId) {
                             console.log(
-                              "cart-sheet-handleRemoveItem-serverCart",
-                              serverCart
+                              "cart-sheet-handleRemoveItem-userCart",
+                              userCart
                             );
                             // Server cart removal for courses
                             const itemIndex = cartData.findIndex(
@@ -603,7 +601,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
                             );
                           }
                         }}
-                        disabled={updateServerCartMutation.isPending}
                         className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -637,7 +634,6 @@ export function CartSheet({ totalItems, userCart }: Props) {
           </div>
           <Button
             className="w-full bg-[#C5F82A] text-black hover:bg-[#B4E729]"
-            disabled={updateServerCartMutation.isPending}
             onClick={handleProceedToCheckout}
           >
             Proceed to Checkout
