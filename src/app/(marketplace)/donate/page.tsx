@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: "Donate to KAPCDAM",
     description:
       "Donate to KAPCDAM to support our work in providing support to children with disabilities and their families.",
-    images: ["/opengraph-image.webp"],
+    images: ["/donate/opengraph-image.webp"],
   },
 };
 
