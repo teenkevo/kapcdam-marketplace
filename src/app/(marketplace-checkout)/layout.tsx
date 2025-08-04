@@ -15,7 +15,7 @@ export default function MarketplaceLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <main className="bg-[#f2f2f2]">
+    <main className="bg-[#f2f2f2] min-h-screen flex flex-col">
       {" "}
       <HeaderCheckout />
       {children}

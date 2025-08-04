@@ -52,7 +52,7 @@ function calculateOrderTotals(
 
     if (cartItem.type === "product" && cartDisplayData?.products) {
       const product = cartDisplayData.products.find(
-        (p: any) => p._id === cartItem.product?._ref
+        (p: any) => p._id === cartItem.productId
       );
       if (product) {
         // Handle variants
@@ -72,7 +72,7 @@ function calculateOrderTotals(
 
     if (cartItem.type === "course" && cartDisplayData?.courses) {
       const course = cartDisplayData.courses.find(
-        (c: any) => c._id === cartItem.course?._ref
+        (c: any) => c._id === cartItem.courseId
       );
       if (course) {
         itemPrice = parseInt(course.price);
@@ -552,11 +552,11 @@ export const ordersRouter = createTRPCRouter({
               finalPrice,
               lineTotal,
               ...(cartItem.type === "product" && {
-                product: cartItem.productId,
+                product: { _type: "reference", _ref: cartItem.productId },
                 ...(productSnapshot && { variantSnapshot: productSnapshot }),
               }),
               ...(cartItem.type === "course" && {
-                course: cartItem.courseId,
+                course: { _type: "reference", _ref: cartItem.courseId },
                 ...(cartItem.preferredStartDate && {
                   preferredStartDate: cartItem.preferredStartDate,
                 }),
@@ -571,31 +571,43 @@ export const ordersRouter = createTRPCRouter({
           })
         );
 
-        // 12. Clear the user's server cart (as per lifecycle Phase 3)
+        // 12. Update order document with references to created order items
+        const orderItemReferences = orderItems.map(item => ({
+          _type: "reference",
+          _ref: item._id,
+          _key: item._id
+        }));
+
         await client
-          .patch(cart._id)
+          .patch(createdOrder._id)
           .set({
-            cartItems: [], // Clear cart items - cart purpose is fulfilled
+            orderItems: orderItemReferences
           })
           .commit();
 
-        // 13. Invalidate server-side caches to ensure fresh cart data
+        // 13. Clear the cart
+        await client
+          .patch(cart._id)
+          .set({
+            cartItems: [], 
+          })
+          .commit();
+
+       
         try {
           // Invalidate pages that depend on cart data
           revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
           revalidatePath("/checkout", "page"); // Invalidate checkout pages
-          revalidatePath("/cart", "page"); // Invalidate cart page if it exists
 
           // Invalidate Sanity Live cache tags for cart queries
           revalidateTag("cart-items"); // Invalidate cart items queries
-          revalidateTag("cart-by-id"); // Invalidate cart by ID queries
           revalidateTag("cart-display"); // Invalidate cart display data queries
         } catch (error) {
           console.error("Cache invalidation error:", error);
           // Don't fail the order creation if cache invalidation fails
         }
 
-        // 14. Apply coupon if provided and track usage
+        // 15. Apply coupon if provided and track usage
         if (appliedCoupon && ctx.auth.userId) {
           try {
             // Import coupon router to apply coupon
@@ -812,7 +824,7 @@ export const ordersRouter = createTRPCRouter({
         { clerkUserId: ctx.auth.userId }
       );
 
-      // console.log("pendingOrder", pendingOrder);
+      console.log("pendingOrder", pendingOrder);
 
       return pendingOrder;
     } catch (error) {

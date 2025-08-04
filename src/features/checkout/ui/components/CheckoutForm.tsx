@@ -116,7 +116,7 @@ export default function CheckoutForm({
     onShippingAddressChange,
   ]);
 
-  // Effect to mark step-1 as completed when selectedAddress is available
+
   useEffect(() => {
     if (selectedAddress && !completedSteps.includes("step-1")) {
       setCompletedSteps((prev) => [...new Set([...prev, "step-1"])]);
@@ -173,7 +173,7 @@ export default function CheckoutForm({
       </div>
     );
   };
-
+ 
   return (
     <Form {...form}>
       <Accordion

@@ -114,7 +114,6 @@ export function CourseEnrollmentButton({
         courseId: courseId,
         selectedVariantSku: null,
         quantity: 1,
-        addedAt: new Date().toISOString(),
         preferredStartDate: new Date(preferredStartDate).toISOString(),
       };
 
