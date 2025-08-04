@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { BookOpen, Search, ShoppingBag, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -99,6 +99,14 @@ export function ProductsHeader({
             onClick={() => onTypeChange("products")}
             className="flex items-center gap-2 justify-center flex-1 sm:flex-none sm:min-w-[100px]"
           >
+            <ShoppingBag
+              className={cn(
+                "w-4 h-4",
+                selectedType === "products"
+                  ? "text-[#c4f828]"
+                  : "text-muted-foreground"
+              )}
+            />
             Products
           </Button>
           <Button
@@ -106,6 +114,14 @@ export function ProductsHeader({
             onClick={() => onTypeChange("courses")}
             className="flex items-center gap-2 justify-center flex-1 sm:flex-none sm:min-w-[100px]"
           >
+            <BookOpen
+              className={cn(
+                "w-4 h-4",
+                selectedType === "courses"
+                  ? "text-[#c4f828]"
+                  : "text-muted-foreground"
+              )}
+            />
             Courses
           </Button>
         </div>
