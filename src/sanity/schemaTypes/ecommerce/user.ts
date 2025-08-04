@@ -7,6 +7,56 @@ export const user = defineType({
   readOnly: true,
   description:
     "Customer users for KAPCDAM e-commerce platform. Authentication handled by Clerk.",
+
+  // Document-level validation for uniqueness
+  validation: (rule) =>
+    rule.custom(async (document, context) => {
+      if (!document?.clerkUserId && !document?.email) return true;
+
+      const { getClient } = context;
+      const client = getClient({ apiVersion: "2025-02-06" });
+
+      // Get current document ID, handling both drafts and published
+      const currentId = document._id?.replace(/^drafts\./, "") || "";
+      const errors: string[] = [];
+
+      // Check for duplicate Clerk User ID
+      if (document.clerkUserId) {
+        const existingClerkUsers = await client.fetch(
+          `count(*[_type == "user" && clerkUserId == $clerkUserId && !(_id in [$draftId, $publishedId])])`,
+          {
+            clerkUserId: document.clerkUserId,
+            draftId: `drafts.${currentId}`,
+            publishedId: currentId,
+          }
+        );
+
+        if (existingClerkUsers > 0) {
+          errors.push(
+            `A user with Clerk ID "${document.clerkUserId}" already exists.`
+          );
+        }
+      }
+
+      // Check for duplicate email
+      if (document.email) {
+        const existingEmailUsers = await client.fetch(
+          `count(*[_type == "user" && email == $email && !(_id in [$draftId, $publishedId])])`,
+          {
+            email: document.email,
+            draftId: `drafts.${currentId}`,
+            publishedId: currentId,
+          }
+        );
+
+        if (existingEmailUsers > 0) {
+          errors.push(`A user with email "${document.email}" already exists.`);
+        }
+      }
+
+      return errors.length > 0 ? errors.join(" ") : true;
+    }),
+
   fields: [
     defineField({
       name: "clerkUserId",
@@ -71,6 +121,24 @@ export const user = defineType({
         }),
       ],
     }),
+
+    defineField({
+      name: "status",
+      title: "User Status",
+      type: "string",
+      description: "The current status of the user's account.",
+      options: {
+        list: [
+          { title: "Active", value: "active" },
+          { title: "Archived", value: "archived" },
+          { title: "Deactivated", value: "deactivated" },
+        ],
+        layout: "dropdown",
+      },
+      initialValue: "active",
+      validation: (rule) => rule.required(),
+    }),
+
     defineField({
       name: "preferences",
       title: "User Preferences",

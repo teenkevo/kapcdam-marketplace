@@ -1,26 +1,56 @@
 import { defineType, defineField } from "sanity";
 
+/**
+ * Defines a simple "forever cart" for each user.
+ * This schema assumes a one-to-one relationship between a user and their cart.
+ * Instead of deactivating or converting the cart, the application logic will
+ * simply clear the `cartItems` array after an order is successfully created.
+ */
 export const cart = defineType({
   name: "cart",
   title: "Shopping Cart",
   type: "document",
-  description: "Customer shopping cart",
+  description: "A user's persistent shopping cart.",
   readOnly: true,
   fields: [
     defineField({
       name: "user",
       title: "User",
       type: "reference",
-      description: "Reference to user document ",
+      description:
+        "The user this cart belongs to. Each user must have only one cart.",
       to: [{ type: "user" }],
-      validation: (rule) => rule.required().error("User reference is required"),
+      validation: (rule) =>
+        rule.required().custom(async (userRef, context) => {
+          if (!userRef?._ref) return true;
+
+          const { getClient, document } = context;
+          const client = getClient({ apiVersion: "2025-02-06" });
+
+          // Get the current document ID, handling both drafts and published
+          const currentId = document?._id.replace(/^drafts\./, "");
+
+          // Query for existing carts with the same user reference
+          const existingCarts = await client.fetch(
+            `count(*[_type == "cart" && user._ref == $userRef && !(_id in [$draftId, $publishedId])])`,
+            {
+              userRef: userRef._ref,
+              draftId: `drafts.${currentId}`,
+              publishedId: currentId,
+            }
+          );
+
+          return existingCarts > 0
+            ? "This user already has a cart. Each user can only have one cart."
+            : true;
+        }),
     }),
 
     defineField({
       name: "cartItems",
       title: "Cart Items",
       type: "array",
-      description: "Items in the shopping cart",
+      description: "A list of items in the shopping cart.",
       of: [
         {
           type: "object",
@@ -30,7 +60,6 @@ export const cart = defineType({
               name: "type",
               title: "Item Type",
               type: "string",
-              description: "Type of item",
               options: {
                 list: [
                   { title: "Product", value: "product" },
@@ -38,17 +67,17 @@ export const cart = defineType({
                 ],
                 layout: "dropdown",
               },
-              validation: (rule) =>
-                rule.required().error("Item type is required"),
+              validation: (rule) => rule.required(),
             }),
 
+            // The quantity of the item.
             defineField({
               name: "quantity",
               title: "Quantity",
               type: "number",
-              description: "Number of items",
+              description: "Number of this specific item.",
               validation: (rule) =>
-                rule.required().min(1).error("Quantity must be at least 1"),
+                rule.required().min(1).error("Quantity must be at least 1."),
               initialValue: 1,
             }),
 
@@ -56,71 +85,39 @@ export const cart = defineType({
               name: "product",
               title: "Product",
               type: "reference",
-              description: "Reference to the specific product",
               to: [{ type: "product" }],
+              // Only show this field if the item type is 'product'.
               hidden: ({ parent }) => parent?.type !== "product",
-              validation: (rule) =>
-                rule.custom((value, context) => {
-                  if ((context.parent as any)?.type === "product" && !value) {
-                    return "Product reference is required";
-                  }
-                  return true;
-                }),
             }),
 
+            // Stores the specific variant (e.g., 'Large', 'Blue').
             defineField({
               name: "selectedVariantSku",
               title: "Selected Variant SKU",
               type: "string",
               description:
-                "SKU of the selected variant (if product has variants)",
+                "SKU of the selected product variant, if applicable.",
               hidden: ({ parent }) => parent?.type !== "product",
-              validation: (rule) =>
-                rule.custom((value, context) => {
-                  return true;
-                }),
             }),
 
+            // Reference to the course document (if type is 'course').
             defineField({
               name: "course",
               title: "Course",
               type: "reference",
-              description: "Reference to the course",
               to: [{ type: "course" }],
+              // Only show this field if the item type is 'course'.
               hidden: ({ parent }) => parent?.type !== "course",
-              validation: (rule) =>
-                rule.custom((value, context) => {
-                  if ((context.parent as any)?.type === "course" && !value) {
-                    return "Course reference is required";
-                  }
-                  return true;
-                }),
             }),
 
+            // The user's desired start date for a course.
             defineField({
               name: "preferredStartDate",
               title: "Preferred Start Date",
               type: "datetime",
-              description: "When customer wants to start the course",
+              description: "When the customer wants to start the course.",
+              // Only show this field if the item type is 'course'.
               hidden: ({ parent }) => parent?.type !== "course",
-            }),
-
-            defineField({
-              name: "addedAt",
-              title: "Added At",
-              type: "datetime",
-              description: "When this item was added to cart",
-              validation: (rule) =>
-                rule.required().error("Added at timestamp is required"),
-              initialValue: () => new Date().toISOString(),
-            }),
-
-            defineField({
-              name: "lastUpdated",
-              title: "Last Updated",
-              type: "datetime",
-              description: "When this item was last modified",
-              initialValue: () => new Date().toISOString(),
             }),
           ],
           preview: {
@@ -128,149 +125,34 @@ export const cart = defineType({
               type: "type",
               quantity: "quantity",
               productTitle: "product.title",
-              selectedVariantSku: "selectedVariantSku",
               courseTitle: "course.title",
+              variantSku: "selectedVariantSku",
             },
-            prepare({
-              type,
-              quantity,
-              productTitle,
-              selectedVariantSku,
-              courseTitle,
-            }) {
-              let itemName;
-              if (type === "product") {
-                itemName = selectedVariantSku
-                  ? `${productTitle} (${selectedVariantSku})`
-                  : productTitle;
-              } else {
-                itemName = courseTitle;
-              }
-
-              const itemType = type === "product" ? "(Product)" : "(Course)";
-              const quantityInfo = quantity ? ` (${quantity}x)` : "";
-
+            prepare({ type, quantity, productTitle, courseTitle, variantSku }) {
+              const itemTitle = type === "product" ? productTitle : courseTitle;
+              const variantInfo = variantSku ? ` (${variantSku})` : "";
               return {
-                title: `${itemType} ${itemName || "Unknown Item"}${quantityInfo}`,
-                subtitle: `Added to cart`,
+                title: `${itemTitle}${variantInfo}`,
+                subtitle: `Quantity: ${quantity}`,
               };
             },
           },
         },
       ],
     }),
-
-    defineField({
-      name: "createdAt",
-      title: "Created At",
-      type: "datetime",
-      description: "Cart creation timestamp",
-      validation: (rule) =>
-        rule.required().error("Created at timestamp is required"),
-      initialValue: () => new Date().toISOString(),
-    }),
-
-    defineField({
-      name: "updatedAt",
-      title: "Updated At",
-      type: "datetime",
-      description: "Last modification timestamp",
-      validation: (rule) =>
-        rule.required().error("Updated at timestamp is required"),
-      initialValue: () => new Date().toISOString(),
-    }),
-
-    defineField({
-      name: "itemCount",
-      title: "Item Count",
-      type: "number",
-      description: "Total number of items in cart",
-      validation: (rule) => rule.min(0).error("Item count cannot be negative"),
-      initialValue: 0,
-    }),
-
-    defineField({
-      name: "isActive",
-      title: "Cart Active",
-      type: "boolean",
-      description: "Is this cart active/visible?",
-      initialValue: true,
-    }),
-
-    defineField({
-      name: "convertedToOrder",
-      title: "Converted to Order",
-      type: "reference",
-      description: "Order this cart was converted to (if any)",
-      to: [{ type: "order" }],
-    }),
-
-    defineField({
-      name: "convertedAt",
-      title: "Converted At",
-      type: "datetime",
-      description: "When cart was converted to order",
-      hidden: ({ document }) => !document?.convertedToOrder,
-    }),
   ],
-
   preview: {
     select: {
       userEmail: "user.email",
-      userName: "user.firstName",
-      itemCount: "itemCount",
-      isActive: "isActive",
-      convertedToOrder: "convertedToOrder",
-      createdAt: "createdAt",
+      itemCount: "cartItems.length",
     },
-    prepare({ userEmail, userName, itemCount, isActive, convertedToOrder, createdAt }) {
-      const userDisplay = userName || userEmail || "Unknown User";
-      
-      // Short date format for distinguishing multiple carts from same user
-      const shortDate = createdAt 
-        ? new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : "";
-
+    prepare({ userEmail, itemCount }) {
       const itemsText = itemCount === 1 ? "item" : "items";
-      const itemCountText = itemCount ? `${itemCount} ${itemsText}` : "Empty";
-      
-      let status;
-      if (convertedToOrder) {
-        status = "Converted";
-      } else if (!isActive) {
-        status = "Inactive";
-      } else {
-        status = "Active";
-      }
-
+      const subtitle = itemCount > 0 ? `${itemCount} ${itemsText}` : "Empty";
       return {
-        title: `${userDisplay} - ${shortDate}`,
-        subtitle: `${itemCountText} • ${status}`,
-        media: null,
+        title: `Cart for ${userEmail || "Unknown User"}`,
+        subtitle: subtitle,
       };
     },
   },
-
-  orderings: [
-    {
-      title: "Recently Updated",
-      name: "recentlyUpdated",
-      by: [{ field: "updatedAt", direction: "desc" }],
-    },
-    {
-      title: "Recently Created",
-      name: "recentlyCreated",
-      by: [{ field: "createdAt", direction: "desc" }],
-    },
-    {
-      title: "Item Count: High to Low",
-      name: "itemCountDesc",
-      by: [{ field: "itemCount", direction: "desc" }],
-    },
-    {
-      title: "User",
-      name: "user",
-      by: [{ field: "user.email", direction: "asc" }],
-    },
-  ],
 });

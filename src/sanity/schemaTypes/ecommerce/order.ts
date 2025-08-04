@@ -37,7 +37,19 @@ export const order = defineType({
         rule.required().error("Customer reference is required"),
       readOnly: true,
     }),
-
+    defineField({
+      name: "orderItems",
+      title: "Order Items",
+      type: "array",
+      description: "Items in this order",
+      of: [
+        {
+          type: "reference",
+          to: [{ type: "orderItem" }],
+        },
+      ],
+      readOnly: true,
+    }),
     defineField({
       name: "subtotal",
       title: "Subtotal (UGX)",
@@ -282,20 +294,28 @@ export const order = defineType({
       status: "status",
       orderDate: "orderDate",
     },
-    prepare({ orderNumber, customerEmail, customerName, total, paymentStatus, status, orderDate }) {
+    prepare({
+      orderNumber,
+      customerEmail,
+      customerName,
+      total,
+      paymentStatus,
+      status,
+      orderDate,
+    }) {
       const totalFormatted = total
         ? `${total.toLocaleString()} UGX`
         : "No total";
       const date = orderDate ? new Date(orderDate).toLocaleDateString() : "";
       const customerDisplay =
         customerName || customerEmail || "Unknown Customer";
-      
+
       // Format payment status for display
-      const paymentStatusDisplay = paymentStatus 
+      const paymentStatusDisplay = paymentStatus
         ? paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)
         : "Pending";
-      
-      const orderStatusDisplay = status 
+
+      const orderStatusDisplay = status
         ? status.charAt(0).toUpperCase() + status.slice(1)
         : "Pending";
 
