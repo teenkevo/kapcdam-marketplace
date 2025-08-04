@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     "marketplace",
     "training",
   ],
+  metadataBase: new URL("https://kapcdam.vercel.app"),
+  openGraph: {
+    title: "Products & Courses | KAPCDAM Marketplace",
+    description:
+      "Browse our collection of handcrafted products and skill-building courses from families with disabled children in Uganda. Support our community while finding unique items and learning opportunities.",
+  },
 };
 
 export default function ProductsPage() {
