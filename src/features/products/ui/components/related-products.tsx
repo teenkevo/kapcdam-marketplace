@@ -9,7 +9,10 @@ interface RelatedProductsProps {
   categoryId?: string;
 }
 
-export function RelatedProducts({ productId, categoryId }: RelatedProductsProps) {
+export function RelatedProducts({
+  productId,
+  categoryId,
+}: RelatedProductsProps) {
   const trpc = useTRPC();
 
   const { data: relatedProducts, isLoading } = useQuery(
@@ -43,7 +46,7 @@ export function RelatedProducts({ productId, categoryId }: RelatedProductsProps)
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4">
+    <div className="max-w-7xl mx-auto py-12">
       <h2 className="text-2xl font-bold mb-8">
         {categoryId ? "Related Products" : "You Might Also Like"}
       </h2>
