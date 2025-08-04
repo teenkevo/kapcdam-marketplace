@@ -165,8 +165,17 @@ export function CartSheet() {
         });
       },
       onSuccess: () => {
-        // No need to invalidate queries since optimistic updates keep cache fresh
-        // This prevents the second loading state
+        // Invalidate display data query to refresh order summary
+        queryClient.invalidateQueries({
+          queryKey: ["cart", "getDisplayData"],
+        });
+
+        // Also invalidate getCartById query used in checkout
+        if (userCart?._id) {
+          queryClient.invalidateQueries(
+            trpc.cart.getCartById.queryOptions({ cartId: userCart._id })
+          );
+        }
       },
     })
   );
