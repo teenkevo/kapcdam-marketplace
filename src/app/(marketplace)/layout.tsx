@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Kampala Parents of Children with Disabilities Association – Makindye (KAPCDAM)",
   description:
     "KAPCDAM is a non-profit organization that provides support to children with disabilities and their families.",
-  metadataBase: new URL("https://kapcdam.org"),
+  metadataBase: new URL("https://kapcdam.vercel.app"),
   openGraph: {
     title: "KAPCDAM",
     description:

@@ -540,7 +540,6 @@ export default function ProductView({ slug }: ProductViewProps) {
                   : "Out of stock"}
               </p>
             </div> */}
-
             {/* Variants */}
             {product.hasVariants &&
               product.variantOptions &&

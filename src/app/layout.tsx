@@ -34,10 +34,8 @@ export default async function RootLayout({
     <Providers>
       <html lang="en" suppressHydrationWarning>
         <body className={roboto.className}>
-          <Toaster position="top-right" />
-          <NuqsAdapter>
-            {children}
-          </NuqsAdapter>
+          <Toaster closeButton position="top-right" />
+          <NuqsAdapter>{children}</NuqsAdapter>
         </body>
       </html>
     </Providers>
