@@ -50,7 +50,6 @@ export function CartSheet() {
     enabled: isSignedIn,
   });
 
-
   // Final cart data for rendering (use userCart for signed-in users to reflect optimistic updates)
   const cartData = useMemo(() => {
     return isSignedIn ? userCart?.cartItems || [] : localItems;
@@ -62,13 +61,35 @@ export function CartSheet() {
       return { productIds: [], courseIds: [], selectedSKUs: [] };
     }
     const productIds = cartData
-      .filter((item) => item.type === "product" && (('product' in item && item.productId) || ('productId' in item && item.productId)))
-      .map((item) => ('product' in item && item.productId) ? item.productId : ('productId' in item ? item.productId! : ''))
+      .filter(
+        (item) =>
+          item.type === "product" &&
+          (("product" in item && item.productId) ||
+            ("productId" in item && item.productId))
+      )
+      .map((item) =>
+        "product" in item && item.productId
+          ? item.productId
+          : "productId" in item
+            ? item.productId!
+            : ""
+      )
       .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const courseIds = cartData
-      .filter((item) => item.type === "course" && (('course' in item && item.courseId) || ('courseId' in item && item.courseId)))
-      .map((item) => ('course' in item && item.courseId) ? item.courseId : ('courseId' in item ? item.courseId! : ''))
+      .filter(
+        (item) =>
+          item.type === "course" &&
+          (("course" in item && item.courseId) ||
+            ("courseId" in item && item.courseId))
+      )
+      .map((item) =>
+        "course" in item && item.courseId
+          ? item.courseId
+          : "courseId" in item
+            ? item.courseId!
+            : ""
+      )
       .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const selectedSKUs = cartData
@@ -162,13 +183,6 @@ export function CartSheet() {
         queryClient.invalidateQueries({
           queryKey: ["cart", "getDisplayData"],
         });
-
-        // Also invalidate getCartById query used in checkout
-        if (userCart?._id) {
-          queryClient.invalidateQueries(
-            trpc.cart.getCartById.queryOptions({ cartId: userCart._id })
-          );
-        }
       },
     })
   );
@@ -178,9 +192,12 @@ export function CartSheet() {
     return cartData.find((cartItem) => {
       if (cartItem.type !== "product") return false;
 
-      const cartProductId = ('product' in cartItem && cartItem.productId) 
-        ? cartItem.productId 
-        : ('productId' in cartItem ? cartItem.productId : null);
+      const cartProductId =
+        "product" in cartItem && cartItem.productId
+          ? cartItem.productId
+          : "productId" in cartItem
+            ? cartItem.productId
+            : null;
 
       if (expandedProduct.isVariant) {
         return (
@@ -199,9 +216,12 @@ export function CartSheet() {
     return cartData.findIndex((cartItem) => {
       if (cartItem.type !== "product") return false;
 
-      const cartProductId = ('product' in cartItem && cartItem.productId) 
-        ? cartItem.productId 
-        : ('productId' in cartItem ? cartItem.productId : null);
+      const cartProductId =
+        "product" in cartItem && cartItem.productId
+          ? cartItem.productId
+          : "productId" in cartItem
+            ? cartItem.productId
+            : null;
 
       if (expandedProduct.isVariant) {
         return (
@@ -218,10 +238,13 @@ export function CartSheet() {
   const totalPrice = useMemo(() => {
     const total = cartData.reduce((acc, cartItem) => {
       if (cartItem.type === "product") {
-        const cartProductId = ('product' in cartItem && cartItem.productId) 
-          ? cartItem.productId 
-          : ('productId' in cartItem ? cartItem.productId : null);
-          
+        const cartProductId =
+          "product" in cartItem && cartItem.productId
+            ? cartItem.productId
+            : "productId" in cartItem
+              ? cartItem.productId
+              : null;
+
         const expandedProduct = expandedProducts.find((p) => {
           if (cartItem.selectedVariantSku) {
             return (
@@ -240,10 +263,13 @@ export function CartSheet() {
       }
 
       if (cartItem.type === "course") {
-        const cartCourseId = ('course' in cartItem && cartItem.courseId) 
-          ? cartItem.courseId 
-          : ('courseId' in cartItem ? cartItem.courseId : null);
-          
+        const cartCourseId =
+          "course" in cartItem && cartItem.courseId
+            ? cartItem.courseId
+            : "courseId" in cartItem
+              ? cartItem.courseId
+              : null;
+
         const course = cartDisplayData?.courses.find(
           (c) => c._id === cartCourseId
         );
@@ -330,7 +356,6 @@ export function CartSheet() {
   const currentTotalItems = useMemo(() => {
     return cartData.reduce((total, item) => total + item.quantity, 0);
   }, [cartData]);
-
 
   // Handle proceed to checkout
   const handleProceedToCheckout = () => {
@@ -563,15 +588,16 @@ export function CartSheet() {
             {/* Render Courses */}
             <AnimatePresence mode="popLayout">
               {cartDisplayData?.courses.map((course) => {
-                const cartItem = cartData.find(
-                  (item) => {
-                    if (item.type !== "course") return false;
-                    const cartCourseId = ('course' in item && item.courseId) 
-                      ? item.courseId 
-                      : ('courseId' in item ? item.courseId : null);
-                    return cartCourseId === course._id;
-                  }
-                );
+                const cartItem = cartData.find((item) => {
+                  if (item.type !== "course") return false;
+                  const cartCourseId =
+                    "course" in item && item.courseId
+                      ? item.courseId
+                      : "courseId" in item
+                        ? item.courseId
+                        : null;
+                  return cartCourseId === course._id;
+                });
                 if (!cartItem) return null;
 
                 // Enhanced key for courses
@@ -707,15 +733,16 @@ export function CartSheet() {
                         onClick={() => {
                           if (isSignedIn && userCart?._id) {
                             // Server cart removal for courses
-                            const itemIndex = cartData.findIndex(
-                              (item) => {
-                                if (item.type !== "course") return false;
-                                    const cartCourseId = ('course' in item && item.courseId) 
-                                  ? item.courseId 
-                                  : ('courseId' in item ? item.courseId : null);
-                                return cartCourseId === course._id;
-                              }
-                            );
+                            const itemIndex = cartData.findIndex((item) => {
+                              if (item.type !== "course") return false;
+                              const cartCourseId =
+                                "course" in item && item.courseId
+                                  ? item.courseId
+                                  : "courseId" in item
+                                    ? item.courseId
+                                    : null;
+                              return cartCourseId === course._id;
+                            });
                             if (itemIndex !== -1) {
                               updateServerCartMutation.mutate({
                                 cartId: userCart._id,
