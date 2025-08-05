@@ -152,7 +152,10 @@ export const AddToServerCartButton = ({
               cartItem.selectedVariantSku === product.selectedVariantSku
             );
           } else {
-            return cartItem.productId === product.productId && !cartItem.selectedVariantSku;
+            return (
+              cartItem.productId === product.productId &&
+              !cartItem.selectedVariantSku
+            );
           }
         } else if (product.type === "course" && product.courseId) {
           return cartItem.courseId === product.courseId;
@@ -177,16 +180,6 @@ export const AddToServerCartButton = ({
         queryClient.refetchQueries({
           queryKey: ["cart", "getDisplayData"],
         });
-
-        // Also invalidate getCartById query used in checkout
-        const userCart = queryClient.getQueryData(
-          trpc.cart.getUserCart.queryOptions().queryKey
-        );
-        if (userCart?._id) {
-          queryClient.invalidateQueries(
-            trpc.cart.getCartById.queryOptions({ cartId: userCart._id })
-          );
-        }
 
         // Consolidate into single cart success message
         toast.success("Added to cart!", {
