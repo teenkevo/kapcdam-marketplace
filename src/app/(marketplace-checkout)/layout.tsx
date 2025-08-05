@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import "../../../../globals.css";
-import { MegaMenuProvider } from "@/features/layout/ui/components/mega-menu-context";
-import { SanityLive } from "@/sanity/lib/live";
+
 import HeaderCheckout from "@/features/layout/ui/components/header-checkout";
 
 export const metadata: Metadata = {
@@ -17,10 +15,10 @@ export default function MarketplaceLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <MegaMenuProvider>
+    <main className="bg-[#f2f2f2] min-h-screen flex flex-col">
+      {" "}
       <HeaderCheckout />
-      <main className="bg-[#f2f2f2]">{children}</main>
-      <SanityLive />
-    </MegaMenuProvider>
+      {children}
+    </main>
   );
 }

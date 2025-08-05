@@ -3,7 +3,6 @@ import { addressSchema } from "@/features/checkout/schemas/checkout-form";
 
 // Order creation input schema
 export const createOrderSchema = z.object({
-  cartId: z.string(),
   shippingAddress: z.object({ addressId: z.string() }), // Only existing addresses
   deliveryMethod: z.enum(["pickup", "local_delivery"]),
   paymentMethod: z.enum(["pesapal", "cod"]),

@@ -236,16 +236,13 @@ export default function ProductView({ slug }: ProductViewProps) {
   const currentImages = product?.images || [];
   const currentImage = currentImages[currentImageIndex];
 
-  // Create cart item for AddToCartButton
+  // Create cart item for AddToCartButton (using new cart schema format)
   const cartItem: CartItemType | null = product
     ? {
         type: "product" as const,
-        productId: product._id,
-        courseId: null,
-        selectedVariantSku: selectedVariants.variant || null,
         quantity: quantity,
-        addedAt: new Date().toISOString(),
-        preferredStartDate: null,
+        productId: product._id,
+        selectedVariantSku: selectedVariants.variant || null,
       }
     : null;
 
@@ -289,6 +286,7 @@ export default function ProductView({ slug }: ProductViewProps) {
             <Button variant="outline">Browse Marketplace</Button>
           </Link>
         </div>
+
       </div>
     );
   }
@@ -532,6 +530,16 @@ export default function ProductView({ slug }: ProductViewProps) {
 
           {/* Desktop Price, Variants, Quantity - Hidden on mobile */}
           <div className="hidden lg:block space-y-6">
+            {/* <div>
+              <p className="text-2xl font-bold">
+                UGX {getCurrentPrice().toLocaleString()}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {getCurrentStock() > 0
+                  ? `${getCurrentStock()} in stock`
+                  : "Out of stock"}
+              </p>
+            </div> */}
             {/* Variants */}
             {product.hasVariants &&
               product.variantOptions &&

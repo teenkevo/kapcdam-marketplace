@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Display schemas for cart UI rendering (unchanged)
 const CartDisplayProductSchema = z.object({
   _id: z.string(),
   title: z.string(),
@@ -56,26 +57,35 @@ const CartDisplayCourseSchema = z.object({
     .optional(),
 });
 
+// Core cart item schema - matches CART_ITEMS_QUERY structure exactly
 const CartItemSchema = z.object({
   type: z.enum(["product", "course"]),
-  productId: z.string().nullable().optional(),
-  courseId: z.string().nullable().optional(),
-  selectedVariantSku: z.string().nullable().optional(),
   quantity: z.number().min(1),
-  addedAt: z.string(),
+  productId: z.string().nullable().optional(),
+  selectedVariantSku: z.string().nullable().optional(),
+  courseId: z.string().nullable().optional(),
   preferredStartDate: z.string().nullable().optional(),
 });
 
+// Cart schema - matches Sanity schema exactly
 const CartSchema = z.object({
   _id: z.string(),
   cartItems: z.array(CartItemSchema).default([]),
-  itemCount: z.number().nullable().optional().default(0),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  isActive: z.boolean().default(true),
+  // No other fields - keeping it simple per Sanity schema
 });
 
-const addToCartSchema = CartItemSchema.refine((data) => {
+// Local cart item for localStorage (before sync to server)
+const LocalCartItemSchema = z.object({
+  type: z.enum(["product", "course"]),
+  quantity: z.number().min(1),
+  productId: z.string().nullable().optional(),
+  selectedVariantSku: z.string().nullable().optional(),
+  courseId: z.string().nullable().optional(),
+  preferredStartDate: z.string().nullable().optional(),
+});
+
+// Input schemas for tRPC procedures
+const addToCartSchema = LocalCartItemSchema.refine((data) => {
   return (
     (data.type === "product" && data.productId) ||
     (data.type === "course" && data.courseId)
@@ -85,24 +95,28 @@ const addToCartSchema = CartItemSchema.refine((data) => {
 const updateCartItemSchema = z.object({
   cartId: z.string(),
   itemIndex: z.number(),
-  quantity: z.number().min(0),
+  quantity: z.number().min(0), // 0 = remove item
 });
 
+// Sync schema for localStorage → server cart
 const syncCartSchema = z.object({
-  localCartItems: z.array(CartItemSchema),
+  localCartItems: z.array(LocalCartItemSchema),
 });
 
+// Export schemas and types
 export {
   CartSchema,
   addToCartSchema,
   updateCartItemSchema,
   CartItemSchema,
+  LocalCartItemSchema,
   syncCartSchema,
   CartDisplayProductSchema,
   CartDisplayCourseSchema,
 };
 
 export type CartItemType = z.infer<typeof CartItemSchema>;
+export type LocalCartItemType = z.infer<typeof LocalCartItemSchema>;
 export type AddToCartType = z.infer<typeof addToCartSchema>;
 export type UpdateCartItemType = z.infer<typeof updateCartItemSchema>;
 export type SyncCartType = z.infer<typeof syncCartSchema>;

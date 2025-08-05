@@ -1,16 +1,15 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { toast } from "sonner";
-import type { CartItemType } from "@/features/cart/schema";
+import type { LocalCartItemType } from "@/features/cart/schema";
 
 interface LocalCartState {
   // State
-  items: CartItemType[];
+  items: LocalCartItemType[];
   isCartOpen: boolean;
-  lastUpdated: Date | null;
 
   // Actions
-  addLocalCartItem: (item: Omit<CartItemType, "addedAt">, showToast?: boolean) => void;
+  addLocalCartItem: (item: LocalCartItemType, showToast?: boolean) => void;
   removeItem: (
     productId?: string,
     courseId?: string,
@@ -44,16 +43,10 @@ export const useLocalCartStore = create<LocalCartState>()(
         // Initial state
         items: [],
         isCartOpen: false,
-        lastUpdated: null,
 
         // Actions
         addLocalCartItem: (newItem, showToast = true) => {
           set((state) => {
-            const itemWithTimestamp = {
-              ...newItem,
-              addedAt: `${new Date()}`,
-            };
-
             // Check if item already exists - handle variants properly
             const existingIndex = state.items.findIndex((item) => {
               if (newItem.type === "product") {
@@ -81,27 +74,21 @@ export const useLocalCartStore = create<LocalCartState>()(
               );
             } else {
               // Add new item
-              updatedItems = [...state.items, itemWithTimestamp];
+              updatedItems = [...state.items, newItem];
             }
 
-            return {
-              items: updatedItems,
-              lastUpdated: new Date(),
-            };
+            return { items: updatedItems };
           });
 
-          // Only show toast if requested (avoid duplicate toasts for signed-in users)
+          // Show toast for anonymous users only
           if (showToast) {
-            toast.success("Added to cart successfully!", {
-              description: "Sign in to sync your cart",
+            toast.success("Added to cart!", {
+              description: "Sign in to sync your cart across devices",
               classNames: {
                 toast: "bg-[#e8f8e8] border-green-500",
                 icon: "text-[#03a53e]",
                 title: "text-[#03a53e]",
                 description: "text-black",
-                actionButton: "bg-zinc-400",
-                cancelButton: "bg-orange-400",
-                closeButton: "bg-lime-400",
               },
             });
           }
@@ -125,18 +112,27 @@ export const useLocalCartStore = create<LocalCartState>()(
                 return item.courseId !== courseId;
               }
             }),
-            lastUpdated: new Date(),
           }));
         },
 
-        updateQuantity: (productId, courseId, selectedVariantSku, quantity, availableStock) => {
+        updateQuantity: (
+          productId,
+          courseId,
+          selectedVariantSku,
+          quantity,
+          availableStock
+        ) => {
           if (quantity <= 0) {
             get().removeItem(productId, courseId, selectedVariantSku);
             return;
           }
 
           // Validate stock if provided
-          if (availableStock !== undefined && availableStock > 0 && quantity > availableStock) {
+          if (
+            availableStock !== undefined &&
+            availableStock > 0 &&
+            quantity > availableStock
+          ) {
             toast.error("Insufficient stock", {
               description: `Only ${availableStock} items available`,
               classNames: {
@@ -165,15 +161,11 @@ export const useLocalCartStore = create<LocalCartState>()(
               }
               return item;
             }),
-            lastUpdated: new Date(),
           }));
         },
 
         clearCart: () => {
-          set({
-            items: [],
-            lastUpdated: new Date(),
-          });
+          set({ items: [] });
         },
 
         // Computed
@@ -218,9 +210,48 @@ export const useLocalCartStore = create<LocalCartState>()(
         name: "kapcdam-cart-storage",
         partialize: (state) => ({
           items: state.items,
-          lastUpdated: state.lastUpdated,
         }),
       }
     )
   )
 );
+
+// Simple hook for handling cart sync after login
+export const useCartSync = () => {
+  const { items, clearCart } = useLocalCartStore();
+
+  return {
+    // Check if sync is needed after login
+    hasItemsToSync: items.length > 0,
+
+    // Get items for syncing to server
+    getLocalCartItems: () => items,
+
+    // Handle sync success - clear localStorage
+    handleSyncSuccess: () => {
+      clearCart();
+      toast.success("Cart synced successfully!", {
+        description: "Your items are now saved to your account",
+        classNames: {
+          toast: "bg-[#e8f8e8] border-green-500",
+          icon: "text-[#03a53e]",
+          title: "text-[#03a53e]",
+          description: "text-black",
+        },
+      });
+    },
+
+    // Handle sync failure - keep items in localStorage
+    handleSyncFailure: () => {
+      toast.error("Sync failed", {
+        description: "Items remain in your cart. Try refreshing the page.",
+        classNames: {
+          toast: "bg-[#ffebeb] border-[#ef4444]",
+          icon: "text-[#ef4444]",
+          title: "text-[#ef4444]",
+          description: "text-black",
+        },
+      });
+    },
+  };
+};

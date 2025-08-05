@@ -14,18 +14,16 @@ import {
   OrderSummarySkeleton,
 } from "../components/checkout-skeleton";
 
-interface CheckoutViewProps {
-  cartId: string;
-}
-
-export default function CheckoutView({ cartId }: CheckoutViewProps) {
+export default function CheckoutView() {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
+  
   const { data: userCart, isLoading: isCartLoading } = useQuery(
-    trpc.cart.getCartById.queryOptions({ cartId })
+    trpc.cart.getUserCart.queryOptions()
   );
-  const {
+  
+  const { 
     formState,
     handleFormValidChange,
     handleFormDataChange,
@@ -39,10 +37,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     originalPercentage: number;
   } | null>(null);
 
-  // State for order processing
-  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
-
-  // Create order mutation
+  // Create order mutation - simplified to only redirect to order page
   const createOrderMutation = useMutation(
     trpc.orders.createOrder.mutationOptions({
       onSuccess: async (result) => {
@@ -66,36 +61,15 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             queryKey: ["cart", "getDisplayData"],
           });
 
-          // 5. Invalidate cart by ID query if it exists
-          if (cartId) {
-            await queryClient.invalidateQueries(
-              trpc.cart.getCartById.queryOptions({ cartId })
-            );
-          }
         } catch (error) {
           console.error("Cache invalidation error:", error);
-          // Continue with order flow even if cache invalidation fails
+       
         }
 
-        if (result.paymentRequired) {
-          // Process payment for pesapal orders
-          try {
-            setIsProcessingOrder(true);
-            const paymentResult = await processPaymentMutation.mutateAsync({
-              orderId: result.orderId,
-            });
+        
 
-            // Redirect to payment page
-            window.location.href = paymentResult.paymentUrl;
-          } catch (error: any) {
-            setIsProcessingOrder(false);
-            toast.error(`Payment processing failed: ${error.message}`);
-            console.error("Payment processing error:", error);
-          }
-        } else {
-          // Redirect to order confirmation for COD
-          router.push(`/orders/${result.orderId}/confirmation`);
-        }
+        // Always redirect to order-specific checkout page
+        router.push(`/checkout/${result.orderId}`);
       },
       onError: (error) => {
         toast.error(`Failed to create order: ${error.message}`);
@@ -104,17 +78,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     })
   );
 
-  // Payment processing mutation
-  const processPaymentMutation = useMutation(
-    trpc.orders.processOrderPayment.mutationOptions({
-      onError: (error) => {
-        console.error("Payment processing mutation error:", error);
-        // Error handling is done in the createOrder onSuccess
-      },
-    })
-  );
-
-  // Handler for coupon changes from OrderSummary
   const handleCouponChange = (
     coupon: {
       code: string;
@@ -134,7 +97,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     const { formData } = formState;
 
     const orderData = {
-      cartId,
       shippingAddress: formData.selectedAddress,
       deliveryMethod: formData.deliveryMethod,
       paymentMethod: formData.paymentMethod,
@@ -146,7 +108,7 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     createOrderMutation.mutate(orderData);
   };
 
-  if (isCartLoading || !userCart) {
+  if (isCartLoading) {
     return (
       <div className="max-w-7xl mx-auto py-10 md:py-16">
         <div className="grid lg:grid-cols-2 gap-8">
@@ -164,23 +126,33 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
     );
   }
 
+  // Show empty cart message if no cart or cart is empty
+  if (!userCart || !userCart.cartItems || userCart.cartItems.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto py-10 md:py-20 text-center">
+        <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
+        <p className="text-lg text-muted-foreground mb-8">
+          Add some items to your cart to proceed with checkout
+        </p>
+        <button
+          onClick={() => router.push('/marketplace')}
+          className="px-8 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625]"
+        >
+          Continue Shopping
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto py-10 md:py-20 relative">
-      {/* Processing Overlay */}
-      {(createOrderMutation.isPending || isProcessingOrder) && (
+      {/* Processing Overlay - simplified for order creation only */}
+      {createOrderMutation.isPending && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white p-8 rounded-lg shadow-lg text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">
-              {createOrderMutation.isPending
-                ? "Creating Your Order..."
-                : "Processing Payment..."}
-            </h3>
-            <p className="text-gray-600">
-              {createOrderMutation.isPending
-                ? "Please wait while we prepare your order"
-                : "Redirecting to payment gateway..."}
-            </p>
+            <h3 className="text-lg font-semibold mb-2">Creating Your Order...</h3>
+            <p className="text-gray-600">Please wait while we prepare your order</p>
           </div>
         </div>
       )}
@@ -192,7 +164,6 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             onFormValidChange={handleFormValidChange}
             onFormDataChange={handleFormDataChange}
             onShippingAddressChange={handleShippingAddressChange}
-            cartId={cartId}
           />
         </div>
 
@@ -203,16 +174,10 @@ export default function CheckoutView({ cartId }: CheckoutViewProps) {
             shippingCost={formState.shippingCost}
             onPrimaryAction={handlePlaceOrder}
             primaryActionText={
-              createOrderMutation.isPending
-                ? "Creating Order..."
-                : isProcessingOrder
-                  ? "Processing Payment..."
-                  : "Place Order"
+              createOrderMutation.isPending ? "Creating Order..." : "Place Order"
             }
             primaryActionDisabled={
-              !formState.isValid ||
-              createOrderMutation.isPending ||
-              isProcessingOrder
+              !formState.isValid || createOrderMutation.isPending
             }
             onCouponChange={handleCouponChange}
           />

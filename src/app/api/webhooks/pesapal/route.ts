@@ -46,7 +46,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle regular product payments (existing logic)
+    // Handle order payments - check if merchantReference is an order ID
+    if (OrderMerchantReference && !OrderMerchantReference.startsWith("DON-")) {
+      console.log("Processing order payment webhook for:", OrderMerchantReference);
+      
+      // Get transaction status
+      const transactionStatus = await trpc.payments.getTransactionStatus({
+        order_tracking_id: OrderTrackingId,
+      });
+
+      // Update order payment status
+      await trpc.orders.updatePaymentStatus({
+        orderId: OrderMerchantReference,
+        paymentStatus:
+          transactionStatus.payment_status_description === "Completed"
+            ? "paid"
+            : "failed",
+        transactionId: OrderTrackingId,
+        paidAt: transactionStatus.payment_status_description === "Completed" 
+          ? new Date().toISOString() 
+          : undefined,
+      });
+
+      return NextResponse.json({
+        orderNotificationType: OrderNotificationType,
+        orderTrackingId: OrderTrackingId,
+        orderMerchantReference: OrderMerchantReference,
+        status: 200,
+      });
+    }
+
+    // Handle regular product payments (existing logic - kept for backwards compatibility)
     const result = await trpc.payments.handleIpnNotification({
       OrderTrackingId,
       OrderNotificationType,
@@ -93,6 +123,36 @@ export async function GET(request: NextRequest) {
         paymentMethod: transactionStatus.payment_method,
         amount: transactionStatus.amount,
         isRecurring: false,
+      });
+
+      return NextResponse.json({
+        orderNotificationType: OrderNotificationType,
+        orderTrackingId: OrderTrackingId,
+        orderMerchantReference: OrderMerchantReference,
+        status: 200,
+      });
+    }
+
+    // Handle order payments - check if merchantReference is an order ID
+    if (OrderMerchantReference && !OrderMerchantReference.startsWith("DON-")) {
+      console.log("Processing order payment webhook (GET) for:", OrderMerchantReference);
+      
+      // Get transaction status
+      const transactionStatus = await trpc.payments.getTransactionStatus({
+        order_tracking_id: OrderTrackingId,
+      });
+
+      // Update order payment status
+      await trpc.orders.updatePaymentStatus({
+        orderId: OrderMerchantReference,
+        paymentStatus:
+          transactionStatus.payment_status_description === "Completed"
+            ? "paid"
+            : "failed",
+        transactionId: OrderTrackingId,
+        paidAt: transactionStatus.payment_status_description === "Completed" 
+          ? new Date().toISOString() 
+          : undefined,
       });
 
       return NextResponse.json({

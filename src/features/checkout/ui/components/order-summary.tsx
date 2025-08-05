@@ -62,14 +62,14 @@ export function OrderSummary({
     }
 
     const productIds = cartData
-      .filter((item) => item.type === "product" && item.productId)
-      .map((item) => item.productId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
+      .filter((item) => item.type === "product" && (('product' in item && item.productId) || ('productId' in item && item.productId)))
+      .map((item) => ('product' in item && item.productId) ? item.productId : ('productId' in item ? item.productId! : ''))
+      .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const courseIds = cartData
-      .filter((item) => item.type === "course" && item.courseId)
-      .map((item) => item.courseId!)
-      .filter((id, index, arr) => arr.indexOf(id) === index);
+      .filter((item) => item.type === "course" && (('course' in item && item.courseId) || ('courseId' in item && item.courseId)))
+      .map((item) => ('course' in item && item.courseId) ? item.courseId : ('courseId' in item ? item.courseId! : ''))
+      .filter((id, index, arr) => id && arr.indexOf(id) === index);
 
     const selectedSKUs = cartData
       .filter((item) => item.type === "product" && item.selectedVariantSku)
@@ -111,12 +111,6 @@ export function OrderSummary({
             selectedSKUs,
           })
         );
-        // Also cancel getCartById queries used in checkout
-        if (userCart?._id) {
-          await queryClient.cancelQueries(
-            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
-          );
-        }
 
         const previousCart = queryClient.getQueryData(
           trpcClient.cart.getUserCart.queryOptions().queryKey
@@ -138,50 +132,13 @@ export function OrderSummary({
               };
             }
 
-            const itemCount = updatedItems.reduce(
-              (sum: number, item: any) => sum + item.quantity,
-              0
-            );
-
             return {
               ...old,
               cartItems: updatedItems,
-              itemCount,
             };
           }
         );
 
-        // Also optimistically update getCartById cache if it exists
-        if (userCart?._id) {
-          queryClient.setQueryData(
-            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
-              .queryKey,
-            (old: any) => {
-              if (!old) return old;
-
-              const updatedItems = [...old.cartItems];
-              if (variables.quantity === 0) {
-                updatedItems.splice(variables.itemIndex, 1);
-              } else {
-                updatedItems[variables.itemIndex] = {
-                  ...updatedItems[variables.itemIndex],
-                  quantity: variables.quantity,
-                };
-              }
-
-              const itemCount = updatedItems.reduce(
-                (sum: number, item: any) => sum + item.quantity,
-                0
-              );
-
-              return {
-                ...old,
-                cartItems: updatedItems,
-                itemCount,
-              };
-            }
-          );
-        }
 
         return { previousCart };
       },
@@ -207,12 +164,6 @@ export function OrderSummary({
             selectedSKUs,
           })
         );
-        // Refetch getCartById query used in checkout
-        if (userCart?._id) {
-          queryClient.refetchQueries(
-            trpcClient.cart.getCartById.queryOptions({ cartId: userCart._id })
-          );
-        }
       },
     })
   );
@@ -222,14 +173,18 @@ export function OrderSummary({
     return cartData.find((cartItem) => {
       if (cartItem.type !== "product") return false;
 
+      const cartProductId = ('product' in cartItem && cartItem.productId) 
+        ? cartItem.productId 
+        : ('productId' in cartItem ? cartItem.productId : null);
+
       if (expandedProduct.isVariant) {
         return (
-          cartItem.productId === expandedProduct.originalProductId &&
+          cartProductId === expandedProduct.originalProductId &&
           cartItem.selectedVariantSku === expandedProduct.VariantSku
         );
       }
 
-      return cartItem.productId === expandedProduct.originalProductId;
+      return cartProductId === expandedProduct.originalProductId;
     });
   };
 
@@ -239,14 +194,18 @@ export function OrderSummary({
     return cartData.findIndex((cartItem) => {
       if (cartItem.type !== "product") return false;
 
+      const cartProductId = ('product' in cartItem && cartItem.productId) 
+        ? cartItem.productId 
+        : ('productId' in cartItem ? cartItem.productId : null);
+
       if (expandedProduct.isVariant) {
         return (
-          cartItem.productId === expandedProduct.originalProductId &&
+          cartProductId === expandedProduct.originalProductId &&
           cartItem.selectedVariantSku === expandedProduct.VariantSku
         );
       }
 
-      return cartItem.productId === expandedProduct.originalProductId;
+      return cartProductId === expandedProduct.originalProductId;
     });
   };
 
@@ -271,27 +230,35 @@ export function OrderSummary({
         let discountInfo = null;
 
         if (cartItem.type === "product") {
+          const cartProductId = ('product' in cartItem && cartItem.productId) 
+            ? cartItem.productId 
+            : ('productId' in cartItem ? cartItem.productId : null);
+            
           const expandedProduct = expandedProducts.find((p) => {
             if (cartItem.selectedVariantSku) {
               return (
-                p.originalProductId === cartItem.productId &&
+                p.originalProductId === cartProductId &&
                 p.VariantSku === cartItem.selectedVariantSku
               );
             }
-            return p.originalProductId === cartItem.productId && !p.isVariant;
+            return p.originalProductId === cartProductId && !p.isVariant;
           });
           itemPrice = expandedProduct ? parseInt(expandedProduct.price) : 0;
 
           // Get discount info from the product data
           const productData = cartDisplayData?.products.find(
-            (p) => p._id === cartItem.productId
+            (p) => p._id === cartProductId
           );
           discountInfo = productData?.discountInfo;
         }
 
         if (cartItem.type === "course") {
+          const cartCourseId = ('course' in cartItem && cartItem.courseId) 
+            ? cartItem.courseId 
+            : ('courseId' in cartItem ? cartItem.courseId : null);
+            
           const course = cartDisplayData?.courses.find(
-            (c) => c._id === cartItem.courseId
+            (c) => c._id === cartCourseId
           );
           itemPrice = course ? parseInt(course.price) : 0;
           discountInfo = course?.discountInfo;
@@ -461,8 +428,12 @@ export function OrderSummary({
       userId: userId || undefined,
       cartItems: cartData.map((item) => ({
         type: item.type,
-        productId: item.productId || undefined,
-        courseId: item.courseId || undefined,
+        productId: ('product' in item && item.productId) 
+          ? item.productId 
+          : ('productId' in item ? item.productId : null),
+        courseId: ('course' in item && item.courseId) 
+          ? item.courseId 
+          : ('courseId' in item ? item.courseId : null),
         quantity: item.quantity,
       })),
     });
@@ -637,8 +608,11 @@ export function OrderSummary({
 
                         <div className="flex items-center gap-2">
                           {(() => {
+                            const cartProductId = ('product' in cartItem && cartItem.productId) 
+                              ? cartItem.productId 
+                              : ('productId' in cartItem ? cartItem.productId : null);
                             const productData = cartDisplayData?.products.find(
-                              (p) => p._id === cartItem.productId
+                              (p) => p._id === cartProductId
                             );
                             const hasDiscount =
                               productData?.hasDiscount &&
@@ -797,8 +771,13 @@ export function OrderSummary({
               <AnimatePresence mode="popLayout">
                 {cartDisplayData?.courses.map((course) => {
                   const cartItem = cartData.find(
-                    (item) =>
-                      item.type === "course" && item.courseId === course._id
+                    (item) => {
+                      if (item.type !== "course") return false;
+                      const cartCourseId = ('course' in item && item.courseId) 
+                        ? item.courseId 
+                        : ('courseId' in item ? item.courseId : null);
+                      return cartCourseId === course._id;
+                    }
                   );
                   if (!cartItem) return null;
 
@@ -864,9 +843,13 @@ export function OrderSummary({
                               if (isSignedIn && userCart?._id) {
                                 // Server cart removal for courses
                                 const itemIndex = cartData.findIndex(
-                                  (item) =>
-                                    item.type === "course" &&
-                                    item.courseId === course._id
+                                  (item) => {
+                                    if (item.type !== "course") return false;
+                                    const cartCourseId = ('course' in item && item.courseId) 
+                                      ? item.courseId 
+                                      : ('courseId' in item ? item.courseId : null);
+                                    return cartCourseId === course._id;
+                                  }
                                 );
                                 if (itemIndex !== -1) {
                                   updateServerCartMutation.mutate({
@@ -920,9 +903,13 @@ export function OrderSummary({
                             if (isSignedIn && userCart?._id) {
                               // Server cart removal for courses
                               const itemIndex = cartData.findIndex(
-                                (item) =>
-                                  item.type === "course" &&
-                                  item.courseId === course._id
+                                (item) => {
+                                  if (item.type !== "course") return false;
+                                  const cartCourseId = ('course' in item && item.courseId) 
+                                    ? item.courseId 
+                                    : ('courseId' in item ? item.courseId : null);
+                                  return cartCourseId === course._id;
+                                }
                               );
                               if (itemIndex !== -1) {
                                 updateServerCartMutation.mutate({
