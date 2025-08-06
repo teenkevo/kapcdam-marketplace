@@ -27,7 +27,7 @@ export default function PaymentFailedView({ orderId }: PaymentFailedViewProps) {
     trpc.orders.processOrderPayment.mutationOptions({
       onSuccess: (result) => {
         toast.success("Redirecting to payment...");
-        window.location.href = result.paymentUrl;
+        router.push(result.paymentUrl);
       },
       onError: (error) => {
         setIsRetrying(false);
@@ -36,12 +36,12 @@ export default function PaymentFailedView({ orderId }: PaymentFailedViewProps) {
     })
   );
 
-  // Cancel order mutation
+
   const cancelOrderMutation = useMutation(
     trpc.orders.cancelPendingOrder.mutationOptions({
       onSuccess: () => {
         toast.success("Order cancelled successfully");
-        router.push("/checkout");
+        router.push("/marketplace");
       },
       onError: (error) => {
         toast.error(`Failed to cancel order: ${error.message}`);
