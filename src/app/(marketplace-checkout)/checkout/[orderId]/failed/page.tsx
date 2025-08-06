@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import PaymentFailedView from "./payment-failed-view";
+import PaymentFailedView from "@/features/orders/ui/views/payment-failed-view";
 
 interface Props {
   params: Promise<{ orderId: string }>;

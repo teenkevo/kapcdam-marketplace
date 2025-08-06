@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import OrderCheckoutView from "./order-checkout-view";
+import OrderCheckoutView from "@/features/orders/ui/views/order-checkout-view";
 
 interface Props {
   params: Promise<{ orderId: string }>;

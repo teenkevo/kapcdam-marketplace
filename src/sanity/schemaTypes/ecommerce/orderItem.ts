@@ -228,20 +228,31 @@ export const orderItem = defineType({
       quantity: "quantity",
       finalPrice: "finalPrice",
       lineTotal: "lineTotal",
-      variantTitle: "variant.title", 
+      productTitle: "product.title",
       courseTitle: "course.title",
       orderNumber: "order.orderNumber",
+      variantSnapshotTitle: "variantSnapshot.title",
+      courseSnapshotTitle: "courseSnapshot.title",
     },
     prepare({
       type,
       quantity,
       finalPrice,
       lineTotal,
-      variantTitle, 
+      productTitle,
       courseTitle,
       orderNumber,
+      variantSnapshotTitle,
+      courseSnapshotTitle,
     }) {
-      const itemName = type === "product" ? variantTitle : courseTitle;
+      // Get item name with fallbacks to snapshot data
+      let itemName = "Unknown Item";
+      if (type === "product") {
+        itemName = productTitle || variantSnapshotTitle || "Unknown Product";
+      } else if (type === "course") {
+        itemName = courseTitle || courseSnapshotTitle || "Unknown Course";
+      }
+
       const priceFormatted = finalPrice
         ? `${finalPrice.toLocaleString()} UGX`
         : "No price";
@@ -252,7 +263,7 @@ export const orderItem = defineType({
       const orderInfo = orderNumber ? ` • ${orderNumber}` : "";
 
       return {
-        title: `${itemName || "Unknown Item"}${quantityInfo}`,
+        title: `${itemName}${quantityInfo}`,
         subtitle: `${priceFormatted} → ${totalFormatted}${orderInfo}`,
       };
     },

@@ -41,7 +41,7 @@ export default function PaymentFailedView({ orderId }: PaymentFailedViewProps) {
     trpc.orders.cancelPendingOrder.mutationOptions({
       onSuccess: () => {
         toast.success("Order cancelled successfully");
-        router.push("/checkout");
+        router.push("/marketplace");
       },
       onError: (error) => {
         toast.error(`Failed to cancel order: ${error.message}`);
