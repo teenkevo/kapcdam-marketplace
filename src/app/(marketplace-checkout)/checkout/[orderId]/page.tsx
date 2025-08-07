@@ -29,17 +29,16 @@ export default async function OrderCheckoutPage({ params }: Props) {
 
   if (
     order.paymentMethod === "pesapal" &&
-    order.paymentStatus === "pending" &&
-    order.transactionId === null
+    order.paymentStatus === "not_initiated"
   ) {
     const { paymentUrl, orderTrackingId } =
       await trpc.orders.processOrderPayment(order);
-      await trpc.orders.updatePaymentStatus({
-        orderId: order.orderId,
-        paymentStatus: "pending",
-        transactionId: orderTrackingId,
-      });
-      redirect(paymentUrl);
+    await trpc.orders.updatePaymentStatus({
+      orderId: order.orderId,
+      paymentStatus: "initiated",
+      transactionId: orderTrackingId,
+    });
+    redirect(paymentUrl);
   }
 
   return <div>Hello</div>;

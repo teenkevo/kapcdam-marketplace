@@ -109,9 +109,9 @@ when# Order Flow Analysis - Kapcdam Marketplace
 - Links to continue shopping
 
 #### **Failure Flow** (`/checkout/{orderId}/failed`)
-- Shows `PaymentFailedView` with retry options
-- **Retry Payment:** Re-initiates payment flow (same order)
-- **Cancel Order:** Sets order status to "cancelled"
+- 
+- **Cancel Order:** Sets order status to "cancellShows `PaymentFailedView` with retry options
+- **Retry Payment:** Re-initiates payment flow (same order)ed"
 - **Back to Checkout:** Returns to main checkout page
 
 ---

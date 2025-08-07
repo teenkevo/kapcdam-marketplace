@@ -138,34 +138,6 @@ export const orderItem = defineType({
       description: "Preferred course start date",
       hidden: ({ document }) => document?.type !== "course",
     }),
-
-    defineField({
-      name: "fulfillmentStatus",
-      title: "Fulfillment Status",
-      type: "string",
-      options: {
-        list: [
-          { title: "Pending", value: "pending" },
-          { title: "Confirmed", value: "confirmed" },
-          { title: "Preparing", value: "preparing" },
-          { title: "Ready", value: "ready" },
-          { title: "Shipped", value: "shipped" },
-          { title: "Delivered", value: "delivered" },
-          { title: "Cancelled", value: "cancelled" },
-        ],
-        layout: "dropdown",
-      },
-      validation: (rule) => rule.required(),
-      initialValue: "pending",
-    }),
-
-    defineField({
-      name: "fulfillmentNotes",
-      title: "Fulfillment Notes",
-      type: "text",
-      description: "Internal notes for fulfillment team",
-      rows: 2,
-    }),
   ],
 
   preview: {

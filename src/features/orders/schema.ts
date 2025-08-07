@@ -41,7 +41,7 @@ export const updateOrderStatusSchema = z.object({
 // Payment status update schema
 export const updatePaymentStatusSchema = z.object({
   orderId: z.string(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "partial"]),
+  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "initiated", "not_initiated"]),
   transactionId: z.string().nullable().optional(),
   paidAt: z.string().nullable().optional(),
 });
@@ -89,7 +89,7 @@ export const orderSchema = z.object({
   orderLevelDiscount: z.number().nullable(),
   orderNumber: z.string(),
   paymentMethod: z.string(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded"]),
+  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "initiated", "not_initiated"]),
   status: z.enum([
     "pending",
     "processing",

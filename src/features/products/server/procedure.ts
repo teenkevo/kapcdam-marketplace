@@ -209,7 +209,7 @@ export const productsRouter = createTRPCRouter({
           const productConditions = [
             `_type == "product"`,
             `status == "${status}"`,
-            `totalStock > 0`,
+            `((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))`,
           ];
 
           if (search) {
@@ -447,13 +447,13 @@ export const productsRouter = createTRPCRouter({
 
   getPriceRange: baseProcedure.query(async () => {
     const query = groq`{
-      "minPrice": math::min(*[_type == "product" && status == "active" && totalStock > 0][]{
+      "minPrice": math::min(*[_type == "product" && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))][]{
         "price": select(
           hasVariants == true => math::min(variants[].price),
           price
         )
       }.price),
-      "maxPrice": math::max(*[_type == "product" && status == "active" && totalStock > 0][]{
+      "maxPrice": math::max(*[_type == "product" && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))][]{
         "price": select(
           hasVariants == true => math::max(variants[].price),
           price
@@ -638,7 +638,7 @@ export const productsRouter = createTRPCRouter({
 
         if (categoryId) {
           // First try to get products from the same category
-          query = groq`*[_type == "product" && _id != $productId && category._ref == $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+          query = groq`*[_type == "product" && _id != $productId && category._ref == $categoryId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
             _id,
             title,
             slug,
@@ -686,7 +686,7 @@ export const productsRouter = createTRPCRouter({
           params.categoryId = categoryId;
         } else {
           // If no category, get random products excluding the current one
-          query = groq`*[_type == "product" && _id != $productId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+          query = groq`*[_type == "product" && _id != $productId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
             _id,
             title,
             slug,
@@ -739,7 +739,7 @@ export const productsRouter = createTRPCRouter({
         // If we have less than the limit and we were filtering by category, get random products to fill up
         if (cleanedProducts.length < limit && categoryId) {
           const remainingLimit = limit - cleanedProducts.length;
-          const fallbackQuery = groq`*[_type == "product" && _id != $productId && category._ref != $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${remainingLimit}] {
+          const fallbackQuery = groq`*[_type == "product" && _id != $productId && category._ref != $categoryId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${remainingLimit}] {
             _id,
             title,
             slug,

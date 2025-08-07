@@ -113,10 +113,9 @@ export const ordersRouter = createTRPCRouter({
     .mutation(
       async ({
         ctx,
-        input:order,
+        input: order,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
-         
           if (order.paymentMethod !== "pesapal") {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -140,7 +139,7 @@ export const ordersRouter = createTRPCRouter({
               },
               body: JSON.stringify({
                 ipn_notification_type: "POST",
-                url: `${baseUrl}/api/webhooks/pesapal`,
+                url: `${baseUrl}/api/webhooks/pesapal/orders`,
               }),
             }
           );
@@ -154,12 +153,11 @@ export const ordersRouter = createTRPCRouter({
 
           const ipnResult = await registerIpn.json();
 
-    
           const pesapalRequest: PesapalOrderRequest = {
             id: order.orderId,
             currency: "UGX",
             amount: order.total,
-            description: `Order for ${order.orderItems.map(item => item.name).join(', ')}`,
+            description: `Order for ${order.orderItems.map((item) => item.name).join(", ")}`,
             callback_url: `${baseUrl}/api/payment/callback?orderId=${order.orderId}`,
             notification_id: ipnResult.ipn_id,
             billing_address: {
@@ -173,7 +171,7 @@ export const ordersRouter = createTRPCRouter({
                 order.customer.lastName ||
                 order.billingAddress.fullName.split(" ").slice(1).join(" "),
               line_1: order.billingAddress.address,
-              city: order.billingAddress.city
+              city: order.billingAddress.city,
             },
           };
 
@@ -204,7 +202,7 @@ export const ordersRouter = createTRPCRouter({
             .patch(order.orderId)
             .set({
               transactionId: paymentResult.order_tracking_id,
-              paymentStatus: "pending",
+              paymentStatus: "initiated",
             })
             .commit();
 
@@ -244,7 +242,6 @@ export const ordersRouter = createTRPCRouter({
             appliedCoupon,
           } = input;
 
-         
           const cart = await client.fetch(CART_ITEMS_QUERY, {
             clerkUserId: ctx.auth.userId,
           });
@@ -350,7 +347,6 @@ export const ordersRouter = createTRPCRouter({
             { clerkUserId: ctx.auth.userId }
           );
 
-          // Cancel any existing pending orders
           if (existingPendingOrders.length > 0) {
             await Promise.all(
               existingPendingOrders.map((order: any) =>
@@ -359,7 +355,6 @@ export const ordersRouter = createTRPCRouter({
                   .set({
                     status: "cancelled",
                     paymentStatus: "cancelled",
-                    updatedAt: new Date().toISOString(),
                   })
                   .commit()
               )
@@ -424,7 +419,7 @@ export const ordersRouter = createTRPCRouter({
             paymentStatus: "not_initiated",
             paymentMethod,
             status: "pending",
-            isActive: true,
+
             shippingAddress: { _type: "reference", _ref: addressId },
             deliveryMethod,
             ...(selectedDeliveryZone && {
@@ -528,7 +523,6 @@ export const ordersRouter = createTRPCRouter({
                     preferredStartDate: cartItem.preferredStartDate,
                   }),
                 }),
-                fulfillmentStatus: "pending",
               };
 
               return client.create(orderItem);
@@ -637,7 +631,7 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        const updateData: any = { status, updatedAt: new Date().toISOString() };
+        const updateData: any = { status };
 
         if (notes) {
           updateData.notes = notes;
@@ -675,7 +669,6 @@ export const ordersRouter = createTRPCRouter({
 
         const updateData: any = {
           paymentStatus,
-          updatedAt: new Date().toISOString(),
         };
 
         if (transactionId) {
@@ -719,7 +712,7 @@ export const ordersRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         const orders = await client.fetch(
-          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && isActive == true] | order(orderDate desc) [$offset...$limit] {
+          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId] | order(orderDate desc) [$offset...$limit] {
             _id,
             orderNumber,
             orderDate,
@@ -822,7 +815,7 @@ export const ordersRouter = createTRPCRouter({
           .set({
             status: "cancelled",
             paymentStatus: "cancelled",
-            updatedAt: new Date().toISOString(),
+           
           })
           .commit();
 
