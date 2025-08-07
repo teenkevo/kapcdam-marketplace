@@ -83,18 +83,15 @@ export default function OrderSuccessView({ orderId }: OrderSuccessViewProps) {
             >
               <div className="flex-1">
                 <p className="font-medium">
-                  {item.product?.title ||
-                    item.course?.title ||
-                    item.variantSnapshot?.title ||
-                    item.courseSnapshot?.title}
+                  {item.name}
                 </p>
-                {item.variantSnapshot?.variantInfo && (
+                {item.variantSku && (
                   <p className="text-sm text-muted-foreground">
-                    {item.variantSnapshot.variantInfo}
+                    SKU: {item.variantSku}
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  Quantity: {item.quantity} × UGX {item.finalPrice.toLocaleString()}
+                  Quantity: {item.quantity} × UGX {item.unitPrice.toLocaleString()}
                 </p>
               </div>
               <div className="text-right">
@@ -120,7 +117,7 @@ export default function OrderSuccessView({ orderId }: OrderSuccessViewProps) {
           )}
           {(order as any).orderLevelDiscount && (
             <div className="flex justify-between text-green-600">
-              <span>Discount:</span>
+              <span>Discount ({(order as any).orderLevelDiscount.couponApplied}):</span>
               <span>-UGX {(order as any).orderLevelDiscount.discountAmount.toLocaleString()}</span>
             </div>
           )}

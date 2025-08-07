@@ -146,14 +146,11 @@ export default function PaymentFailedView({ orderId }: PaymentFailedViewProps) {
                 >
                   <div>
                     <p className="font-medium">
-                      {item.product?.title ||
-                        item.course?.title ||
-                        item.variantSnapshot?.title ||
-                        item.courseSnapshot?.title}
+                      {item.name}
                     </p>
-                    {item.variantSnapshot?.variantInfo && (
+                    {item.variantSku && (
                       <p className="text-sm text-gray-500">
-                        {item.variantSnapshot.variantInfo}
+                        SKU: {item.variantSku}
                       </p>
                     )}
                     <p className="text-sm text-gray-500">
@@ -178,7 +175,7 @@ export default function PaymentFailedView({ orderId }: PaymentFailedViewProps) {
               </div>
               {(order as any).orderLevelDiscount && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount:</span>
+                  <span>Discount ({(order as any).orderLevelDiscount.couponApplied}):</span>
                   <span>
                     -UGX {(order as any).orderLevelDiscount.discountAmount.toLocaleString()}
                   </span>

@@ -14,25 +14,18 @@ interface OrderCheckoutViewProps {
 export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
   const trpc = useTRPC();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [isReturnVisit, setIsReturnVisit] = useState(false);
-  const [showUI, setShowUI] = useState(false);
 
-  // Fetch order details
   const { data: order, isLoading: isOrderLoading } = useQuery(
     trpc.orders.getOrderById.queryOptions({ orderId })
   );
 
-  // Payment processing mutation
+
   const processPaymentMutation = useMutation(
     trpc.orders.processOrderPayment.mutationOptions({
       onSuccess: (result) => {
-        // Redirect to Pesapal payment page
-        window.location.href = result.paymentUrl;
+        router.push(result.paymentUrl);
       },
       onError: (error) => {
-        setIsProcessingPayment(false);
         toast.error(`Payment processing failed: ${error.message}`);
       },
     })
@@ -54,7 +47,6 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
   const handleInitiatePayment = useCallback(() => {
     if (!order || typeof order !== "object" || !("_id" in order)) return;
 
-    setIsProcessingPayment(true);
     processPaymentMutation.mutate({ orderId: (order as any)._id });
   }, [order, processPaymentMutation]);
 
@@ -66,61 +58,6 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
     if (!order || typeof order !== "object" || !("_id" in order)) return;
     cancelOrderMutation.mutate({ orderId: (order as any)._id });
   }, [order, cancelOrderMutation]);
-
-  useEffect(() => {
-    if (
-      order &&
-      typeof order === "object" &&
-      "paymentStatus" in order &&
-      "paymentMethod" in order
-    ) {
-      const orderData = order as any;
-      if (
-        orderData.paymentStatus === "pending" &&
-        orderData.paymentMethod === "pesapal"
-      ) {
-        const sessionKey = `payment-initiated-${orderId}`;
-        const hasInitiated = sessionStorage.getItem(sessionKey);
-
-        if (!hasInitiated) {
-          // First visit - set session key and immediately initiate payment
-          sessionStorage.setItem(sessionKey, "true");
-          setIsReturnVisit(false);
-          setShowUI(false);
-          handleInitiatePayment(); 
-        } else {
-          
-          setIsReturnVisit(true);
-          setShowUI(true);
-        }
-      } else {
-        // Not a pending Pesapal order, show UI
-        setShowUI(true);
-      }
-    }
-  }, [order, orderId, handleInitiatePayment]);
-
-  // Redirect based on order status
-  useEffect(() => {
-    if (
-      order &&
-      typeof order === "object" &&
-      "paymentStatus" in order &&
-      "paymentMethod" in order
-    ) {
-      const orderData = order as any; 
-      if (orderData.paymentStatus === "paid") {
-        router.push(`/checkout/${orderId}/success`);
-      } else if (orderData.paymentStatus === "failed") {
-        router.push(`/checkout/${orderId}/failed`);
-      } else if (
-        orderData.paymentMethod === "cod" &&
-        orderData.paymentStatus === "pending"
-      ) {
-        router.push(`/checkout/${orderId}/success`);
-      }
-    }
-  }, [order, orderId, router]);
 
   if (isOrderLoading) {
     return (
@@ -137,14 +74,15 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
   }
 
   // Show processing screen for first-time visits (immediate redirect to payment)
-  if (!showUI && order) {
+  if (isOrderLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold mb-2">Processing Payment...</h3>
           <p className="text-gray-600 mb-1">
-            We're preparing your payment session. You'll be redirected to the payment gateway shortly.
+            We're preparing your payment session. You'll be redirected to the
+            payment gateway shortly.
           </p>
           <p className="text-sm text-gray-500">
             Please do not close this window.
@@ -175,16 +113,16 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
   return (
     <div className="h-full flex-1 flex-grow flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
-        {/* Processing Overlay */}
-        {(isProcessingPayment || processPaymentMutation.isPending) && (
+        {processPaymentMutation.isPending && (
           <div className="fixed inset-0 bg-white bg-opacity-90 backdrop-blur-md z-50 flex items-center justify-center">
             <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md mx-4">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
               <h3 className="text-lg font-semibold mb-2">
                 Processing Payment...
               </h3>
               <p className="text-gray-600 mb-1">
-                We're preparing your payment session. You'll be redirected to the payment gateway shortly.
+                We're preparing your payment session. You'll be redirected to
+                the payment gateway shortly.
               </p>
               <p className="text-sm text-gray-500">
                 Please do not close this window.
@@ -223,15 +161,10 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
                 className="flex justify-between items-center py-2 border-b"
               >
                 <div>
-                  <p className="font-medium">
-                    {item.product?.title ||
-                      item.course?.title ||
-                      item.variantSnapshot?.title ||
-                      item.courseSnapshot?.title}
-                  </p>
-                  {item.variantSnapshot?.variantInfo && (
+                  <p className="font-medium">{item.name}</p>
+                  {item.variantSku && (
                     <p className="text-sm text-muted-foreground">
-                      {item.variantSnapshot.variantInfo}
+                      SKU: {item.variantSku}
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground">
@@ -256,7 +189,9 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
             </div>
             {(order as any).orderLevelDiscount && (
               <div className="flex justify-between text-green-600">
-                <span>Discount:</span>
+                <span>
+                  Discount ({(order as any).orderLevelDiscount.couponApplied}):
+                </span>
                 <span>
                   -UGX{" "}
                   {(

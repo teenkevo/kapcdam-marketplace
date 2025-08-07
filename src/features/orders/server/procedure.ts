@@ -9,11 +9,9 @@ import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import {
   createOrderSchema,
-  orderResponseSchema,
+  orderSchema,
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
-  sanityOrderSchema,
-  type CreateOrderInput,
   type OrderResponse,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -23,6 +21,7 @@ import {
   type PesapalOrderRequest,
 } from "@/features/payments/schema";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { getDisplayTitle } from "@/features/cart/helpers";
 
 // Generate order number in format KAPC-YYYY-XXX
 function generateOrderNumber(): string {
@@ -110,38 +109,14 @@ export const ordersRouter = createTRPCRouter({
    * Process payment for an existing order
    */
   processOrderPayment: protectedProcedure
-    .input(
-      z.object({
-        orderId: z.string(),
-      })
-    )
+    .input(orderSchema)
     .mutation(
       async ({
         ctx,
-        input,
+        input:order,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
-          // Get order details
-          const order = await client.fetch(
-            groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0] {
-            _id,
-            orderNumber,
-            total,
-            currency,
-            paymentMethod,
-            customer->{email, firstName, lastName},
-            shippingAddress->{_id, phone, address, city, fullName}
-          }`,
-            { orderId: input.orderId, clerkUserId: ctx.auth.userId }
-          );
-
-          if (!order) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Order not found or access denied",
-            });
-          }
-
+         
           if (order.paymentMethod !== "pesapal") {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -179,26 +154,26 @@ export const ordersRouter = createTRPCRouter({
 
           const ipnResult = await registerIpn.json();
 
-          // Create Pesapal payment request following donation pattern
+    
           const pesapalRequest: PesapalOrderRequest = {
-            id: order._id,
-            currency: order.currency || "UGX",
+            id: order.orderId,
+            currency: "UGX",
             amount: order.total,
-            description: `Order ${order.orderNumber} - Kapcdam Marketplace`,
-            callback_url: `${baseUrl}/api/payment/callback?orderId=${order._id}`,
+            description: `Order for ${order.orderItems.map(item => item.name).join(', ')}`,
+            callback_url: `${baseUrl}/api/payment/callback?orderId=${order.orderId}`,
             notification_id: ipnResult.ipn_id,
             billing_address: {
               email_address: order.customer.email,
-              phone_number: order.shippingAddress.phone,
+              phone_number: order.billingAddress.phone,
               country_code: "UG",
               first_name:
                 order.customer.firstName ||
-                order.shippingAddress.fullName.split(" ")[0],
+                order.billingAddress.fullName.split(" ")[0],
               last_name:
                 order.customer.lastName ||
-                order.shippingAddress.fullName.split(" ").slice(1).join(" "),
-              line_1: order.shippingAddress.address,
-              city: order.shippingAddress.city || "Kampala",
+                order.billingAddress.fullName.split(" ").slice(1).join(" "),
+              line_1: order.billingAddress.address,
+              city: order.billingAddress.city
             },
           };
 
@@ -226,7 +201,7 @@ export const ordersRouter = createTRPCRouter({
 
           // Update order with tracking ID
           await client
-            .patch(order._id)
+            .patch(order.orderId)
             .set({
               transactionId: paymentResult.order_tracking_id,
               paymentStatus: "pending",
@@ -255,65 +230,72 @@ export const ordersRouter = createTRPCRouter({
    */
   createOrder: protectedProcedure
     .input(createOrderSchema)
-    .mutation(async ({ ctx, input }): Promise<OrderResponse> => {
-      try {
-        const {
-          shippingAddress,
-          deliveryMethod,
-          paymentMethod,
-          selectedDeliveryZone,
-          appliedCoupon,
-        } = input;
+    .mutation(
+      async ({
+        ctx,
+        input,
+      }): Promise<{ orderId: string; orderNumber: string }> => {
+        try {
+          const {
+            shippingAddress,
+            deliveryMethod,
+            paymentMethod,
+            selectedDeliveryZone,
+            appliedCoupon,
+          } = input;
 
-        // 1. Fetch and validate cart
-        const cart = await client.fetch(CART_ITEMS_QUERY, {
-          clerkUserId: ctx.auth.userId,
-        });
-
-        if (!cart) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Cart not found or access denied",
+          // 1. Fetch and validate cart
+          const cart = await client.fetch(CART_ITEMS_QUERY, {
+            clerkUserId: ctx.auth.userId,
           });
-        }
 
-        const validatedCart = CartSchema.parse(cart);
+          if (!cart) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Cart not found or access denied",
+            });
+          }
 
-        if (!validatedCart.cartItems || validatedCart.cartItems.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Cart is empty",
-          });
-        }
+          const validatedCart = CartSchema.parse(cart);
 
-        // 2. Get user reference
-        const user = await client.fetch(
-          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
-          { clerkUserId: ctx.auth.userId }
-        );
+          if (
+            !validatedCart.cartItems ||
+            validatedCart.cartItems.length === 0
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cart is empty",
+            });
+          }
 
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found",
-          });
-        }
+          // 2. Get user reference
+          const user = await client.fetch(
+            groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+            { clerkUserId: ctx.auth.userId }
+          );
 
-        // 3. Fetch product/course display data for pricing
-        const productIds = validatedCart.cartItems
-          .filter((item) => item.type === "product" && item.productId)
-          .map((item) => item.productId!);
+          if (!user) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "User not found",
+            });
+          }
 
-        const courseIds = validatedCart.cartItems
-          .filter((item) => item.type === "course" && item.courseId)
-          .map((item) => item.courseId!);
+          // 3. Fetch product/course display data for pricing
+          const productIds = validatedCart.cartItems
+            .filter((item) => item.type === "product" && item.productId)
+            .map((item) => item.productId!);
 
-        const selectedSKUs = validatedCart.cartItems
-          .filter((item) => item.selectedVariantSku)
-          .map((item) => item.selectedVariantSku!);
+          const courseIds = validatedCart.cartItems
+            .filter((item) => item.type === "course" && item.courseId)
+            .map((item) => item.courseId!);
 
-        const cartDisplayData = await client.fetch(
-          groq`{
+          const selectedSKUs = validatedCart.cartItems
+            .filter((item) => item.selectedVariantSku)
+            .map((item) => item.selectedVariantSku!);
+
+          const cartDisplayData = await client.fetch(
+            groq`{
             "products": *[_type == "product" && _id in $productIds] {
               _id,
               title,
@@ -347,318 +329,291 @@ export const ordersRouter = createTRPCRouter({
               )
             }
           }`,
-          { productIds, courseIds, selectedSKUs }
-        );
-
-        // 4. Calculate shipping cost
-        const shippingCost =
-          deliveryMethod === "pickup" ? 0 : selectedDeliveryZone?.fee || 0;
-
-        // 5. Calculate totals
-        const totals = calculateOrderTotals(
-          validatedCart.cartItems,
-          cartDisplayData,
-          appliedCoupon,
-          shippingCost
-        );
-
-        // 6. Check for existing pending orders and cancel them (as per lifecycle Phase 3)
-        const existingPendingOrders = await client.fetch(
-          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"]`,
-          { clerkUserId: ctx.auth.userId }
-        );
-
-        // Cancel any existing pending orders
-        if (existingPendingOrders.length > 0) {
-          await Promise.all(
-            existingPendingOrders.map((order: any) =>
-              client
-                .patch(order._id)
-                .set({
-                  status: "cancelled",
-                  paymentStatus: "cancelled",
-                  updatedAt: new Date().toISOString(),
-                })
-                .commit()
-            )
+            { productIds, courseIds, selectedSKUs }
           );
-        }
 
-        // 7. Generate order number
-        const orderNumber = generateOrderNumber();
+          // 4. Calculate shipping cost
+          const shippingCost =
+            deliveryMethod === "pickup" ? 0 : selectedDeliveryZone?.fee || 0;
 
-        // 8. Get discount code reference if coupon is applied
-        let discountCodeRef = null;
-        if (appliedCoupon) {
-          const discountCode = await client.fetch(
-            groq`*[_type == "discountCodes" && code == $code][0]{ _id }`,
-            { code: appliedCoupon.code.toUpperCase() }
+          // 5. Calculate totals
+          const totals = calculateOrderTotals(
+            validatedCart.cartItems,
+            cartDisplayData,
+            appliedCoupon,
+            shippingCost
           );
-          if (discountCode) {
-            discountCodeRef = { _type: "reference", _ref: discountCode._id };
+
+          // 6. Check for existing pending orders and cancel them (as per lifecycle Phase 3)
+          const existingPendingOrders = await client.fetch(
+            groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"]`,
+            { clerkUserId: ctx.auth.userId }
+          );
+
+          // Cancel any existing pending orders
+          if (existingPendingOrders.length > 0) {
+            await Promise.all(
+              existingPendingOrders.map((order: any) =>
+                client
+                  .patch(order._id)
+                  .set({
+                    status: "cancelled",
+                    paymentStatus: "cancelled",
+                    updatedAt: new Date().toISOString(),
+                  })
+                  .commit()
+              )
+            );
           }
-        }
 
-        // 9. Validate shipping address (must be existing address ID only)
-        let addressId: string;
+          // 7. Generate order number
+          const orderNumber = generateOrderNumber();
 
-        if ("addressId" in shippingAddress) {
-          // Using existing address
-          addressId = shippingAddress.addressId;
-
-          // Verify address belongs to user
-          const existingAddress = await client.fetch(
-            groq`*[_type == "address" && _id == $addressId && user->clerkUserId == $clerkUserId][0]`,
-            { addressId, clerkUserId: ctx.auth.userId }
-          );
-
-          if (!existingAddress) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Address not found or access denied",
-            });
+          // 8. Generate coupon display text if coupon is applied
+          let couponDisplayText = null;
+          if (appliedCoupon) {
+            // Create Amazon-style coupon display: "TEST20 20% OFF"
+            couponDisplayText = `${appliedCoupon.code.toUpperCase()} ${appliedCoupon.originalPercentage}% OFF`;
           }
-        } else {
-          // No longer supporting address creation during order - addresses must exist
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "Address must be selected from existing addresses. Please create an address first.",
-          });
-        }
 
-        // 10. Create order document
-        const orderDoc = {
-          _type: "order",
-          orderNumber,
-          orderDate: new Date().toISOString(),
-          customer: { _type: "reference", _ref: user._id },
-          subtotal: totals.subtotal,
-          tax: 0,
-          shippingCost: totals.shippingCost,
-          totalItemDiscounts: totals.totalItemDiscounts,
-          ...(appliedCoupon && {
-            orderLevelDiscount: {
-              ...(discountCodeRef && { discountCode: discountCodeRef }),
-              discountAmount: appliedCoupon.discountAmount,
-              originalPercentage: appliedCoupon.originalPercentage,
-              appliedAt: new Date().toISOString(),
-            },
-          }),
-          total: totals.total,
-          currency: "UGX",
-          paymentStatus: "pending",
-          paymentMethod,
-          status: "pending",
-          isActive: true,
-          shippingAddress: { _type: "reference", _ref: addressId },
-          deliveryMethod,
-          ...(selectedDeliveryZone && {
-            estimatedDelivery: new Date(
-              Date.now() + 24 * 60 * 60 * 1000 // Default to 24 hours from now
-            ).toISOString(),
-          }),
-        };
+          // 9. Validate shipping address (must be existing address ID only)
+          let addressId: string;
 
-        const createdOrder = await client.create(orderDoc);
+          if ("addressId" in shippingAddress) {
+            // Using existing address
+            addressId = shippingAddress.addressId;
 
-        // 11. Create order items
-        const orderItems = await Promise.all(
-          validatedCart.cartItems.map(async (cartItem) => {
-            let originalPrice = 0;
-            let discountApplied = 0;
-            let productSnapshot = null;
-            let courseSnapshot = null;
-
-            if (cartItem.type === "product") {
-              const product = cartDisplayData.products?.find(
-                (p: any) => p._id === cartItem.productId
-              );
-              if (product) {
-                if (
-                  cartItem.selectedVariantSku &&
-                  product.variants?.length > 0
-                ) {
-                  const variant = product.variants.find(
-                    (v: any) => v.sku === cartItem.selectedVariantSku
-                  );
-                  originalPrice = variant
-                    ? parseInt(variant.price)
-                    : parseInt(product.price);
-
-                  productSnapshot = {
-                    title: product.title,
-                    sku: cartItem.selectedVariantSku,
-                    variantInfo: variant?.attributes
-                      ?.map((attr: any) => `${attr.name}: ${attr.value}`)
-                      .join(", "),
-                  };
-                } else {
-                  originalPrice = parseInt(product.price);
-                  productSnapshot = {
-                    title: product.title,
-                    sku: null,
-                    variantInfo: null,
-                  };
-                }
-
-                // Calculate discount
-                if (
-                  product.discountInfo?.isActive &&
-                  product.discountInfo.value > 0
-                ) {
-                  discountApplied = Math.round(
-                    (originalPrice * product.discountInfo.value) / 100
-                  );
-                }
-              }
-            }
-
-            if (cartItem.type === "course") {
-              const course = cartDisplayData.courses?.find(
-                (c: any) => c._id === cartItem.courseId
-              );
-              if (course) {
-                originalPrice = parseInt(course.price);
-                courseSnapshot = {
-                  title: course.title,
-                  description: course.description,
-                  duration: course.duration,
-                  skillLevel: course.skillLevel,
-                };
-
-                // Calculate discount
-                if (
-                  course.discountInfo?.isActive &&
-                  course.discountInfo.value > 0
-                ) {
-                  discountApplied = Math.round(
-                    (originalPrice * course.discountInfo.value) / 100
-                  );
-                }
-              }
-            }
-
-            const finalPrice = originalPrice - discountApplied;
-            const lineTotal = finalPrice * cartItem.quantity;
-
-            const orderItem = {
-              _type: "orderItem",
-              order: { _type: "reference", _ref: createdOrder._id },
-              type: cartItem.type,
-              quantity: cartItem.quantity,
-              originalPrice,
-              discountApplied,
-              finalPrice,
-              lineTotal,
-              ...(cartItem.type === "product" && {
-                product: { _type: "reference", _ref: cartItem.productId },
-                ...(productSnapshot && { variantSnapshot: productSnapshot }),
-              }),
-              ...(cartItem.type === "course" && {
-                course: { _type: "reference", _ref: cartItem.courseId },
-                ...(cartItem.preferredStartDate && {
-                  preferredStartDate: cartItem.preferredStartDate,
-                }),
-                ...(courseSnapshot && { courseSnapshot }),
-              }),
-              fulfillmentStatus: "pending",
-              addedAt: new Date().toISOString(),
-              isActive: true,
-            };
-
-            return client.create(orderItem);
-          })
-        );
-
-        // 12. Update order document with references to created order items
-        const orderItemReferences = orderItems.map(item => ({
-          _type: "reference",
-          _ref: item._id,
-          _key: item._id
-        }));
-
-        await client
-          .patch(createdOrder._id)
-          .set({
-            orderItems: orderItemReferences
-          })
-          .commit();
-
-        // 13. Clear the cart
-        await client
-          .patch(cart._id)
-          .set({
-            cartItems: [], 
-          })
-          .commit();
-
-       
-        try {
-          // Invalidate pages that depend on cart data
-          revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
-          revalidatePath("/checkout", "page"); // Invalidate checkout pages
-
-          // Invalidate Sanity Live cache tags for cart queries
-          revalidateTag("cart-items"); // Invalidate cart items queries
-          revalidateTag("cart-display"); // Invalidate cart display data queries
-        } catch (error) {
-          console.error("Cache invalidation error:", error);
-          // Don't fail the order creation if cache invalidation fails
-        }
-
-        // 15. Apply coupon if provided and track usage
-        if (appliedCoupon && ctx.auth.userId) {
-          try {
-            // Import coupon router to apply coupon
-            const { couponRouter } = await import(
-              "@/features/coupons/server/procedure"
+            // Verify address belongs to user
+            const existingAddress = await client.fetch(
+              groq`*[_type == "address" && _id == $addressId && user->clerkUserId == $clerkUserId][0]`,
+              { addressId, clerkUserId: ctx.auth.userId }
             );
 
-            // Create a TRPC context for the coupon application
-            const couponCtx = {
-              auth: ctx.auth,
-              pesapalToken: ctx.pesapalToken,
-            };
-
-            // Apply the coupon and track usage
-            await couponRouter.createCaller(couponCtx).applyCoupon({
-              code: appliedCoupon.code,
-              orderNumber,
-              orderTotal: totals.subtotal + totals.shippingCost,
-              discountAmount: appliedCoupon.discountAmount,
-              orderId: createdOrder._id,
+            if (!existingAddress) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Address not found or access denied",
+              });
+            }
+          } else {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Address must be selected from existing addresses. Please create an address first.",
             });
-          } catch (error) {
-            console.error("Failed to apply coupon:", error);
-            // Don't fail the order creation if coupon tracking fails
           }
-        }
 
-        return {
-          orderId: createdOrder._id,
-          orderNumber,
-          total: totals.total,
-          paymentRequired: paymentMethod === "pesapal" && totals.total > 0,
-          paymentMethod,
-          shippingAddress: { addressId },
-          user: {
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-          },
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
+          // 10. Create order document
+          const orderDoc = {
+            _type: "order",
+            orderNumber,
+            orderDate: new Date().toISOString(),
+            customer: { _type: "reference", _ref: user._id },
+            subtotal: totals.subtotal,
+            tax: 0,
+            shippingCost: totals.shippingCost,
+            totalItemDiscounts: totals.totalItemDiscounts,
+            ...(appliedCoupon && {
+              orderLevelDiscount: {
+                couponApplied: couponDisplayText,
+                discountAmount: appliedCoupon.discountAmount,
+              },
+            }),
+            total: totals.total,
+            currency: "UGX",
+            paymentStatus: "pending",
+            paymentMethod,
+            status: "pending",
+            isActive: true,
+            shippingAddress: { _type: "reference", _ref: addressId },
+            deliveryMethod,
+            ...(selectedDeliveryZone && {
+              estimatedDelivery: new Date(
+                Date.now() + 24 * 60 * 60 * 1000 // Default to 24 hours from now
+              ).toISOString(),
+            }),
+          };
+
+          const createdOrder = await client.create(orderDoc);
+
+          // 11. Create order items with Amazon-style naming
+          const orderItems = await Promise.all(
+            validatedCart.cartItems.map(async (cartItem) => {
+              let originalPrice = 0;
+              let discountApplied = 0;
+              let itemName = "";
+              let variantSku = null;
+
+              if (cartItem.type === "product") {
+                const product = cartDisplayData.products?.find(
+                  (p: any) => p._id === cartItem.productId
+                );
+                if (product) {
+                  if (
+                    cartItem.selectedVariantSku &&
+                    product.variants?.length > 0
+                  ) {
+                    const variant = product.variants.find(
+                      (v: any) => v.sku === cartItem.selectedVariantSku
+                    );
+                    originalPrice = variant
+                      ? parseInt(variant.price)
+                      : parseInt(product.price);
+
+                    // Generate Amazon-style name for variant
+                    itemName = variant?.attributes
+                      ? `${product.title} ${variant.attributes
+                          .map((attr: any) => `${attr.name} - ${attr.value}`)
+                          .join(", ")}`
+                      : product.title;
+
+                    variantSku = cartItem.selectedVariantSku;
+                  } else {
+                    originalPrice = parseInt(product.price);
+                    itemName = product.title;
+                  }
+
+                  // Calculate discount
+                  if (
+                    product.discountInfo?.isActive &&
+                    product.discountInfo.value > 0
+                  ) {
+                    discountApplied = Math.round(
+                      (originalPrice * product.discountInfo.value) / 100
+                    );
+                  }
+                }
+              }
+
+              if (cartItem.type === "course") {
+                const course = cartDisplayData.courses?.find(
+                  (c: any) => c._id === cartItem.courseId
+                );
+                if (course) {
+                  originalPrice = parseInt(course.price);
+                  itemName = course.title;
+
+                  // Calculate discount
+                  if (
+                    course.discountInfo?.isActive &&
+                    course.discountInfo.value > 0
+                  ) {
+                    discountApplied = Math.round(
+                      (originalPrice * course.discountInfo.value) / 100
+                    );
+                  }
+                }
+              }
+
+              const unitPrice = originalPrice - discountApplied;
+              const lineTotal = unitPrice * cartItem.quantity;
+
+              const orderItem = {
+                _type: "orderItem",
+                order: { _type: "reference", _ref: createdOrder._id },
+                type: cartItem.type,
+                name: itemName,
+                ...(variantSku && { variantSku }),
+                quantity: cartItem.quantity,
+                originalPrice,
+                discountApplied,
+                unitPrice,
+                lineTotal,
+                ...(cartItem.type === "product" && {
+                  product: { _type: "reference", _ref: cartItem.productId },
+                }),
+                ...(cartItem.type === "course" && {
+                  course: { _type: "reference", _ref: cartItem.courseId },
+                  ...(cartItem.preferredStartDate && {
+                    preferredStartDate: cartItem.preferredStartDate,
+                  }),
+                }),
+                fulfillmentStatus: "pending",
+              };
+
+              return client.create(orderItem);
+            })
+          );
+
+          // 12. Update order document with references to created order items
+          const orderItemReferences = orderItems.map((item) => ({
+            _type: "reference",
+            _ref: item._id,
+            _key: item._id,
+          }));
+
+          await client
+            .patch(createdOrder._id)
+            .set({
+              orderItems: orderItemReferences,
+            })
+            .commit();
+
+          // 13. Clear the cart
+          await client
+            .patch(cart._id)
+            .set({
+              cartItems: [],
+            })
+            .commit();
+
+          try {
+            // Invalidate pages that depend on cart data
+            revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
+            revalidatePath("/checkout", "page"); // Invalidate checkout pages
+
+            // Invalidate Sanity Live cache tags for cart queries
+            revalidateTag("cart-items"); // Invalidate cart items queries
+            revalidateTag("cart-display"); // Invalidate cart display data queries
+          } catch (error) {
+            console.error("Cache invalidation error:", error);
+            // Don't fail the order creation if cache invalidation fails
+          }
+
+          // 15. Apply coupon if provided and track usage
+          if (appliedCoupon && ctx.auth.userId) {
+            try {
+              // Import coupon router to apply coupon
+              const { couponRouter } = await import(
+                "@/features/coupons/server/procedure"
+              );
+
+              // Create a TRPC context for the coupon application
+              const couponCtx = {
+                auth: ctx.auth,
+                pesapalToken: ctx.pesapalToken,
+              };
+
+              // Apply the coupon and track usage
+              await couponRouter.createCaller(couponCtx).applyCoupon({
+                code: appliedCoupon.code,
+                orderNumber,
+                orderTotal: totals.subtotal + totals.shippingCost,
+                discountAmount: appliedCoupon.discountAmount,
+                orderId: createdOrder._id,
+              });
+            } catch (error) {
+              console.error("Failed to apply coupon:", error);
+              // Don't fail the order creation if coupon tracking fails
+            }
+          }
+
+          return {
+            orderId: createdOrder._id,
+            orderNumber,
+          };
+        } catch (error) {
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+          console.error("Order creation error:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create order",
+          });
         }
-        console.error("Order creation error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create order",
-        });
       }
-    }),
+    ),
 
   /**
    * Update order status
@@ -812,13 +767,14 @@ export const ordersRouter = createTRPCRouter({
             "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
               _id,
               type,
+              name,
+              variantSku,
               quantity,
-              finalPrice,
+              originalPrice,
+              discountApplied,
+              unitPrice,
               lineTotal,
-              product->{title},
-              course->{title},
-              variantSnapshot,
-              courseSnapshot
+              fulfillmentStatus
             }
           }`,
         { clerkUserId: ctx.auth.userId }
@@ -849,7 +805,6 @@ export const ordersRouter = createTRPCRouter({
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        // Verify order ownership and pending status
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0]`,
           { orderId: input.orderId, clerkUserId: ctx.auth.userId }
@@ -862,7 +817,6 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        // Cancel the order
         const cancelledOrder = await client
           .patch(input.orderId)
           .set({
@@ -893,39 +847,32 @@ export const ordersRouter = createTRPCRouter({
       try {
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0] {
-            _id,
+            "orderId": _id,
             orderNumber,
             orderDate,
-            subtotal,
-            tax,
-            shippingCost,
-            totalItemDiscounts,
-            orderLevelDiscount,
             total,
-            currency,
             paymentStatus,
             paymentMethod,
-            transactionId,
-            paidAt,
             status,
-            notes,
-            shippingAddress->,
             deliveryMethod,
             estimatedDelivery,
-            deliveredAt,
+            transactionId,
+            status,
+            customer->{email, firstName, lastName},
+            orderLevelDiscount,
+            "billingAddress": shippingAddress->{_id, phone, address, city, fullName},
             "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
               _id,
               type,
+              name,
+              variantSku,
               quantity,
-              originalPrice,
               discountApplied,
-              finalPrice,
+              unitPrice,
               lineTotal,
-              product->,
-              course->,
-              variantSnapshot,
-              courseSnapshot,
-              fulfillmentStatus
+              "image": coalesce(product->images[0], course->images[0]),
+              preferredStartDate,
+              fulfillmentStatus,
             }
           }`,
           { orderId: input.orderId, clerkUserId: ctx.auth.userId }
@@ -938,8 +885,17 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        return order;
+        const validatedOrder = orderSchema.parse(order);
+
+        return validatedOrder;
       } catch (error) {
+        if (error instanceof z.ZodError) {
+          console.error("Schema validation error:", error.errors);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid order data structure",
+          });
+        }
         if (error instanceof TRPCError) {
           throw error;
         }

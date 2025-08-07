@@ -33,6 +33,22 @@ export const orderItem = defineType({
     }),
 
     defineField({
+      name: "name",
+      title: "Item Name",
+      type: "string",
+      description: "Amazon-style display name (e.g., 'iPhone 11 Pro Storage - 256GB, Color - Peach')",
+      validation: (rule) => rule.required().error("Item name is required"),
+    }),
+
+    defineField({
+      name: "variantSku",
+      title: "Variant SKU",
+      type: "string",
+      description: "SKU for product variants (displayed below title)",
+      hidden: ({ document }) => document?.type !== "product",
+    }),
+
+    defineField({
       name: "quantity",
       title: "Quantity",
       type: "number",
@@ -64,19 +80,19 @@ export const orderItem = defineType({
     }),
 
     defineField({
-      name: "finalPrice",
-      title: "Final Price (UGX)",
+      name: "unitPrice",
+      title: "Unit Price (UGX)",
       type: "number",
-      description: "Price after discount (originalPrice - discountApplied)",
+      description: "Final price after discount (originalPrice - discountApplied)",
       validation: (rule) =>
-        rule.required().min(0).error("Final price must be a positive number"),
+        rule.required().min(0).error("Unit price must be a positive number"),
     }),
 
     defineField({
       name: "lineTotal",
       title: "Line Total (UGX)",
       type: "number",
-      description: "Total for this line item (quantity × finalPrice)",
+      description: "Total for this line item (quantity × unitPrice)",
       validation: (rule) =>
         rule.required().min(0).error("Line total must be a positive number"),
     }),
@@ -85,7 +101,7 @@ export const orderItem = defineType({
       name: "product",
       title: "Product",
       type: "reference",
-      description: "Reference to the specific productpurchased",
+      description: "Reference to the original product (for both products and variants)",
       to: [{ type: "product" }], 
       hidden: ({ document }) => document?.type !== "product",
       validation: (rule) =>
@@ -98,62 +114,18 @@ export const orderItem = defineType({
         }),
     }),
 
-
-    defineField({
-      name: "variantSnapshot",
-      title: "Variant Snapshot",
-      type: "object",
-      description: "Snapshot of variant data at time of order",
-      hidden: ({ document }) => document?.type !== "product",
-      readOnly: true,
-      fields: [
-        defineField({
-          name: "title",
-          title: "Variant Title",
-          type: "string",
-          description: "Variant title at time of order",
-        }),
-        defineField({
-          name: "sku",
-          title: "SKU",
-          type: "string",
-          description: "Variant SKU at time of order",
-        }),
-        defineField({
-          name: "price",
-          title: "Price",
-          type: "string",
-          description: "Price at time of order",
-        }),
-        defineField({
-          name: "attributeValues",
-          title: "Attribute Values",
-          description: "Variant attributes at time of order",
-          type: "array",
-          of: [
-            {
-              type: "object",
-              fields: [
-                defineField({ name: "name", title: "Name", type: "string" }),
-                defineField({ name: "value", title: "Value", type: "string" }),
-              ],
-            },
-          ],
-        }),
-      ],
-    }),
-
     defineField({
       name: "course",
       title: "Course",
       type: "reference",
+      description: "Reference to the course",
       to: [{ type: "course" }],
       hidden: ({ document }) => document?.type !== "course",
       validation: (rule) =>
         rule.custom((value, context) => {
           const itemType = context.document?.type;
           if (itemType === "course" && !value) {
-            return "Course reference is required";
+            return "Course reference is required when item type is course";
           }
           return true;
         }),
@@ -163,20 +135,8 @@ export const orderItem = defineType({
       name: "preferredStartDate",
       title: "Preferred Start Date",
       type: "datetime",
+      description: "Preferred course start date",
       hidden: ({ document }) => document?.type !== "course",
-    }),
-
-    defineField({
-      name: "courseSnapshot",
-      title: "Course Snapshot",
-      type: "object",
-      hidden: ({ document }) => document?.type !== "course",
-      fields: [
-        defineField({ name: "title", type: "string" }),
-        defineField({ name: "description", type: "text" }),
-        defineField({ name: "duration", type: "string" }),
-        defineField({ name: "skillLevel", type: "string" }),
-      ],
     }),
 
     defineField({
@@ -203,58 +163,30 @@ export const orderItem = defineType({
       name: "fulfillmentNotes",
       title: "Fulfillment Notes",
       type: "text",
+      description: "Internal notes for fulfillment team",
       rows: 2,
-    }),
-
-    defineField({
-      name: "addedAt",
-      title: "Added At",
-      type: "datetime",
-      validation: (rule) => rule.required(),
-      initialValue: () => new Date().toISOString(),
-    }),
-
-    defineField({
-      name: "isActive",
-      title: "Item Active",
-      type: "boolean",
-      initialValue: true,
     }),
   ],
 
   preview: {
     select: {
-      type: "type",
+      name: "name",
+      variantSku: "variantSku",
       quantity: "quantity",
-      finalPrice: "finalPrice",
+      unitPrice: "unitPrice",
       lineTotal: "lineTotal",
-      productTitle: "product.title",
-      courseTitle: "course.title",
       orderNumber: "order.orderNumber",
-      variantSnapshotTitle: "variantSnapshot.title",
-      courseSnapshotTitle: "courseSnapshot.title",
     },
     prepare({
-      type,
+      name,
+      variantSku,
       quantity,
-      finalPrice,
+      unitPrice,
       lineTotal,
-      productTitle,
-      courseTitle,
       orderNumber,
-      variantSnapshotTitle,
-      courseSnapshotTitle,
     }) {
-      // Get item name with fallbacks to snapshot data
-      let itemName = "Unknown Item";
-      if (type === "product") {
-        itemName = productTitle || variantSnapshotTitle || "Unknown Product";
-      } else if (type === "course") {
-        itemName = courseTitle || courseSnapshotTitle || "Unknown Course";
-      }
-
-      const priceFormatted = finalPrice
-        ? `${finalPrice.toLocaleString()} UGX`
+      const priceFormatted = unitPrice
+        ? `${unitPrice.toLocaleString()} UGX`
         : "No price";
       const totalFormatted = lineTotal
         ? `${lineTotal.toLocaleString()} UGX`
@@ -262,9 +194,14 @@ export const orderItem = defineType({
       const quantityInfo = quantity ? ` (${quantity}x)` : "";
       const orderInfo = orderNumber ? ` • ${orderNumber}` : "";
 
+      // Create a cleaner title with SKU on separate line if available
+      const titleText = `${name || "Unknown Item"}${quantityInfo}`;
+      const skuLine = variantSku ? `\nSKU: ${variantSku}` : "";
+      const priceInfo = `${priceFormatted} → ${totalFormatted}${orderInfo}`;
+
       return {
-        title: `${itemName}${quantityInfo}`,
-        subtitle: `${priceFormatted} → ${totalFormatted}${orderInfo}`,
+        title: titleText + skuLine,
+        subtitle: priceInfo,
       };
     },
   },
@@ -272,7 +209,7 @@ export const orderItem = defineType({
     {
       title: "Recent Items",
       name: "recentItems",
-      by: [{ field: "addedAt", direction: "desc" }],
+      by: [{ field: "_createdAt", direction: "desc" }],
     },
     {
       title: "Line Total: High to Low",

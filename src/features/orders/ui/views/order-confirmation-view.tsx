@@ -29,13 +29,8 @@ interface OrderWithItems {
   shippingCost: number | null;
   totalItemDiscounts: number | null;
   orderLevelDiscount?: {
-    discountCode?: {
-      _ref: string;
-      _type: "reference";
-    } | null;
+    couponApplied: string;
     discountAmount: number;
-    originalPercentage: number;
-    appliedAt: string;
   } | null;
   total: number;
   currency: string;
@@ -73,24 +68,16 @@ interface OrderWithItems {
   orderItems: Array<{
     _id: string;
     type: "product" | "course";
+    name: string;
+    variantSku?: string;
     quantity: number;
     originalPrice: number;
     discountApplied: number;
-    finalPrice: number;
+    unitPrice: number;
     lineTotal: number;
     product?: any;
     course?: any;
-    variantSnapshot?: {
-      title: string;
-      sku?: string;
-      variantInfo?: string;
-    };
-    courseSnapshot?: {
-      title: string;
-      description?: string;
-      duration?: string;
-      skillLevel?: string;
-    };
+    preferredStartDate?: string;
     fulfillmentStatus?: string;
   }>;
 }
@@ -242,13 +229,11 @@ function OrderConfirmationContent({ orderId }: OrderConfirmationViewProps) {
                 >
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">
-                      {item.type === "product"
-                        ? item.variantSnapshot?.title || item.product?.title
-                        : item.courseSnapshot?.title || item.course?.title}
+                      {item.name}
                     </p>
-                    {item.variantSnapshot?.variantInfo && (
+                    {item.variantSku && (
                       <p className="text-sm text-gray-600">
-                        {item.variantSnapshot.variantInfo}
+                        SKU: {item.variantSku}
                       </p>
                     )}
                     <p className="text-sm text-gray-600">
@@ -316,7 +301,7 @@ function OrderConfirmationContent({ orderId }: OrderConfirmationViewProps) {
               )}
               {typedOrder.orderLevelDiscount?.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Coupon Discount</span>
+                  <span>Discount ({typedOrder.orderLevelDiscount.couponApplied})</span>
                   <span>
                     -{formatPrice(typedOrder.orderLevelDiscount.discountAmount)}
                   </span>

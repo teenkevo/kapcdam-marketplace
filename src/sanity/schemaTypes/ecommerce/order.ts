@@ -92,42 +92,22 @@ export const order = defineType({
       name: "orderLevelDiscount",
       title: "Order-Level Discount",
       type: "object",
-      description: "Applied coupon discount information",
+      description: "Applied coupon discount information (e.g., 'TEST20 20% OFF')",
       fields: [
         defineField({
-          name: "discountCode",
-          title: "Discount Code",
-          type: "reference",
-          to: [{ type: "discountCodes" }],
-          description: "Reference to the applied discount code",
+          name: "couponApplied",
+          title: "Coupon Applied",
+          type: "string",
+          description: "Coupon display text (e.g., 'TEST20 20% OFF')",
+          validation: (rule) => rule.required().error("Coupon applied text is required"),
         }),
         defineField({
           name: "discountAmount",
           title: "Discount Amount (UGX)",
           type: "number",
-          description: "Actual discount amount applied",
+          description: "Actual discount amount applied at order level",
           validation: (rule) =>
             rule.required().min(0).error("Discount amount cannot be negative"),
-        }),
-        defineField({
-          name: "originalPercentage",
-          title: "Original Percentage (%)",
-          type: "number",
-          description: "Original percentage from the discount code",
-          validation: (rule) =>
-            rule
-              .required()
-              .min(1)
-              .max(100)
-              .error("Percentage must be between 1% and 100%"),
-        }),
-        defineField({
-          name: "appliedAt",
-          title: "Applied At",
-          type: "datetime",
-          description: "When the discount was applied",
-          validation: (rule) => rule.required(),
-          initialValue: () => new Date().toISOString(),
         }),
       ],
     }),
@@ -225,22 +205,6 @@ export const order = defineType({
     }),
 
     defineField({
-      name: "notes",
-      title: "Internal Notes",
-      type: "text",
-      description: "Internal admin notes about this order",
-      rows: 3,
-    }),
-
-    defineField({
-      name: "isActive",
-      title: "Order Active",
-      type: "boolean",
-      description: "Is this order visible/active?",
-      initialValue: true,
-    }),
-
-    defineField({
       name: "shippingAddress",
       title: "Shipping Address",
       type: "reference",
@@ -281,6 +245,13 @@ export const order = defineType({
       type: "datetime",
       description: "When the order was actually delivered",
       hidden: ({ document }) => document?.status !== "delivered",
+    }),
+    defineField({
+      name: "notes",
+      title: "Internal Notes",
+      type: "text",
+      description: "Internal admin notes about this order",
+      rows: 3,
     }),
   ],
 
