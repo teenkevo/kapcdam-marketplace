@@ -70,7 +70,6 @@ const orderItemSchema = z.object({
   unitPrice: z.number(),
   lineTotal: z.number(),
   type: z.enum(["product", "course"]),
-  fulfillmentStatus: z.enum(["pending", "fulfilled", "shipped", "cancelled"]),
   discountApplied: z.number(),
   image: z.any().nullable(),
   preferredStartDate: z.string().datetime().nullable(),

@@ -42,12 +42,7 @@ export const order = defineType({
       title: "Order Items",
       type: "array",
       description: "Items in this order",
-      of: [
-        {
-          type: "reference",
-          to: [{ type: "orderItem" }],
-        },
-      ],
+      of: [{ type: "orderItem" }],
       readOnly: true,
     }),
     defineField({

@@ -30,8 +30,7 @@ export async function POST(request: NextRequest) {
         status,
         total,
         transactionId,
-        "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
-          _id,
+        orderItems[] {
           type,
           quantity,
           variantSku,
@@ -147,7 +146,6 @@ export async function POST(request: NextRequest) {
             );
           }
         }
-   
       }
 
       // Execute all stock updates

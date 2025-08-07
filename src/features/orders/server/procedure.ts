@@ -22,6 +22,7 @@ import {
 } from "@/features/payments/schema";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getDisplayTitle } from "@/features/cart/helpers";
+import { nanoid } from "nanoid";
 
 // Generate order number in format KAPC-YYYY-XXX
 function generateOrderNumber(): string {
@@ -354,7 +355,6 @@ export const ordersRouter = createTRPCRouter({
                   .patch(order._id)
                   .set({
                     status: "cancelled",
-                    paymentStatus: "cancelled",
                   })
                   .commit()
               )
@@ -429,119 +429,107 @@ export const ordersRouter = createTRPCRouter({
             }),
           };
 
-          const createdOrder = await client.create(orderDoc);
+          // 11. Create order items as embedded objects
+          const orderItems = validatedCart.cartItems.map((cartItem) => {
+            let originalPrice = 0;
+            let discountApplied = 0;
+            let itemName = "";
+            let variantSku = null;
 
-          // 11. Create order items with Amazon-style naming
-          const orderItems = await Promise.all(
-            validatedCart.cartItems.map(async (cartItem) => {
-              let originalPrice = 0;
-              let discountApplied = 0;
-              let itemName = "";
-              let variantSku = null;
+            if (cartItem.type === "product") {
+              const product = cartDisplayData.products?.find(
+                (p: any) => p._id === cartItem.productId
+              );
+              if (product) {
+                if (
+                  cartItem.selectedVariantSku &&
+                  product.variants?.length > 0
+                ) {
+                  const variant = product.variants.find(
+                    (v: any) => v.sku === cartItem.selectedVariantSku
+                  );
+                  originalPrice = variant
+                    ? parseInt(variant.price)
+                    : parseInt(product.price);
 
-              if (cartItem.type === "product") {
-                const product = cartDisplayData.products?.find(
-                  (p: any) => p._id === cartItem.productId
-                );
-                if (product) {
-                  if (
-                    cartItem.selectedVariantSku &&
-                    product.variants?.length > 0
-                  ) {
-                    const variant = product.variants.find(
-                      (v: any) => v.sku === cartItem.selectedVariantSku
-                    );
-                    originalPrice = variant
-                      ? parseInt(variant.price)
-                      : parseInt(product.price);
+                  // Generate Amazon-style name for variant
+                  itemName = variant?.attributes
+                    ? `${product.title} ${variant.attributes
+                        .map((attr: any) => `${attr.name} - ${attr.value}`)
+                        .join(", ")}`
+                    : product.title;
 
-                    // Generate Amazon-style name for variant
-                    itemName = variant?.attributes
-                      ? `${product.title} ${variant.attributes
-                          .map((attr: any) => `${attr.name} - ${attr.value}`)
-                          .join(", ")}`
-                      : product.title;
+                  variantSku = cartItem.selectedVariantSku;
+                } else {
+                  originalPrice = parseInt(product.price);
+                  itemName = product.title;
+                }
 
-                    variantSku = cartItem.selectedVariantSku;
-                  } else {
-                    originalPrice = parseInt(product.price);
-                    itemName = product.title;
-                  }
-
-                  // Calculate discount
-                  if (
-                    product.discountInfo?.isActive &&
-                    product.discountInfo.value > 0
-                  ) {
-                    discountApplied = Math.round(
-                      (originalPrice * product.discountInfo.value) / 100
-                    );
-                  }
+                // Calculate discount
+                if (
+                  product.discountInfo?.isActive &&
+                  product.discountInfo.value > 0
+                ) {
+                  discountApplied = Math.round(
+                    (originalPrice * product.discountInfo.value) / 100
+                  );
                 }
               }
+            }
 
-              if (cartItem.type === "course") {
-                const course = cartDisplayData.courses?.find(
-                  (c: any) => c._id === cartItem.courseId
-                );
-                if (course) {
-                  originalPrice = parseInt(course.price);
-                  itemName = course.title;
+            if (cartItem.type === "course") {
+              const course = cartDisplayData.courses?.find(
+                (c: any) => c._id === cartItem.courseId
+              );
+              if (course) {
+                originalPrice = parseInt(course.price);
+                itemName = course.title;
 
-                  // Calculate discount
-                  if (
-                    course.discountInfo?.isActive &&
-                    course.discountInfo.value > 0
-                  ) {
-                    discountApplied = Math.round(
-                      (originalPrice * course.discountInfo.value) / 100
-                    );
-                  }
+                // Calculate discount
+                if (
+                  course.discountInfo?.isActive &&
+                  course.discountInfo.value > 0
+                ) {
+                  discountApplied = Math.round(
+                    (originalPrice * course.discountInfo.value) / 100
+                  );
                 }
               }
+            }
 
-              const unitPrice = originalPrice - discountApplied;
-              const lineTotal = unitPrice * cartItem.quantity;
+            const unitPrice = originalPrice - discountApplied;
+            const lineTotal = unitPrice * cartItem.quantity;
 
-              const orderItem = {
-                _type: "orderItem",
-                order: { _type: "reference", _ref: createdOrder._id },
-                type: cartItem.type,
-                name: itemName,
-                ...(variantSku && { variantSku }),
-                quantity: cartItem.quantity,
-                originalPrice,
-                discountApplied,
-                unitPrice,
-                lineTotal,
-                ...(cartItem.type === "product" && {
-                  product: { _type: "reference", _ref: cartItem.productId },
+            return {
+              _type: "orderItem",
+              _key: nanoid(10),
+              type: cartItem.type,
+              name: itemName,
+              ...(variantSku && { variantSku }),
+              quantity: cartItem.quantity,
+              originalPrice,
+              discountApplied,
+              unitPrice,
+              lineTotal,
+              ...(cartItem.type === "product" && {
+                product: { _type: "reference", _ref: cartItem.productId },
+              }),
+              ...(cartItem.type === "course" && {
+                course: { _type: "reference", _ref: cartItem.courseId },
+                ...(cartItem.preferredStartDate && {
+                  preferredStartDate: cartItem.preferredStartDate,
                 }),
-                ...(cartItem.type === "course" && {
-                  course: { _type: "reference", _ref: cartItem.courseId },
-                  ...(cartItem.preferredStartDate && {
-                    preferredStartDate: cartItem.preferredStartDate,
-                  }),
-                }),
-              };
+              }),
+            };
+          });
 
-              return client.create(orderItem);
-            })
-          );
+          // 12. Create order document with embedded order items
+          const orderDocWithItems = {
+            ...orderDoc,
+            orderItems,
+          };
 
-          // 12. Update order document with references to created order items
-          const orderItemReferences = orderItems.map((item) => ({
-            _type: "reference",
-            _ref: item._id,
-            _key: item._id,
-          }));
-
-          await client
-            .patch(createdOrder._id)
-            .set({
-              orderItems: orderItemReferences,
-            })
-            .commit();
+          const createdOrder = await client.create(orderDocWithItems);
 
           // 13. Clear the cart
           await client
@@ -798,28 +786,19 @@ export const ordersRouter = createTRPCRouter({
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const order = await client.fetch(
-          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0]`,
-          { orderId: input.orderId, clerkUserId: ctx.auth.userId }
-        );
-
-        if (!order) {
+        if (!input.orderId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Pending order not found or access denied",
           });
         }
 
-        const cancelledOrder = await client
-          .patch(input.orderId)
-          .set({
-            status: "cancelled",
-            paymentStatus: "cancelled",
-           
-          })
-          .commit();
+        await client.delete(input.orderId);
 
-        return { success: true, order: cancelledOrder };
+        return {
+          success: true,
+          message: "Pending order deleted successfully.",
+        };
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;

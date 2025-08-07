@@ -3,20 +3,10 @@ import { defineType, defineField } from "sanity";
 export const orderItem = defineType({
   name: "orderItem",
   title: "Order Item",
-  type: "document",
+  type: "object",
   readOnly: true,
   description: "Individual items within an order (products or courses)",
   fields: [
-    defineField({
-      name: "order",
-      title: "Order",
-      type: "reference",
-      description: "Reference to the parent order",
-      to: [{ type: "order" }],
-      validation: (rule) =>
-        rule.required().error("Order reference is required"),
-    }),
-
     defineField({
       name: "type",
       title: "Item Type",
@@ -36,7 +26,8 @@ export const orderItem = defineType({
       name: "name",
       title: "Item Name",
       type: "string",
-      description: "Amazon-style display name (e.g., 'iPhone 11 Pro Storage - 256GB, Color - Peach')",
+      description:
+        "Amazon-style display name (e.g., 'iPhone 11 Pro Storage - 256GB, Color - Peach')",
       validation: (rule) => rule.required().error("Item name is required"),
     }),
 
@@ -83,7 +74,8 @@ export const orderItem = defineType({
       name: "unitPrice",
       title: "Unit Price (UGX)",
       type: "number",
-      description: "Final price after discount (originalPrice - discountApplied)",
+      description:
+        "Final price after discount (originalPrice - discountApplied)",
       validation: (rule) =>
         rule.required().min(0).error("Unit price must be a positive number"),
     }),
@@ -101,8 +93,9 @@ export const orderItem = defineType({
       name: "product",
       title: "Product",
       type: "reference",
-      description: "Reference to the original product (for both products and variants)",
-      to: [{ type: "product" }], 
+      description:
+        "Reference to the original product (for both products and variants)",
+      to: [{ type: "product" }],
       hidden: ({ document }) => document?.type !== "product",
       validation: (rule) =>
         rule.custom((value, context) => {
@@ -149,14 +142,7 @@ export const orderItem = defineType({
       lineTotal: "lineTotal",
       orderNumber: "order.orderNumber",
     },
-    prepare({
-      name,
-      variantSku,
-      quantity,
-      unitPrice,
-      lineTotal,
-      orderNumber,
-    }) {
+    prepare({ name, variantSku, quantity, unitPrice, lineTotal, orderNumber }) {
       const priceFormatted = unitPrice
         ? `${unitPrice.toLocaleString()} UGX`
         : "No price";
@@ -177,16 +163,4 @@ export const orderItem = defineType({
       };
     },
   },
-  orderings: [
-    {
-      title: "Recent Items",
-      name: "recentItems",
-      by: [{ field: "_createdAt", direction: "desc" }],
-    },
-    {
-      title: "Line Total: High to Low",
-      name: "lineTotalDesc",
-      by: [{ field: "lineTotal", direction: "desc" }],
-    },
-  ],
 });
