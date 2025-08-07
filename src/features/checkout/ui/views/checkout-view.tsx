@@ -101,7 +101,6 @@ export default function CheckoutView() {
       appliedCoupon,
     };
 
-    console.log("Submitting order with data:", orderData); // Debug log
     createOrderMutation.mutate(orderData);
   };
 
@@ -123,22 +122,23 @@ export default function CheckoutView() {
     );
   }
 
-  if (isProcessingOrder && userCart?.cartItems?.length === 0) {
+  if (isProcessingOrder) {
     return (
-      <div className="max-w-7xl mx-auto py-10 md:py-20 relative">
-        <div className=" inset-0 bg-white/50 z-50 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-sm shadow-lg text-center">
+      <div className="max-w-7xl flex-1 mx-auto py-10 md:py-20 relative flex justify-center items-center">
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <div className=" text-center">
             <Loader2 className="animate-spin rounded-full h-12 w-12 text-[#C5F82A] mx-auto mb-4" />
             <h3 className="text-base font-medium mb-2">
               {createOrderMutation.isPending
-                ? "Creating Your Order..."
-                : "Redirecting you to secure payment..."}
+                ? "Processing your order"
+                : "Redirecting to pesapal"}
             </h3>
-            {createOrderMutation.isPending && (
-              <p className="text-gray-600 text-sm">
-                Please wait while we prepare your order
-              </p>
-            )}
+
+            <p className="text-gray-600 text-sm">
+              {createOrderMutation.isPending
+                ? "Please wait while we prepare your order"
+                : "Make secure payment to complete your order"}
+            </p>
           </div>
         </div>
       </div>

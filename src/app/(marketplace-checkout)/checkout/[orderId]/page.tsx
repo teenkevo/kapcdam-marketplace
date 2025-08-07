@@ -34,7 +34,12 @@ export default async function OrderCheckoutPage({ params }: Props) {
   ) {
     const { paymentUrl, orderTrackingId } =
       await trpc.orders.processOrderPayment(order);
-    redirect(paymentUrl);
+      await trpc.orders.updatePaymentStatus({
+        orderId: order.orderId,
+        paymentStatus: "pending",
+        transactionId: orderTrackingId,
+      });
+      redirect(paymentUrl);
   }
 
   return <div>Hello</div>;

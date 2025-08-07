@@ -92,14 +92,16 @@ export const order = defineType({
       name: "orderLevelDiscount",
       title: "Order-Level Discount",
       type: "object",
-      description: "Applied coupon discount information (e.g., 'TEST20 20% OFF')",
+      description:
+        "Applied coupon discount information (e.g., 'TEST20 20% OFF')",
       fields: [
         defineField({
           name: "couponApplied",
           title: "Coupon Applied",
           type: "string",
           description: "Coupon display text (e.g., 'TEST20 20% OFF')",
-          validation: (rule) => rule.required().error("Coupon applied text is required"),
+          validation: (rule) =>
+            rule.required().error("Coupon applied text is required"),
         }),
         defineField({
           name: "discountAmount",
@@ -139,6 +141,8 @@ export const order = defineType({
       description: "Current payment status",
       options: {
         list: [
+          { title: "Not Initiated", value: "not_initiated" },
+          { title: "Initiated", value: "initiated" },
           { title: "Pending", value: "pending" },
           { title: "Paid", value: "paid" },
           { title: "Failed", value: "failed" },
@@ -148,7 +152,7 @@ export const order = defineType({
         layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Payment status is required"),
-      initialValue: "pending",
+      initialValue: "not_initiated",
     }),
 
     defineField({

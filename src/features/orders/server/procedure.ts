@@ -244,7 +244,7 @@ export const ordersRouter = createTRPCRouter({
             appliedCoupon,
           } = input;
 
-          // 1. Fetch and validate cart
+         
           const cart = await client.fetch(CART_ITEMS_QUERY, {
             clerkUserId: ctx.auth.userId,
           });
@@ -421,7 +421,7 @@ export const ordersRouter = createTRPCRouter({
             }),
             total: totals.total,
             currency: "UGX",
-            paymentStatus: "pending",
+            paymentStatus: "not_initiated",
             paymentMethod,
             status: "pending",
             isActive: true,
