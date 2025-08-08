@@ -1,24 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { useTRPC } from "@/trpc/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-interface OrderCheckoutViewProps {
+interface Props {
   orderId: string;
+  mode?: "pending" | "failed";
 }
 
-export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
+export default function OrderPendingOrFailedView({ orderId, mode }: Props) {
   const trpc = useTRPC();
   const router = useRouter();
 
-  const { data: order, isLoading: isOrderLoading } = useQuery(
+  const { data: order, isLoading } = useQuery(
     trpc.orders.getOrderById.queryOptions({ orderId })
   );
-
 
   const processPaymentMutation = useMutation(
     trpc.orders.processOrderPayment.mutationOptions({
@@ -31,7 +31,6 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
     })
   );
 
-  // Cancel order mutation
   const cancelOrderMutation = useMutation(
     trpc.orders.cancelPendingOrder.mutationOptions({
       onSuccess: () => {
@@ -44,26 +43,19 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
     })
   );
 
-  const handleInitiatePayment = useCallback(() => {
-    if (!order || typeof order !== "object" || !("_id" in order)) return;
-
-    processPaymentMutation.mutate({ orderId: (order as any)._id });
-  }, [order, processPaymentMutation]);
-
   const handleRetryPayment = useCallback(() => {
-    handleInitiatePayment();
-  }, [handleInitiatePayment]);
+    processPaymentMutation.mutate({ orderId });
+  }, [orderId, processPaymentMutation]);
 
   const handleCancelOrder = useCallback(() => {
-    if (!order || typeof order !== "object" || !("_id" in order)) return;
-    cancelOrderMutation.mutate({ orderId: (order as any)._id });
-  }, [order, cancelOrderMutation]);
+    cancelOrderMutation.mutate({ orderId });
+  }, [orderId, cancelOrderMutation]);
 
-  if (isOrderLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Loading Order...</h3>
           <p className="text-gray-600">
             Please wait while we fetch your order details
@@ -73,26 +65,7 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
     );
   }
 
-  // Show processing screen for first-time visits (immediate redirect to payment)
-  if (isOrderLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold mb-2">Processing Payment...</h3>
-          <p className="text-gray-600 mb-1">
-            We're preparing your payment session. You'll be redirected to the
-            payment gateway shortly.
-          </p>
-          <p className="text-sm text-gray-500">
-            Please do not close this window.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!order || typeof order !== "object") {
+  if (!order) {
     return (
       <div className="max-w-4xl mx-auto py-10 md:py-20 text-center">
         <h1 className="text-3xl font-bold mb-4">Order Not Found</h1>
@@ -116,7 +89,7 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
         {processPaymentMutation.isPending && (
           <div className="fixed inset-0 bg-white bg-opacity-90 backdrop-blur-md z-50 flex items-center justify-center">
             <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md mx-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">
                 Processing Payment...
               </h3>
@@ -133,32 +106,32 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
 
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-4">
-            {(order as any).paymentStatus === "pending" &&
-            (order as any).paymentMethod === "pesapal"
+            {order.paymentStatus === "pending" &&
+            order.paymentMethod === "pesapal"
               ? "Complete Your Payment"
-              : "Order Processing"}
+              : mode === "failed"
+                ? "Payment Failed"
+                : "Order Processing"}
           </h1>
           <p className="text-lg text-muted-foreground mb-2">
-            Order #{(order as any).orderNumber}
+            Order #{order.orderNumber}
           </p>
-          {isReturnVisit &&
-            (order as any).paymentStatus === "pending" &&
-            (order as any).paymentMethod === "pesapal" && (
+          {order.paymentStatus === "pending" &&
+            order.paymentMethod === "pesapal" && (
               <p className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3 mx-auto max-w-md">
                 Click "Continue Payment" below to complete your purchase.
               </p>
             )}
         </div>
 
-        {/* Order Summary */}
+        {/* Order Summary (display only) */}
         <div className="bg-white border border-dashed rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-
           <div className="space-y-3 mb-6">
-            {(order as any).orderItems?.map((item: any) => (
+            {order.orderItems?.map((item) => (
               <div
-                key={item._id}
-                className="flex justify-between items-center py-2 border-b"
+                key={item._key}
+                className="flex justify-between items-center py-2 border-b last:border-b-0"
               >
                 <div>
                   <p className="font-medium">{item.name}</p>
@@ -181,44 +154,40 @@ export default function OrderCheckoutView({ orderId }: OrderCheckoutViewProps) {
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>UGX {(order as any).subtotal.toLocaleString()}</span>
+              <span>UGX {order.subtotal?.toLocaleString?.()}</span>
             </div>
             <div className="flex justify-between">
               <span>Shipping:</span>
-              <span>UGX {(order as any).shippingCost.toLocaleString()}</span>
+              <span>UGX {order.shippingCost?.toLocaleString?.()}</span>
             </div>
-            {(order as any).orderLevelDiscount && (
+            {order.orderLevelDiscount && (
               <div className="flex justify-between text-green-600">
                 <span>
-                  Discount ({(order as any).orderLevelDiscount.couponApplied}):
+                  Discount ({order.orderLevelDiscount.couponApplied}):
                 </span>
                 <span>
                   -UGX{" "}
-                  {(
-                    order as any
-                  ).orderLevelDiscount.discountAmount.toLocaleString()}
+                  {order.orderLevelDiscount.discountAmount.toLocaleString()}
                 </span>
               </div>
             )}
             <div className="flex justify-between font-bold text-lg border-t pt-2">
               <span>Total:</span>
-              <span>UGX {(order as any).total.toLocaleString()}</span>
+              <span>UGX {order.total.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {(order as any).paymentStatus === "pending" &&
-            (order as any).paymentMethod === "pesapal" && (
+          {order.paymentStatus === "pending" &&
+            order.paymentMethod === "pesapal" && (
               <Button
                 onClick={handleRetryPayment}
-                disabled={
-                  isProcessingPayment || processPaymentMutation.isPending
-                }
+                disabled={processPaymentMutation.isPending}
                 className="px-8 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isProcessingPayment || processPaymentMutation.isPending
+                {processPaymentMutation.isPending
                   ? "Processing..."
                   : "Continue Payment"}
               </Button>

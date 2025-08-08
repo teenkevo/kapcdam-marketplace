@@ -41,7 +41,13 @@ export const updateOrderStatusSchema = z.object({
 // Payment status update schema
 export const updatePaymentStatusSchema = z.object({
   orderId: z.string(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "initiated", "not_initiated"]),
+  paymentStatus: z.enum([
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+    "not_initiated",
+  ]),
   transactionId: z.string().nullable().optional(),
   paidAt: z.string().nullable().optional(),
 });
@@ -62,9 +68,9 @@ const customerSchema = z.object({
   lastName: z.string(),
 });
 
-// Schema for a single item within the order
+// Schema for a single item within the order (embedded object with _key)
 const orderItemSchema = z.object({
-  _id: z.string(),
+  _key: z.string(),
   name: z.string(),
   quantity: z.number().int().positive(),
   unitPrice: z.number(),
@@ -84,20 +90,35 @@ export const orderSchema = z.object({
 
   estimatedDelivery: z.string().datetime(),
   orderDate: z.string().datetime(),
+  subtotal: z.number().optional(),
+  shippingCost: z.number().optional(),
   orderItems: z.array(orderItemSchema),
-  orderLevelDiscount: z.number().nullable(),
+  orderLevelDiscount: z
+    .object({
+      couponApplied: z.string(),
+      discountAmount: z.number(),
+    })
+    .nullable()
+    .optional(),
   orderNumber: z.string(),
   paymentMethod: z.string(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "initiated", "not_initiated"]),
+  paymentStatus: z.enum([
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+    "not_initiated",
+  ]),
   status: z.enum([
     "pending",
+    "confirmed",
     "processing",
     "shipped",
     "delivered",
     "cancelled",
   ]),
   total: z.number(),
-  transactionId: z.string().uuid().nullable(),
+  transactionId: z.string().nullable(),
 });
 
 // Types
@@ -107,3 +128,26 @@ export type UpdatePaymentStatusInput = z.infer<
   typeof updatePaymentStatusSchema
 >;
 export type OrderResponse = z.infer<typeof orderSchema>;
+
+// Lightweight order meta for routing/decision
+export const orderMetaSchema = z.object({
+  orderId: z.string(),
+  paymentMethod: z.enum(["pesapal", "cod"]),
+  paymentStatus: z.enum([
+    "not_initiated",
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+  ]),
+  status: z.enum([
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ]),
+  transactionId: z.string().nullable(),
+});
+export type OrderMeta = z.infer<typeof orderMetaSchema>;

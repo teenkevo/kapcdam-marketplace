@@ -60,8 +60,6 @@ export const addressesRouter = createTRPCRouter({
         { clerkUserId: ctx.auth.userId }
       );
 
-      console.log("get User Addresses", addresses);
-
       return addresses.map((addr: any) => addressResponseSchema.parse(addr));
     } catch (error) {
       throw new TRPCError({

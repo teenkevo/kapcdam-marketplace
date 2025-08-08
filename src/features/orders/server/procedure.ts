@@ -12,6 +12,7 @@ import {
   orderSchema,
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
+  orderMetaSchema,
   type OrderResponse,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -110,13 +111,36 @@ export const ordersRouter = createTRPCRouter({
    * Process payment for an existing order
    */
   processOrderPayment: protectedProcedure
-    .input(orderSchema)
+    .input(z.object({ orderId: z.string() }))
     .mutation(
       async ({
         ctx,
-        input: order,
+        input,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
+          // Fetch order server-side and validate ownership
+          const order = await client.fetch(
+            groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+              "orderId": _id,
+              orderNumber,
+              total,
+              paymentMethod,
+              paymentStatus,
+              transactionId,
+              customer->{ email, firstName, lastName },
+              "billingAddress": shippingAddress->{ phone, address, city, fullName },
+              orderItems[]{ name }
+            }`,
+            { orderId: input.orderId, clerkUserId: ctx.auth.userId }
+          );
+
+          if (!order) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Order not found",
+            });
+          }
+
           if (order.paymentMethod !== "pesapal") {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -155,10 +179,10 @@ export const ordersRouter = createTRPCRouter({
           const ipnResult = await registerIpn.json();
 
           const pesapalRequest: PesapalOrderRequest = {
-            id: order.orderId,
+            id: order.orderNumber,
             currency: "UGX",
             amount: order.total,
-            description: `Order for ${order.orderItems.map((item) => item.name).join(", ")}`,
+            description: `Order for ${order.orderItems.map((item: any) => item.name).join(", ")}`,
             callback_url: `${baseUrl}/api/payment/callback?orderId=${order.orderId}`,
             notification_id: ipnResult.ipn_id,
             billing_address: {
@@ -203,7 +227,7 @@ export const ordersRouter = createTRPCRouter({
             .patch(order.orderId)
             .set({
               transactionId: paymentResult.order_tracking_id,
-              paymentStatus: "initiated",
+              paymentStatus: "pending",
             })
             .commit();
 
@@ -730,54 +754,27 @@ export const ordersRouter = createTRPCRouter({
       }
     }),
 
-  /**
-   * Get pending order for user (for checkout back button handling)
-   */
-  getPendingOrder: protectedProcedure.query(async ({ ctx }) => {
-    try {
-      const pendingOrder = await client.fetch(
-        groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0] {
-            _id,
-            orderNumber,
-            orderDate,
-            subtotal,
-            shippingCost,
-            total,
-            currency,
-            paymentMethod,
-            "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
-              _id,
-              type,
-              name,
-              variantSku,
-              quantity,
-              originalPrice,
-              discountApplied,
-              unitPrice,
-              lineTotal,
-              fulfillmentStatus
-            }
-          }`,
-        { clerkUserId: ctx.auth.userId }
+  // Lightweight status fetcher for routing/decisions
+  getOrderStatus: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const meta = await client.fetch(
+        groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+          "orderId": _id,
+          paymentMethod,
+          paymentStatus,
+          status,
+          transactionId
+        }`,
+        { orderId: input.orderId, clerkUserId: ctx.auth.userId }
       );
 
-      console.log("pendingOrder", pendingOrder);
-
-      return pendingOrder;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        console.error("Schema validation error:", error.errors);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Invalid cart data structure",
-        });
+      if (!meta) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
       }
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch pending order",
-      });
-    }
-  }),
+
+      return orderMetaSchema.parse(meta);
+    }),
 
   /**
    * Cancel pending order (for checkout back button handling)
@@ -822,6 +819,8 @@ export const ordersRouter = createTRPCRouter({
             "orderId": _id,
             orderNumber,
             orderDate,
+            subtotal,
+            shippingCost,
             total,
             paymentStatus,
             paymentMethod,
@@ -829,12 +828,11 @@ export const ordersRouter = createTRPCRouter({
             deliveryMethod,
             estimatedDelivery,
             transactionId,
-            status,
             customer->{email, firstName, lastName},
             orderLevelDiscount,
             "billingAddress": shippingAddress->{_id, phone, address, city, fullName},
-            "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
-              _id,
+            orderItems[] {
+              _key,
               type,
               name,
               variantSku,
@@ -843,8 +841,7 @@ export const ordersRouter = createTRPCRouter({
               unitPrice,
               lineTotal,
               "image": coalesce(product->images[0], course->images[0]),
-              preferredStartDate,
-              fulfillmentStatus,
+              preferredStartDate
             }
           }`,
           { orderId: input.orderId, clerkUserId: ctx.auth.userId }

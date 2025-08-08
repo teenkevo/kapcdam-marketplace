@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import OrderCheckoutView from "@/features/orders/ui/views/order-checkout-view";
+import OrderPendingOrFailedView from "@/features/orders/ui/views/order-pending-or-failed-view";
+import OrderSuccessView from "@/features/orders/ui/views/order-success-view";
+import PaymentRedirectView from "@/features/orders/ui/views/payment-redirect-view";
 import { trpc } from "@/trpc/server";
 
 interface Props {
@@ -20,27 +22,33 @@ export default async function OrderCheckoutPage({ params }: Props) {
     redirect("/marketplace");
   }
 
-  const order = await trpc.orders.getOrderById({ orderId });
-  console.log("validated order", JSON.stringify(order, null, 2));
+  const meta = await trpc.orders.getOrderStatus({ orderId });
 
-  if (!order) {
-    redirect("/marketplace");
+  if (meta.paymentMethod === "pesapal") {
+    if (
+      meta.paymentStatus === "not_initiated" &&
+      meta.status === "pending" &&
+      !meta.transactionId
+    ) {
+      return <PaymentRedirectView orderId={orderId} />;
+    }
+    if (
+      (meta.paymentStatus === "pending" || meta.paymentStatus === "failed") &&
+      meta.status === "pending" &&
+      meta.transactionId
+    ) {
+      return (
+        <OrderPendingOrFailedView orderId={orderId} mode={meta.paymentStatus} />
+      );
+    }
+    if (meta.paymentStatus === "paid" && meta.status === "confirmed") {
+      return <OrderSuccessView orderId={orderId} />;
+    }
   }
 
-  if (
-    order.paymentMethod === "pesapal" &&
-    order.paymentStatus === "not_initiated"
-  ) {
-    const { paymentUrl, orderTrackingId } =
-      await trpc.orders.processOrderPayment(order);
-    await trpc.orders.updatePaymentStatus({
-      orderId: order.orderId,
-      paymentStatus: "initiated",
-      transactionId: orderTrackingId,
-    });
-    redirect(paymentUrl);
+  if (meta.paymentMethod === "cod") {
+    return <OrderSuccessView orderId={orderId} />;
   }
 
-  return <div>Hello</div>;
-  // return <OrderCheckoutView orderId={orderId} />;
+  return <OrderPendingOrFailedView orderId={orderId} />;
 }

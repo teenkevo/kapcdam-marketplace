@@ -15,11 +15,7 @@ export async function POST(request: NextRequest) {
     const { OrderTrackingId, OrderNotificationType, OrderMerchantReference } =
       body;
 
-    console.log("Processing order webhook:", {
-      OrderTrackingId,
-      OrderNotificationType,
-      OrderMerchantReference,
-    });
+    console.log("Processing order webhook....");
 
     // Find the order by orderNumber (OrderMerchantReference)
     const order = await client.fetch(
@@ -50,7 +46,7 @@ export async function POST(request: NextRequest) {
         status: 500,
       });
     }
-
+    console.log("Order found-------");
     // Check if webhook already processed for this transaction
     if (
       order.transactionId === OrderTrackingId &&
@@ -73,10 +69,11 @@ export async function POST(request: NextRequest) {
       order_tracking_id: OrderTrackingId,
     });
 
-    console.log("Transaction status:", transactionStatus);
+    console.log("webhook Transaction status:", transactionStatus);
 
     // Map Pesapal status to our payment status
-    let paymentStatus: string;
+    // Per Pesapal docs, webhook delivers a final outcome only (no "pending")
+    let paymentStatus: "paid" | "failed" | "refunded";
     let orderStatus: string;
 
     switch (transactionStatus.payment_status_description?.toLowerCase()) {
@@ -84,23 +81,16 @@ export async function POST(request: NextRequest) {
         paymentStatus = "paid";
         orderStatus = "confirmed";
         break;
-      case "failed":
-      case "invalid":
       case "reversed":
-        paymentStatus = "failed";
-        orderStatus = order.status; // Keep current order status
+        paymentStatus = "refunded";
+        orderStatus = order.status;
         break;
-      case "pending":
-        paymentStatus = "pending";
-        orderStatus = order.status; // Keep current order status
-        break;
+      case "invalid":
+      case "failed":
       default:
-        console.warn(
-          "Unknown payment status:",
-          transactionStatus.payment_status_description
-        );
         paymentStatus = "failed";
         orderStatus = order.status;
+        break;
     }
 
     // Update order payment status
@@ -108,10 +98,8 @@ export async function POST(request: NextRequest) {
       orderId: order._id,
       paymentStatus: paymentStatus as
         | "paid"
-        | "pending"
         | "failed"
         | "refunded"
-        | "initiated"
         | "not_initiated",
       transactionId: OrderTrackingId,
       paidAt: paymentStatus === "paid" ? new Date().toISOString() : undefined,

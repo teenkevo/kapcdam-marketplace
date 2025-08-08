@@ -32,8 +32,6 @@ export const cartRouter = createTRPCRouter({
         return null;
       }
 
-      console.log("cart", cart);
-
       return CartSchema.parse(cart);
     } catch (error) {
       if (error instanceof z.ZodError) {

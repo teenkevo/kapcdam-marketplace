@@ -137,7 +137,6 @@ export const order = defineType({
       options: {
         list: [
           { title: "Not Initiated", value: "not_initiated" },
-          { title: "Initiated", value: "initiated" },
           { title: "Pending", value: "pending" },
           { title: "Paid", value: "paid" },
           { title: "Failed", value: "failed" },
@@ -289,9 +288,19 @@ export const order = defineType({
         ? status.charAt(0).toUpperCase() + status.slice(1)
         : "Pending";
 
+      const title = customerName 
+        ? `${orderNumber} - ${customerName}`
+        : `${orderNumber}`;
+
+      let subtitle = `${totalFormatted} • Payment: ${paymentStatusDisplay}`;
+      
+      if (status && status !== "pending") {
+        subtitle += ` • ${orderStatusDisplay}`;
+      }
+
       return {
-        title: `${orderNumber}`,
-        subtitle: `${totalFormatted} • ${customerDisplay} • ${paymentStatusDisplay} • ${orderStatusDisplay} • ${date}`,
+        title,
+        subtitle,
         media: null,
       };
     },
