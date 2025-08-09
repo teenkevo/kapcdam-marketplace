@@ -628,36 +628,81 @@ export const productsRouter = createTRPCRouter({
 
   // Details for wishlist items for account page
   getLikedProductDetails: protectedProcedure.query(async ({ ctx }) => {
-    const { data: user } = await sanityFetch({
-      query: `*[_type == "user" && clerkUserId == $clerkUserId][0]{ likedProducts[]->{
-        _id,
-        title,
-        slug,
-        "defaultImage": coalesce(images[isDefault == true][0], images[0]),
-        hasVariants,
-        status,
-        "price": select(
-          hasVariants == true => variants[isDefault == true][0].price,
-          price
-        ),
-        "totalStock": select(
-          hasVariants == true => math::sum(variants[].stock),
-          totalStock
-        ),
-      } }`,
-      params: { clerkUserId: ctx.auth.userId },
-    });
+    try {
+      const query = groq`*[_type == "user" && clerkUserId == $clerkUserId][0]{ 
+        "likedProducts": likedProducts[]->{
+          _id,
+          title,
+          slug,
+          hasVariants,
+          status,
+          "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+          "price": select(
+            hasVariants == true => variants[isDefault == true][0].price,
+            price
+          ),
+          "totalStock": select(
+            hasVariants == true => math::sum(variants[].stock),
+            totalStock
+          ),
+          "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+          "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+          category-> {
+            _id,
+            name,
+            slug,
+            hasParent,
+            displayImage,
+            parent-> {
+              _id,
+              name,
+              slug
+            }
+          },
+          "variantOptions": variants[] {
+            sku,
+            price,
+            stock,
+            isDefault,
+            attributes[] {
+              "attributeName": attributeRef->name,
+              "attributeCode": attributeRef->code.current,
+              value
+            }
+          },
+          "hasDiscount": defined(discount) && discount.isActive == true,
+          "discountInfo": select(
+            defined(discount) && discount.isActive == true => discount,
+            null
+          )
+        }
+      }`;
 
-    const items = (user?.likedProducts || []).map((p: any) => ({
-      _id: p._id,
-      title: p.title,
-      slug: p.slug,
-      defaultImage: p.defaultImage,
-      inStock: (p.totalStock || 0) > 0,
-      price: p.price,
-    }));
+      const result = await client.fetch(query, { clerkUserId: ctx.auth.userId });
+      
+      if (!result || !result.likedProducts) {
+        return [];
+      }
 
-    return items;
+      const cleanedProducts = result.likedProducts.map(cleanProductData);
+      
+      return z.array(productListItemSchema).parse(cleanedProducts);
+    } catch (error) {
+      console.error("Failed to fetch liked product details:", error);
+      
+      if (error instanceof Error && error.name === "ZodError") {
+        throw new TRPCError({
+          code: "PARSE_ERROR",
+          message: "Invalid liked product data structure returned from database",
+          cause: error,
+        });
+      }
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch liked product details",
+      });
+    }
   }),
 
   getRelatedProducts: baseProcedure

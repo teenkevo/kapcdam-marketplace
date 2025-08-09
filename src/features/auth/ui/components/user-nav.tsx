@@ -20,10 +20,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserResource } from "@clerk/types";
-import { SignOutButton } from "@clerk/nextjs";
+import { SignOutButton, useUser } from "@clerk/nextjs";
+import Link from "next/link";
+import { useWishlistStore } from "@/features/products/store/use-wishlist-store";
 
-export function UserNav({ user }: { user: UserResource }) {
+export function UserNavButton() {
+  const { setIsWishlistOpen } = useWishlistStore();
+
+  const { user } = useUser();
+  if (!user) return null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -49,15 +55,25 @@ export function UserNav({ user }: { user: UserResource }) {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Manage account</span>
+          <DropdownMenuItem asChild>
+            <Link href="/account" className="flex items-center">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Manage Account</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            <span>Orders</span>
+          <DropdownMenuItem asChild>
+            <Link href="/your-orders" className="flex items-center">
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              <span>My orders</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/your-addresses" className="flex items-center">
+              <CreditCard className="mr-2 h-4 w-4" />
+              <span>My addresses</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setIsWishlistOpen(true)}>
             <Heart className="mr-2 h-4 w-4" />
             <span>Wishlist</span>
           </DropdownMenuItem>
@@ -70,9 +86,6 @@ export function UserNav({ user }: { user: UserResource }) {
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
-        <div className="flex items-center justify-center p-2">
-          <p className="text-xs text-muted-foreground">Secured by clerk</p>
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
