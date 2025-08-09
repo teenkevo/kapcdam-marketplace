@@ -177,6 +177,12 @@ export default async function Header() {
           <div className="flex items-center space-x-4">
             {userId ? (
               <>
+                <Link
+                  href="/account"
+                  className="hidden sm:inline text-sm hover:underline"
+                >
+                  My account
+                </Link>
                 <UserButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>

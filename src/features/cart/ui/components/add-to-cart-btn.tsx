@@ -16,12 +16,14 @@ type Props = {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
 };
 
 export const AddToLocalCartButton = ({
   product,
   quantity = 1,
   availableStock,
+  label,
 }: Props) => {
   const { addLocalCartItem, isInCart, items } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -117,7 +119,7 @@ export const AddToLocalCartButton = ({
         ) : (
           <>
             <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            {label || "Add to Cart"}
           </>
         )}
       </Button>
@@ -129,10 +131,12 @@ export const AddToServerCartButton = ({
   product,
   quantity = 1,
   availableStock,
+  label,
 }: {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
 }) => {
   const [isInCart, setIsInCart] = useState(false);
   const [currentCartQuantity, setCurrentCartQuantity] = useState(0);
@@ -256,7 +260,7 @@ export const AddToServerCartButton = ({
         ) : (
           <>
             <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            {label || "Add to Cart"}
           </>
         )}
       </Button>
@@ -268,10 +272,12 @@ export const AddToCartButton = ({
   product,
   quantity,
   availableStock,
+  label,
 }: {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
 }) => {
   const user = useUser();
 
@@ -280,12 +286,14 @@ export const AddToCartButton = ({
       product={product}
       quantity={quantity}
       availableStock={availableStock}
+      label={label}
     />
   ) : (
     <AddToLocalCartButton
       product={product}
       quantity={quantity}
       availableStock={availableStock}
+      label={label}
     />
   );
 };

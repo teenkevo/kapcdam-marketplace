@@ -626,6 +626,40 @@ export const productsRouter = createTRPCRouter({
     }
   ),
 
+  // Details for wishlist items for account page
+  getLikedProductDetails: protectedProcedure.query(async ({ ctx }) => {
+    const { data: user } = await sanityFetch({
+      query: `*[_type == "user" && clerkUserId == $clerkUserId][0]{ likedProducts[]->{
+        _id,
+        title,
+        slug,
+        "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+        hasVariants,
+        status,
+        "price": select(
+          hasVariants == true => variants[isDefault == true][0].price,
+          price
+        ),
+        "totalStock": select(
+          hasVariants == true => math::sum(variants[].stock),
+          totalStock
+        ),
+      } }`,
+      params: { clerkUserId: ctx.auth.userId },
+    });
+
+    const items = (user?.likedProducts || []).map((p: any) => ({
+      _id: p._id,
+      title: p.title,
+      slug: p.slug,
+      defaultImage: p.defaultImage,
+      inStock: (p.totalStock || 0) > 0,
+      price: p.price,
+    }));
+
+    return items;
+  }),
+
   getRelatedProducts: baseProcedure
     .input(getRelatedProductsInputSchema)
     .query(async ({ input }) => {

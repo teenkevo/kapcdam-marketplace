@@ -596,7 +596,6 @@ export const ordersRouter = createTRPCRouter({
                 orderNumber,
                 orderTotal: totals.subtotal + totals.shippingCost,
                 discountAmount: appliedCoupon.discountAmount,
-                orderId: createdOrder._id,
               });
             } catch (error) {
               console.error("Failed to apply coupon:", error);
@@ -736,7 +735,22 @@ export const ordersRouter = createTRPCRouter({
             status,
             deliveryMethod,
             estimatedDelivery,
-            deliveredAt
+            deliveredAt,
+            orderItems[]{
+              type,
+              name,
+              quantity,
+              variantSku,
+              // IDs for actions (buy again / write review)
+              "productId": select(
+                type == "product" => product->_id,
+                null
+              ),
+              "courseId": select(
+                type == "course" => course->_id,
+                null
+              )
+            }
           }`,
           {
             clerkUserId: ctx.auth.userId,
@@ -753,6 +767,22 @@ export const ordersRouter = createTRPCRouter({
         });
       }
     }),
+
+  // Count of user's orders for overview
+  getUserOrdersCount: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const count = await client.fetch(
+        groq`count(*[_type == "order" && customer->clerkUserId == $clerkUserId])`,
+        { clerkUserId: ctx.auth.userId }
+      );
+      return { count: Number(count) || 0 };
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch order count",
+      });
+    }
+  }),
 
   // Lightweight status fetcher for routing/decisions
   getOrderStatus: protectedProcedure
@@ -788,6 +818,46 @@ export const ordersRouter = createTRPCRouter({
             code: "NOT_FOUND",
             message: "Pending order not found or access denied",
           });
+        }
+
+        // Fetch order to get orderNumber and coupon info for revert
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            orderNumber,
+            orderLevelDiscount
+          }`,
+          { orderId: input.orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // If coupon was applied, revert its usage before deleting order
+        const couponAppliedText: string | undefined =
+          order.orderLevelDiscount?.couponApplied;
+        if (couponAppliedText) {
+          try {
+            // couponApplied is like "TEST20 20% OFF" → extract code before first space
+            const code = couponAppliedText.split(" ")[0];
+            const { couponRouter } = await import(
+              "@/features/coupons/server/procedure"
+            );
+            const couponCtx = {
+              auth: ctx.auth,
+              pesapalToken: ctx.pesapalToken,
+            } as any;
+            await couponRouter.createCaller(couponCtx).revertCouponUsage({
+              code,
+              orderNumber: order.orderNumber,
+            });
+          } catch (err) {
+            console.error("Failed to revert coupon usage on cancel:", err);
+          }
         }
 
         await client.delete(input.orderId);

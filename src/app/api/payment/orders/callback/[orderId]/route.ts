@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  context: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const orderId = context.params.orderId;
+    const { orderId } = await params;
     const redirectUrl = new URL(request.url);
     redirectUrl.pathname = `/checkout/${orderId}`;
     redirectUrl.search = "";

@@ -161,20 +161,22 @@ export default function CheckoutView() {
 
         {/* Right Column - Order Summary */}
         <div className="lg:sticky lg:top-8 lg:self-start">
-          <OrderSummary
-            userCart={userCart}
-            shippingCost={formState.shippingCost}
-            onPrimaryAction={handlePlaceOrder}
-            primaryActionText={
-              createOrderMutation.isPending
-                ? "Creating Order..."
-                : "Place Order"
-            }
-            primaryActionDisabled={
-              !formState.isValid || createOrderMutation.isPending
-            }
-            onCouponChange={handleCouponChange}
-          />
+          {userCart && (
+            <OrderSummary
+              userCart={userCart}
+              shippingCost={formState.shippingCost}
+              onPrimaryAction={handlePlaceOrder}
+              primaryActionText={
+                createOrderMutation.isPending
+                  ? "Creating Order..."
+                  : "Place Order"
+              }
+              primaryActionDisabled={
+                !formState.isValid || createOrderMutation.isPending
+              }
+              onCouponChange={handleCouponChange}
+            />
+          )}
         </div>
       </div>
     </div>

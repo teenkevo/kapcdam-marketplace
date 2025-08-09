@@ -71,7 +71,6 @@ const CartItemSchema = z.object({
 const CartSchema = z.object({
   _id: z.string(),
   cartItems: z.array(CartItemSchema).default([]),
-  // No other fields - keeping it simple per Sanity schema
 });
 
 // Local cart item for localStorage (before sync to server)
