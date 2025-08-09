@@ -51,7 +51,7 @@ export const makeDonation = async (donationPayload: DonationPayload) => {
       amount: donationAmount,
       currency: "USD",
       description: `Donation to KAPCDAM - ${donationType === "monthly" ? "Monthly" : "One-time"}`,
-      callback_url: `${baseUrl}/api/payment/callback`,
+      callback_url: `${baseUrl}/api/donation/callback`,
       notification_id: registerIpn.ipn_id,
       billing_address: {
         email_address: donation.donorInfo.email,

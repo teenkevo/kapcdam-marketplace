@@ -102,7 +102,7 @@ function calculateOrderTotals(
     totalItemDiscounts: itemDiscountTotal,
     orderLevelDiscount,
     shippingCost,
-    total: Math.max(0, total), // Ensure total is never negative
+    total: Math.max(0, total),
   };
 }
 
@@ -183,7 +183,7 @@ export const ordersRouter = createTRPCRouter({
             currency: "UGX",
             amount: order.total,
             description: `Order for ${order.orderItems.map((item: any) => item.name).join(", ")}`,
-            callback_url: `${baseUrl}/api/payment/callback?orderId=${order.orderId}`,
+            callback_url: `${baseUrl}/api/payment/orders/callback/${order.orderId}`,
             notification_id: ipnResult.ipn_id,
             billing_address: {
               email_address: order.customer.email,
