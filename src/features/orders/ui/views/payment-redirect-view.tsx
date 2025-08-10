@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
 
 interface PaymentRedirectViewProps {
   orderId: string;
@@ -12,21 +9,8 @@ interface PaymentRedirectViewProps {
 export default function PaymentRedirectView({
   orderId,
 }: PaymentRedirectViewProps) {
-  const trpc = useTRPC();
-
-  const processPaymentMutation = useMutation(
-    trpc.orders.processOrderPayment.mutationOptions({
-      onSuccess: ({ paymentUrl }) => {
-        window.location.href = paymentUrl;
-      },
-    })
-  );
-
-  useEffect(() => {
-    if (orderId) {
-      processPaymentMutation.mutate({ orderId });
-    }
-  }, [orderId, processPaymentMutation]);
+  // Payment processing is now handled by CheckoutStateManager
+  // This component only shows the loading state
 
   return (
     <div className="max-w-7xl flex-1 mx-auto py-10 md:py-20 relative flex justify-center items-center">

@@ -33,6 +33,75 @@ function generateOrderNumber(): string {
   return `KAPC-${year}-${paddedNumber}`;
 }
 
+// Stock management utility functions
+async function reduceStockForOrder(orderItems: any[]) {
+  const stockUpdates = [];
+
+  for (const orderItem of orderItems) {
+    if (orderItem.type === "product" && orderItem.product) {
+      const product = orderItem.product;
+      const quantity = orderItem.quantity;
+
+      if (product.hasVariants && orderItem.variantSku) {
+        // Reduce variant stock
+        stockUpdates.push(
+          client
+            .patch(product._id)
+            .dec({
+              [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+            })
+            .commit()
+        );
+      } else if (!product.hasVariants && product.totalStock !== undefined) {
+        // Reduce product total stock
+        stockUpdates.push(
+          client.patch(product._id).dec({ totalStock: quantity }).commit()
+        );
+      }
+    }
+  }
+
+  // Execute all stock updates
+  if (stockUpdates.length > 0) {
+    await Promise.all(stockUpdates);
+    console.log(`Reduced stock for ${stockUpdates.length} products/variants`);
+  }
+}
+
+async function restoreStockForOrder(orderItems: any[]) {
+  const stockUpdates = [];
+
+  for (const orderItem of orderItems) {
+    if (orderItem.type === "product" && orderItem.product) {
+      const product = orderItem.product;
+      const quantity = orderItem.quantity;
+
+      if (product.hasVariants && orderItem.variantSku) {
+        // Restore variant stock
+        stockUpdates.push(
+          client
+            .patch(product._id)
+            .inc({
+              [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+            })
+            .commit()
+        );
+      } else if (!product.hasVariants && product.totalStock !== undefined) {
+        // Restore product total stock
+        stockUpdates.push(
+          client.patch(product._id).inc({ totalStock: quantity }).commit()
+        );
+      }
+    }
+  }
+
+  // Execute all stock updates
+  if (stockUpdates.length > 0) {
+    await Promise.all(stockUpdates);
+    console.log(`Restored stock for ${stockUpdates.length} products/variants`);
+  }
+}
+
 // Calculate order totals from cart data
 function calculateOrderTotals(
   cartItems: any[],
@@ -366,23 +435,64 @@ export const ordersRouter = createTRPCRouter({
             shippingCost
           );
 
-          // 6. Check for existing pending orders and cancel them (as per lifecycle Phase 3)
-          const existingPendingOrders = await client.fetch(
-            groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"]`,
-            { clerkUserId: ctx.auth.userId }
-          );
-
-          if (existingPendingOrders.length > 0) {
-            await Promise.all(
-              existingPendingOrders.map((order: any) =>
-                client
-                  .patch(order._id)
-                  .set({
-                    status: "cancelled",
-                  })
-                  .commit()
-              )
+          // 6. Check for existing pending pesapal orders and delete them (single pending constraint)
+          if (paymentMethod === "pesapal") {
+            const existingPendingPesapalOrders = await client.fetch(
+              groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentMethod == "pesapal" && paymentStatus in ["pending", "not_initiated"]]{
+                _id,
+                orderNumber,
+                orderLevelDiscount,
+                orderItems[] {
+                  type,
+                  quantity,
+                  variantSku,
+                  product->{_id, hasVariants, totalStock},
+                  course->{_id}
+                }
+              }`,
+              { clerkUserId: ctx.auth.userId }
             );
+
+            if (existingPendingPesapalOrders.length > 0) {
+              // Revert coupons and restore stock for orders before deletion
+              for (const order of existingPendingPesapalOrders) {
+                // Revert coupon usage
+                if (order.orderLevelDiscount?.couponApplied) {
+                  try {
+                    const code = order.orderLevelDiscount.couponApplied.split(" ")[0];
+                    const { couponRouter } = await import(
+                      "@/features/coupons/server/procedure"
+                    );
+                    const couponCtx = {
+                      auth: ctx.auth,
+                      pesapalToken: ctx.pesapalToken,
+                    } as any;
+                    await couponRouter.createCaller(couponCtx).revertCouponUsage({
+                      code,
+                      orderNumber: order.orderNumber,
+                    });
+                  } catch (err) {
+                    console.error("Failed to revert coupon usage:", err);
+                  }
+                }
+
+                // Restore stock for deleted order
+                if (order.orderItems?.length > 0) {
+                  try {
+                    await restoreStockForOrder(order.orderItems);
+                  } catch (err) {
+                    console.error("Failed to restore stock for deleted order:", err);
+                  }
+                }
+              }
+
+              // Delete all existing pending pesapal orders (we don't keep cancelled orders)
+              await Promise.all(
+                existingPendingPesapalOrders.map((order: any) =>
+                  client.delete(order._id)
+                )
+              );
+            }
           }
 
           // 7. Generate order number
@@ -440,7 +550,7 @@ export const ordersRouter = createTRPCRouter({
             }),
             total: totals.total,
             currency: "UGX",
-            paymentStatus: "pending", // All orders start as pending until payment is actually received
+            paymentStatus: paymentMethod === "pesapal" ? "not_initiated" : "pending",
             paymentMethod,
             status: paymentMethod === "cod" ? "confirmed" : "pending",
 
@@ -553,6 +663,11 @@ export const ordersRouter = createTRPCRouter({
 
           const createdOrder = await client.create(orderDocWithItems);
 
+          // Reduce stock immediately for COD orders (Pesapal handled by webhook)
+          if (paymentMethod === "cod") {
+            await reduceStockForOrder(orderItems);
+          }
+
           // 13. Clear the cart
           await client
             .patch(cart._id)
@@ -627,9 +742,19 @@ export const ordersRouter = createTRPCRouter({
       try {
         const { orderId, status, notes } = input;
 
-        // Verify order ownership or admin access
+        // Verify order ownership or admin access (fetch order items if cancelling for stock reversion)
         const order = await client.fetch(
-          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]`,
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            status,
+            ${status === "cancelled" ? `orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }` : ""}
+          }`,
           { orderId, clerkUserId: ctx.auth.userId }
         );
 
@@ -638,6 +763,16 @@ export const ordersRouter = createTRPCRouter({
             code: "NOT_FOUND",
             message: "Order not found or access denied",
           });
+        }
+
+        // Restore stock when cancelling order
+        if (status === "cancelled" && order.orderItems?.length > 0) {
+          try {
+            await restoreStockForOrder(order.orderItems);
+          } catch (error) {
+            console.error("Failed to restore stock for cancelled order:", error);
+            // Don't fail the status update if stock restoration fails
+          }
         }
 
         const updateData: any = { status };
@@ -894,12 +1029,19 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        // Fetch order to get orderNumber and coupon info for revert
+        // Fetch order to get orderNumber, coupon info, and order items for revert
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             orderNumber,
-            orderLevelDiscount
+            orderLevelDiscount,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
           }`,
           { orderId: input.orderId, clerkUserId: ctx.auth.userId }
         );
@@ -931,6 +1073,16 @@ export const ordersRouter = createTRPCRouter({
             });
           } catch (err) {
             console.error("Failed to revert coupon usage on cancel:", err);
+          }
+        }
+
+        // Restore stock for cancelled order
+        if (order.orderItems?.length > 0) {
+          try {
+            await restoreStockForOrder(order.orderItems);
+          } catch (error) {
+            console.error("Failed to restore stock for cancelled order:", error);
+            // Don't fail the cancellation if stock restoration fails
           }
         }
 

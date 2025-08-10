@@ -35,6 +35,7 @@ export default async function OrderCheckoutPage({ params }: Props) {
       meta.status === "pending" &&
       !meta.transactionId
     ) {
+      // Show redirect view while CheckoutStateManager handles the actual redirect
       viewComponent = <PaymentRedirectView orderId={orderId} />;
       viewType = "payment-redirect";
     } else if (
@@ -63,6 +64,7 @@ export default async function OrderCheckoutPage({ params }: Props) {
   return (
     <>
       <CheckoutStateManager 
+        orderId={orderId}
         paymentStatus={meta.paymentStatus}
         orderStatus={meta.status}
         paymentMethod={meta.paymentMethod}
