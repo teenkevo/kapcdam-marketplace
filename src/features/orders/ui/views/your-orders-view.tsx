@@ -9,11 +9,19 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useQueryStates, parseAsString } from "nuqs";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 export default function YourOrdersView() {
   const { isSignedIn } = useUser();
   const trpc = useTRPC();
-  
+
   // Get filter params from URL
   const [urlParams] = useQueryStates({
     timeRange: parseAsString.withDefault("all"),
@@ -40,6 +48,20 @@ export default function YourOrdersView() {
   if (!isSignedIn) {
     return (
       <div className="max-w-7xl mx-auto py-8 px-4">
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Your Account</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Your Orders</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-8">
           <h1 className="text-3xl font-bold">Your Orders</h1>
         </div>
@@ -62,6 +84,20 @@ export default function YourOrdersView() {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto py-8 px-4">
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Your Account</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Your Orders</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-8">
           <h1 className="text-3xl font-bold">Your Orders</h1>
         </div>
@@ -78,6 +114,20 @@ export default function YourOrdersView() {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto py-8 px-4">
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Your Account</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Your Orders</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-8">
           <h1 className="text-3xl font-bold">Your Orders</h1>
         </div>
@@ -98,6 +148,20 @@ export default function YourOrdersView() {
   if (!orders || !Array.isArray(orders) || orders.length === 0) {
     return (
       <div className="max-w-7xl mx-auto py-8 px-4">
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/">Your Account</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Your Orders</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-8">
           <h1 className="text-3xl font-bold">Your Orders</h1>
         </div>
@@ -107,7 +171,8 @@ export default function YourOrdersView() {
             No orders yet
           </h3>
           <p className="text-gray-500 mb-6">
-            When you place orders, they'll appear here. Start shopping to see your order history.
+            When you place orders, they'll appear here. Start shopping to see
+            your order history.
           </p>
           <Button asChild>
             <Link href="/marketplace">Start shopping</Link>
@@ -118,23 +183,41 @@ export default function YourOrdersView() {
   }
 
   // Extract user join date from first order (all orders have the same user)
-  const userJoinDate = Array.isArray(orders) && orders.length > 0 ? orders[0].userJoinDate : undefined;
+  const userJoinDate =
+    Array.isArray(orders) && orders.length > 0
+      ? orders[0].userJoinDate
+      : undefined;
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
+      <Breadcrumb className="mb-6">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/">Your Account</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Your Orders</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-3xl font-bold">Your Orders</h1>
       </div>
-      
-      <OrderFilters 
+
+      <OrderFilters
         totalOrders={Array.isArray(orders) ? orders.length : 0}
         userJoinDate={userJoinDate}
       />
-      
+
       <div className="space-y-6">
-        {Array.isArray(orders) && orders.map((order) => (
-          <YourOrderCard key={order._id} order={order} />
-        ))}
+        {Array.isArray(orders) &&
+          orders.map((order) => (
+            <YourOrderCard key={order._id} order={order} />
+          ))}
       </div>
     </div>
   );

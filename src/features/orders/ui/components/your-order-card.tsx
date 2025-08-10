@@ -1,15 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ExternalLink,
-  RefreshCcw,
-  Eye,
-  Truck,
-  CreditCard,
   X,
   Clock,
   CheckCircle,
@@ -17,9 +12,6 @@ import {
   Loader2Icon,
 } from "lucide-react";
 import Link from "next/link";
-import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
-import { WriteReviewButton } from "@/features/reviews/ui/components/write-review-button";
-import { urlFor } from "@/sanity/lib/image";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
@@ -36,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { OrderItem } from "./order-item";
 
 type Order = {
   _id: string;
@@ -283,23 +276,25 @@ export function YourOrderCard({ order }: Props) {
                   </AlertDialog>
                 </div>
               ) : isConfirmedNotDelivered ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="font-semibold hover:underline inline-flex items-center gap-1"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Track Order
-                </Button>
+                <Link href={`/your-orders/order-details?orderId=${order._id}`}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="font-semibold hover:underline inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Track Order
+                  </Button>
+                </Link>
               ) : (
-                <Link href={`/your-orders/${order._id}`}>
+                <Link href={`/your-orders/order-details?orderId=${order._id}`}>
                   <Button
                     size="sm"
                     variant="outline"
                     className="font-semibold hover:underline inline-flex items-center gap-1"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    View Details
+                    View Order Details
                   </Button>
                 </Link>
               )}
@@ -312,73 +307,12 @@ export function YourOrderCard({ order }: Props) {
       <CardContent className="p-4 md:p-6">
         <ul className="divide-y">
           {order.orderItems.map((item, index) => (
-            <li key={`${item.name}-${index}`} className="py-4 md:py-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                {/* Thumbnail */}
-                <div className="flex items-start gap-3">
-                  <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-md border bg-white">
-                    <Image
-                      src={
-                        item.itemImage
-                          ? urlFor(item.itemImage).width(96).height(80).url()
-                          : `/placeholder.svg?height=80&width=96&text=${encodeURIComponent(item.name.substring(0, 10))}`
-                      }
-                      alt={item.name}
-                      width={96}
-                      height={80}
-                      className="h-full w-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Info and actions */}
-                <div className="grid flex-1 gap-2">
-                  <div className="text-gray-900 font-medium leading-6">
-                    {item.name}
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>Quantity: {item.quantity}</span>
-                    {item.variantSku && <span>SKU: {item.variantSku}</span>}
-                  </div>
-
-                  {canShowItemActions && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {/* Buy it again button */}
-                      {item.productId && (
-                        <AddToCartButton
-                          product={{
-                            type: "product",
-                            productId: item.productId,
-                            selectedVariantSku: item.variantSku,
-                            quantity: 1,
-                          }}
-                          label="Buy it again"
-                          appearance="subtle"
-                        />
-                      )}
-                      {item.courseId && (
-                        <AddToCartButton
-                          product={{
-                            type: "course",
-                            courseId: item.courseId,
-                            quantity: 1,
-                          }}
-                          label="Buy it again"
-                          appearance="subtle"
-                        />
-                      )}
-
-                      {/* Write review button - only for products */}
-                      {item.type === "product" &&
-                        item.productId &&
-                        isDelivered && (
-                          <WriteReviewButton productId={item.productId} />
-                        )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </li>
+            <OrderItem
+              key={`${item.name}-${index}`}
+              item={item}
+              canShowItemActions={!!canShowItemActions}
+              isDelivered={!!isDelivered}
+            />
           ))}
         </ul>
       </CardContent>
