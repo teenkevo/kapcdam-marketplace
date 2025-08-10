@@ -102,6 +102,27 @@ async function restoreStockForOrder(orderItems: any[]) {
   }
 }
 
+// Helper function to determine if stock should be restored for an order
+function shouldRestoreStockForOrder(order: any): boolean {
+  // COD orders always had stock reduced at creation, so restore stock when cancelled
+  if (order.paymentMethod === "cod") {
+    return true;
+  }
+  
+  // Pesapal orders only had stock reduced if payment was completed
+  if (order.paymentMethod === "pesapal") {
+    // Only restore stock if payment was actually completed (stock was reduced)
+    if (order.paymentStatus === "paid") {
+      return true;
+    }
+    // Don't restore stock for not_initiated, pending, failed orders (stock never reduced)
+    return false;
+  }
+  
+  // For any other payment methods, assume stock was reduced and should be restored
+  return true;
+}
+
 // Calculate order totals from cart data
 function calculateOrderTotals(
   cartItems: any[],
@@ -441,6 +462,8 @@ export const ordersRouter = createTRPCRouter({
               groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentMethod == "pesapal" && paymentStatus in ["pending", "not_initiated"]]{
                 _id,
                 orderNumber,
+                paymentMethod,
+                paymentStatus,
                 orderLevelDiscount,
                 orderItems[] {
                   type,
@@ -476,12 +499,17 @@ export const ordersRouter = createTRPCRouter({
                   }
                 }
 
-                // Restore stock for deleted order
+                // Only restore stock for orders that actually had stock reduced
                 if (order.orderItems?.length > 0) {
-                  try {
-                    await restoreStockForOrder(order.orderItems);
-                  } catch (err) {
-                    console.error("Failed to restore stock for deleted order:", err);
+                  if (shouldRestoreStockForOrder(order)) {
+                    try {
+                      await restoreStockForOrder(order.orderItems);
+                      console.log(`✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+                    } catch (err) {
+                      console.error("Failed to restore stock for deleted order:", err);
+                    }
+                  } else {
+                    console.log(`ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
                   }
                 }
               }
@@ -747,7 +775,9 @@ export const ordersRouter = createTRPCRouter({
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             status,
-            ${status === "cancelled" ? `orderItems[] {
+            ${status === "cancelled" ? `paymentMethod,
+            paymentStatus,
+            orderItems[] {
               type,
               quantity,
               variantSku,
@@ -765,13 +795,18 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        // Restore stock when cancelling order
+        // Only restore stock for orders that actually had stock reduced
         if (status === "cancelled" && order.orderItems?.length > 0) {
-          try {
-            await restoreStockForOrder(order.orderItems);
-          } catch (error) {
-            console.error("Failed to restore stock for cancelled order:", error);
-            // Don't fail the status update if stock restoration fails
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for cancelled order:", error);
+              // Don't fail the status update if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order (${order.paymentStatus}) - stock was never reduced`);
           }
         }
 
@@ -1034,6 +1069,8 @@ export const ordersRouter = createTRPCRouter({
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             orderNumber,
+            paymentMethod,
+            paymentStatus,
             orderLevelDiscount,
             orderItems[] {
               type,
@@ -1076,13 +1113,18 @@ export const ordersRouter = createTRPCRouter({
           }
         }
 
-        // Restore stock for cancelled order
+        // Only restore stock for orders that actually had stock reduced
         if (order.orderItems?.length > 0) {
-          try {
-            await restoreStockForOrder(order.orderItems);
-          } catch (error) {
-            console.error("Failed to restore stock for cancelled order:", error);
-            // Don't fail the cancellation if stock restoration fails
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for cancelled order:", error);
+              // Don't fail the cancellation if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
           }
         }
 
