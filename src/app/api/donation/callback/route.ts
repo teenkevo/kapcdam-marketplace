@@ -45,15 +45,10 @@ export async function GET(request: NextRequest) {
 
       console.log(`Donation ${merchantReference} status updated to: ${isPaymentSuccessful ? "completed" : "failed"}`);
 
-      if (isPaymentSuccessful) {
-        return NextResponse.redirect(
-          `${request.nextUrl.origin}/donate/thank-you?ref=${merchantReference}`
-        );
-      } else {
-        return NextResponse.redirect(
-          `${request.nextUrl.origin}/donate/failed?ref=${merchantReference}`
-        );
-      }
+      // Redirect to unified donation status page
+      return NextResponse.redirect(
+        `${request.nextUrl.origin}/donate/status/${merchantReference}`
+      );
     }
 
     // Fallback for donations without proper merchant reference
@@ -62,15 +57,15 @@ export async function GET(request: NextRequest) {
       status.payment_status_description
     );
 
-    if (isPaymentSuccessful) {
-      console.log("Donation payment successful, redirecting to success page");
+    if (merchantReference && merchantReference !== 'unknown') {
+      console.log("Donation payment completed, redirecting to status page");
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/donate/thank-you?ref=${merchantReference || 'unknown'}`
+        `${request.nextUrl.origin}/donate/status/${merchantReference}`
       );
     } else {
-      console.log("Donation payment not completed, status:", status.payment_status_description);
+      console.log("Donation payment without proper reference, redirecting to general status");
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/donate/failed?ref=${merchantReference || 'unknown'}`
+        `${request.nextUrl.origin}/donate/${isPaymentSuccessful ? 'success' : 'failed'}`
       );
     }
   } catch (error) {
