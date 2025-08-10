@@ -123,6 +123,8 @@ export default function CheckoutView() {
   }
 
   if (isProcessingOrder) {
+    const paymentMethod = formState.formData?.paymentMethod;
+    
     return (
       <div className="max-w-7xl flex-1 mx-auto py-10 md:py-20 relative flex justify-center items-center">
         <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -131,12 +133,16 @@ export default function CheckoutView() {
             <h3 className="text-base font-medium mb-2">
               {createOrderMutation.isPending
                 ? "Processing your order"
+                : paymentMethod === "cod"
+                ? "Order placed successfully!"
                 : "Redirecting to pesapal"}
             </h3>
 
             <p className="text-gray-600 text-sm">
               {createOrderMutation.isPending
                 ? "Please wait while we prepare your order"
+                : paymentMethod === "cod"
+                ? "Your order is confirmed and will be processed shortly"
                 : "Make secure payment to complete your order"}
             </p>
           </div>

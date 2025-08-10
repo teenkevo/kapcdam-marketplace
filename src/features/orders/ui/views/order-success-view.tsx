@@ -82,11 +82,19 @@ export default function OrderSuccessView({ orderId }: OrderSuccessViewProps) {
               : "Order created!"}
         </h1>
         <p className="text-gray-700 mt-2">
-          {isPaid ? (
+          {isPaid && !isCOD ? (
             <>
-              We’ve received{" "}
+              We've received{" "}
               <span className="font-semibold">{formattedTotal}</span> for order{" "}
               <span className="font-semibold">#{typedOrder.orderNumber}</span>.
+            </>
+          ) : isCOD ? (
+            <>
+              Your order{" "}
+              <span className="font-semibold">#{typedOrder.orderNumber}</span>{" "}
+              is confirmed! {typedOrder.deliveryMethod === "pickup" ? "Ready for pickup" : "We'll deliver to your address"}.
+              <br />
+              <span className="font-medium">Total to pay on {typedOrder.deliveryMethod === "pickup" ? "pickup" : "delivery"}: {formattedTotal}</span>
             </>
           ) : (
             <>
@@ -104,7 +112,7 @@ export default function OrderSuccessView({ orderId }: OrderSuccessViewProps) {
 
         <div className="mt-6 flex flex-col  gap-3 justify-center">
           <Button
-            onClick={() => router.push("/account/orders")}
+            onClick={() => router.push(`/your-orders/order-details?orderId=${orderId}`)}
             className="px-6 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625] w-full"
           >
             Track your order

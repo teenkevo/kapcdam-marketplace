@@ -260,6 +260,7 @@ export const order = defineType({
       customerName: "customer.firstName",
       total: "total",
       paymentStatus: "paymentStatus",
+      paymentMethod: "paymentMethod",
       status: "status",
       orderDate: "orderDate",
     },
@@ -269,6 +270,7 @@ export const order = defineType({
       customerName,
       total,
       paymentStatus,
+      paymentMethod,
       status,
       orderDate,
     }) {
@@ -288,11 +290,14 @@ export const order = defineType({
         ? status.charAt(0).toUpperCase() + status.slice(1)
         : "Pending";
 
+      // Add payment method indicator
+      const paymentMethodIcon = paymentMethod === "cod" ? " 💵" : " 💳";
+      
       const title = customerName 
-        ? `${orderNumber} - ${customerName}`
-        : `${orderNumber}`;
+        ? `${orderNumber}${paymentMethodIcon} - ${customerName}`
+        : `${orderNumber}${paymentMethodIcon}`;
 
-      let subtitle = `${totalFormatted} • Payment: ${paymentStatusDisplay}`;
+      let subtitle = `${totalFormatted} • ${paymentMethod === "cod" ? "COD" : "Pesapal"}: ${paymentStatusDisplay}`;
       
       if (status && status !== "pending") {
         subtitle += ` • ${orderStatusDisplay}`;

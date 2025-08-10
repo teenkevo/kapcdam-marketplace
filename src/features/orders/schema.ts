@@ -91,7 +91,7 @@ export const orderSchema = z.object({
   customer: customerSchema,
   deliveryMethod: z.string(),
 
-  estimatedDelivery: z.string().datetime(),
+  estimatedDelivery: z.string().datetime().nullable().optional(),
   deliveredAt: z.string().datetime().nullable().optional(),
   orderDate: z.string().datetime(),
   subtotal: z.number().optional(),

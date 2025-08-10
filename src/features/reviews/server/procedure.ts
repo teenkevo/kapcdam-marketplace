@@ -435,8 +435,14 @@ export const reviewsRouter = createTRPCRouter({
         };
 
         // Update counts and add vote record
+        // Ensure existing vote records have _key properties for backward compatibility
+        const existingVoteRecords = (review.voteRecords || []).map((vote: any, index: number) => ({
+          ...vote,
+          _key: vote._key || `existing-vote-${index}-${Date.now()}`
+        }));
+        
         const updateData: any = {
-          voteRecords: [...(review.voteRecords || []), newVoteRecord],
+          voteRecords: [...existingVoteRecords, newVoteRecord],
           updatedAt: new Date().toISOString(),
         };
 

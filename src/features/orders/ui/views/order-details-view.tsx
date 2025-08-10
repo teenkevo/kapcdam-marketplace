@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { format } from "date-fns";
-import { Loader2, CheckCircle, Clock, Package, Truck } from "lucide-react";
+import { Loader2, CheckCircle, Clock, Package, Truck, MapPin } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,12 @@ function getStatusConfig(status: string, paymentStatus: string) {
   }
 }
 
-function getTrackingSteps(paymentStatus: string, orderStatus: string) {
+function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMethod?: string, deliveryMethod?: string) {
+  // COD orders get special treatment
+  if (paymentMethod === "cod") {
+    return getCODTrackingSteps(orderStatus, deliveryMethod || "local_delivery");
+  }
+
   // Always show all possible steps
   const allSteps = [
     {
@@ -167,6 +172,65 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string) {
   });
 }
 
+function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
+  const isPickup = deliveryMethod === "pickup";
+  
+  const steps = [
+    {
+      icon: CheckCircle,
+      label: "Order received",
+      step: "confirmed",
+    },
+    {
+      icon: Package,
+      label: "Preparing",
+      step: "preparing",
+    },
+    {
+      icon: isPickup ? MapPin : Truck,
+      label: isPickup ? "Ready for pickup" : "Out for delivery",
+      step: isPickup ? "ready" : "shipped",
+    },
+    {
+      icon: CheckCircle,
+      label: isPickup ? "Collected & Paid" : "Delivered & Paid",
+      step: "delivered",
+    },
+  ];
+
+  // Map each step to its status based on order status
+  return steps.map((step) => {
+    let status: "completed" | "current" | "pending" = "pending";
+
+    switch (step.step) {
+      case "confirmed":
+        // For newly created COD orders, show "Order received" as CURRENT (not completed)
+        if (orderStatus === "confirmed") status = "current";
+        else if (["processing", "ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        else status = "pending";
+        break;
+      case "preparing":
+        if (orderStatus === "processing") status = "current"; // Changed from "confirmed"
+        else if (["ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        else status = "pending";
+        break;
+      case "ready": // for pickup
+        if (orderStatus === "processing") status = "current";
+        else if (["ready", "delivered"].includes(orderStatus)) status = "completed";
+        break;
+      case "shipped": // for delivery
+        if (["processing", "ready"].includes(orderStatus)) status = "current";
+        else if (["shipped", "delivered"].includes(orderStatus)) status = "completed";
+        break;
+      case "delivered":
+        status = orderStatus === "delivered" ? "completed" : "pending";
+        break;
+    }
+
+    return { ...step, status };
+  });
+}
+
 export function OrderDetailsView({ orderId }: Props) {
   const trpc = useTRPC();
 
@@ -195,7 +259,7 @@ export function OrderDetailsView({ orderId }: Props) {
   }
 
   const statusConfig = getStatusConfig(order.status, order.paymentStatus);
-  const trackingSteps = getTrackingSteps(order.paymentStatus, order.status);
+  const trackingSteps = getTrackingSteps(order.paymentStatus, order.status, order.paymentMethod, order.deliveryMethod);
 
   // Order item action logic - match YourOrderCard exactly
   const isDelivered = order.status === "delivered";

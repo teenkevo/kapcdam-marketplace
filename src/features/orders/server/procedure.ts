@@ -440,17 +440,15 @@ export const ordersRouter = createTRPCRouter({
             }),
             total: totals.total,
             currency: "UGX",
-            paymentStatus: "not_initiated",
+            paymentStatus: "pending", // All orders start as pending until payment is actually received
             paymentMethod,
-            status: "pending",
+            status: paymentMethod === "cod" ? "confirmed" : "pending",
 
             shippingAddress: { _type: "reference", _ref: addressId },
             deliveryMethod,
-            ...(selectedDeliveryZone && {
-              estimatedDelivery: new Date(
-                Date.now() + 24 * 60 * 60 * 1000 // Default to 24 hours from now
-              ).toISOString(),
-            }),
+            estimatedDelivery: selectedDeliveryZone
+              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours for delivery
+              : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days for pickup
           };
 
           // 11. Create order items as embedded objects
