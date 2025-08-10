@@ -16,7 +16,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -67,12 +66,7 @@ export function UserNavButton() {
               <span>My orders</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/your-addresses" className="flex items-center">
-              <CreditCard className="mr-2 h-4 w-4" />
-              <span>My addresses</span>
-            </Link>
-          </DropdownMenuItem>
+
           <DropdownMenuItem onClick={() => setIsWishlistOpen(true)}>
             <Heart className="mr-2 h-4 w-4" />
             <span>Wishlist</span>

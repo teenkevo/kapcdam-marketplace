@@ -718,12 +718,38 @@ export const ordersRouter = createTRPCRouter({
       z.object({
         limit: z.number().min(1).max(50).default(10),
         offset: z.number().min(0).default(0),
+        timeRange: z.enum(["30days", "3months"]).or(z.string().regex(/^\d{4}$/)).optional(),
+        searchQuery: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       try {
+        // Build dynamic filter conditions
+        let dateFilter = "";
+        let searchFilter = "";
+        
+        if (input.timeRange) {
+          const now = new Date();
+          if (input.timeRange === "30days") {
+            const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30)).toISOString();
+            dateFilter = ` && orderDate >= "${thirtyDaysAgo}"`;
+          } else if (input.timeRange === "3months") {
+            const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3)).toISOString();
+            dateFilter = ` && orderDate >= "${threeMonthsAgo}"`;
+          } else if (/^\d{4}$/.test(input.timeRange)) {
+            // Year filter
+            const year = input.timeRange;
+            dateFilter = ` && dateTime(orderDate) >= dateTime("${year}-01-01T00:00:00Z") && dateTime(orderDate) < dateTime("${parseInt(year) + 1}-01-01T00:00:00Z")`;
+          }
+        }
+        
+        if (input.searchQuery) {
+          const searchTerm = input.searchQuery.toLowerCase();
+          searchFilter = ` && (lower(orderNumber) match "*${searchTerm}*" || orderItems[lower(name) match "*${searchTerm}*"])`;
+        }
+
         const orders = await client.fetch(
-          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId] | order(orderDate desc) [$offset...$limit] {
+          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId${dateFilter}${searchFilter}] | order(orderDate desc) [$offset...$limit] {
             _id,
             orderNumber,
             orderDate,
@@ -736,11 +762,19 @@ export const ordersRouter = createTRPCRouter({
             deliveryMethod,
             estimatedDelivery,
             deliveredAt,
+            "userJoinDate": customer->_createdAt,
             orderItems[]{
               type,
               name,
               quantity,
               variantSku,
+              image,
+              // Get product/course images
+              "itemImage": select(
+                type == "product" => product->images[0],
+                type == "course" => course->images[0],
+                null
+              ),
               // IDs for actions (buy again / write review)
               "productId": select(
                 type == "product" => product->_id,
@@ -804,6 +838,48 @@ export const ordersRouter = createTRPCRouter({
       }
 
       return orderMetaSchema.parse(meta);
+    }),
+
+  /**
+   * Reset order for payment retry - sets order to initial payment state
+   */
+  resetOrderForPayment: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId } = input;
+
+        // Verify order ownership
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]`,
+          { orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // Reset order to initial payment state for checkout page
+        const updatedOrder = await client
+          .patch(orderId)
+          .set({
+            paymentStatus: "not_initiated",
+            status: "pending",
+          })
+          .unset(["transactionId", "paymentFailureReason"])
+          .commit();
+
+        return { success: true, order: updatedOrder };
+      } catch (error) {
+        console.error("Failed to reset order for payment:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reset order for payment",
+        });
+      }
     }),
 
   /**
