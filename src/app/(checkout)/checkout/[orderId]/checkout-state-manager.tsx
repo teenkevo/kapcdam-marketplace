@@ -43,25 +43,53 @@ export function CheckoutStateManager({
       },
       onError: (error) => {
         console.error("Payment processing failed:", error);
-        // Refresh page to show error state
-        router.refresh();
+        
+        // Prevent infinite retry loops with sessionStorage guard
+        const retryGuardKey = `retry-guard-${orderId}`;
+        if (typeof window !== 'undefined' && !sessionStorage.getItem(retryGuardKey)) {
+          sessionStorage.setItem(retryGuardKey, 'true');
+          console.log(`Set retry guard for order ${orderId} to prevent infinite loops`);
+          router.refresh();
+        } else {
+          console.log(`Retry blocked for order ${orderId} - guard already set`);
+        }
       },
     })
   );
 
   // Handle automatic redirect for not_initiated payments
   useEffect(() => {
+    const retryGuardKey = `retry-guard-${orderId}`;
+    const hasRetryGuard = typeof window !== 'undefined' && sessionStorage.getItem(retryGuardKey);
+    
     if (
       !hasProcessedInitialRedirect.current &&
+      !hasRetryGuard &&
       paymentMethod === "pesapal" &&
       paymentStatus === "not_initiated" &&
       orderStatus === "pending" &&
       !processPaymentMutation.isPending
     ) {
       hasProcessedInitialRedirect.current = true;
+      console.log(`Initiating automatic payment for order ${orderId}`);
       processPaymentMutation.mutate({ orderId });
+    } else if (hasRetryGuard) {
+      console.log(`Automatic payment blocked for order ${orderId} - retry guard active`);
     }
   }, [paymentStatus, orderStatus, paymentMethod, orderId, processPaymentMutation]);
+
+  // Clear retry guards when order state progresses beyond not_initiated
+  useEffect(() => {
+    const retryGuardKey = `retry-guard-${orderId}`;
+    
+    if (typeof window !== 'undefined' && paymentStatus !== 'not_initiated') {
+      const hadGuard = sessionStorage.getItem(retryGuardKey);
+      if (hadGuard) {
+        sessionStorage.removeItem(retryGuardKey);
+        console.log(`Cleared retry guard for order ${orderId} - payment status progressed to ${paymentStatus}`);
+      }
+    }
+  }, [paymentStatus, orderId]);
 
   // Sync URL params with actual state (bidirectional)
   useEffect(() => {
