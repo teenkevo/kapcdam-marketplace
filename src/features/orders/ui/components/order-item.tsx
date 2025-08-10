@@ -10,8 +10,8 @@ type OrderItem = {
   name: string;
   quantity: number;
   variantSku?: string | null;
-  productId?: string;
-  courseId?: string;
+  productId?: string | null;
+  courseId?: string | null;
   image?: any;
   itemImage?: any;
 };

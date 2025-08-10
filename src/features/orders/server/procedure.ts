@@ -750,7 +750,7 @@ export const ordersRouter = createTRPCRouter({
 
         const orders = await client.fetch(
           groq`*[_type == "order" && customer->clerkUserId == $clerkUserId${dateFilter}${searchFilter}] | order(orderDate desc) [$offset...$limit] {
-            _id,
+            "orderId": _id,
             orderNumber,
             orderDate,
             subtotal,
@@ -973,6 +973,7 @@ export const ordersRouter = createTRPCRouter({
             status,
             deliveryMethod,
             estimatedDelivery,
+            deliveredAt,
             transactionId,
             customer->{email, firstName, lastName},
             orderLevelDiscount,
@@ -987,6 +988,20 @@ export const ordersRouter = createTRPCRouter({
               unitPrice,
               lineTotal,
               "image": coalesce(product->images[0], course->images[0]),
+              "itemImage": select(
+                type == "product" => product->images[0],
+                type == "course" => course->images[0],
+                null
+              ),
+              // IDs for actions (buy again / write review)
+              "productId": select(
+                type == "product" => product->_id,
+                null
+              ),
+              "courseId": select(
+                type == "course" => course->_id,
+                null
+              ),
               preferredStartDate
             }
           }`,

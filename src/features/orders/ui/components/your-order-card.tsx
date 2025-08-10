@@ -29,35 +29,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { OrderItem } from "./order-item";
-
-type Order = {
-  _id: string;
-  orderNumber: string;
-  orderDate: string;
-  subtotal: number;
-  shippingCost: number;
-  total: number;
-  paymentStatus: string;
-  paymentMethod: string;
-  status: string;
-  deliveryMethod: string;
-  estimatedDelivery?: string;
-  deliveredAt?: string;
-  userJoinDate?: string;
-  orderItems: Array<{
-    type: "product" | "course";
-    name: string;
-    quantity: number;
-    variantSku?: string;
-    productId?: string;
-    courseId?: string;
-    image?: any;
-    itemImage?: any;
-  }>;
-};
+import { type OrderResponse } from "@/features/orders/schema";
 
 type Props = {
-  order: Order;
+  order: OrderResponse;
 };
 
 function getStatusConfig(status: string, paymentStatus: string) {
@@ -118,7 +93,7 @@ export function YourOrderCard({ order }: Props) {
     trpc.orders.resetOrderForPayment.mutationOptions({
       onSuccess: () => {
         toast.success("Redirecting to payment...");
-        router.push(`/checkout/${order._id}`);
+        router.push(`/checkout/${order.orderId}`);
       },
       onError: (error) => {
         toast.error(`Failed to prepare payment: ${error.message}`);
@@ -141,11 +116,11 @@ export function YourOrderCard({ order }: Props) {
   );
 
   const handleCompletePayment = () => {
-    resetOrderMutation.mutate({ orderId: order._id });
+    resetOrderMutation.mutate({ orderId: order.orderId });
   };
 
   const handleCancelOrder = () => {
-    cancelOrderMutation.mutate({ orderId: order._id });
+    cancelOrderMutation.mutate({ orderId: order.orderId });
   };
 
   // Determine which actions to show based on order status
@@ -276,7 +251,7 @@ export function YourOrderCard({ order }: Props) {
                   </AlertDialog>
                 </div>
               ) : isConfirmedNotDelivered ? (
-                <Link href={`/your-orders/order-details?orderId=${order._id}`}>
+                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -287,7 +262,7 @@ export function YourOrderCard({ order }: Props) {
                   </Button>
                 </Link>
               ) : (
-                <Link href={`/your-orders/order-details?orderId=${order._id}`}>
+                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
                   <Button
                     size="sm"
                     variant="outline"

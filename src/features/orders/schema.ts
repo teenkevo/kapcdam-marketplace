@@ -78,6 +78,9 @@ const orderItemSchema = z.object({
   type: z.enum(["product", "course"]),
   discountApplied: z.number(),
   image: z.any().nullable(),
+  itemImage: z.any().nullable(),
+  productId: z.string().nullable(),
+  courseId: z.string().nullable(),
   preferredStartDate: z.string().datetime().nullable(),
   variantSku: z.string().nullable(),
 });
@@ -89,6 +92,7 @@ export const orderSchema = z.object({
   deliveryMethod: z.string(),
 
   estimatedDelivery: z.string().datetime(),
+  deliveredAt: z.string().datetime().nullable().optional(),
   orderDate: z.string().datetime(),
   subtotal: z.number().optional(),
   shippingCost: z.number().optional(),

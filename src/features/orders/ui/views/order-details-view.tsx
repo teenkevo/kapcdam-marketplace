@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { OrderItem } from "../components/order-item";
+import { OrderDetailsViewSkeleton } from "../components/order-details-view-skeleton";
+import { RelatedProductsSection } from "@/features/products/ui/components/related-products-section";
 
 type Props = {
   orderId: string;
@@ -177,11 +179,7 @@ export function OrderDetailsView({ orderId }: Props) {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <OrderDetailsViewSkeleton />;
   }
 
   if (error || !order) {
@@ -198,10 +196,16 @@ export function OrderDetailsView({ orderId }: Props) {
 
   const statusConfig = getStatusConfig(order.status, order.paymentStatus);
   const trackingSteps = getTrackingSteps(order.paymentStatus, order.status);
-  
+
   // Order item action logic - match YourOrderCard exactly
-  const isDelivered = order.status === "delivered"  ;
+  const isDelivered = order.status === "delivered";
   const canShowItemActions = order.status === "confirmed" || isDelivered;
+
+  // Extract product IDs for related products
+  const productIds = order.orderItems
+    .filter((item) => item.type === "product" && item.productId)
+    .map((item) => item.productId!)
+    .filter(Boolean);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-UG", {
@@ -220,18 +224,17 @@ export function OrderDetailsView({ orderId }: Props) {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-6">
         <div className="flex gap-8 items-center">
           <div className="flex flex-col">
-            <dt className="text-gray-600 font-medium tracking-wide text-xs">
-              ORDER PLACED
-            </dt>
-            <dd className="font-semibold">
-              {format(new Date(order.orderDate), "d MMMM yyyy")}
-            </dd>
+            <h1 className=" text-gray-900">
+              ORDER{" "}
+              <span className="text-base font-semibold">
+                #{order.orderNumber}
+              </span>{" "}
+              placed on{" "}
+              <span className="text-base font-semibold">
+                {format(new Date(order.orderDate), "d MMMM yyyy")}
+              </span>
+            </h1>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-600 text-sm">
-            ORDER #{order.orderNumber}
-          </span>
         </div>
       </div>
 
@@ -363,6 +366,18 @@ export function OrderDetailsView({ orderId }: Props) {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Related Products Section */}
+      <RelatedProductsSection
+        productIds={productIds}
+        title={
+          productIds.length > 0 
+            ? "Customers who bought these items also bought" 
+            : "You might also like"
+        }
+        limit={4}
+        className="px-0 pt-8"
+      />
     </div>
   );
 }
