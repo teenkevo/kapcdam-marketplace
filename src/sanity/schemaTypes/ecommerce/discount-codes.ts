@@ -166,15 +166,7 @@ export const discountCodes = defineType({
               validation: (rule) =>
                 rule.required().error("Usage timestamp is required"),
             }),
-            defineField({
-              name: "order",
-              title: "Order",
-              type: "reference",
-              description: "Order where this code was used",
-              to: [{ type: "order" }],
-              validation: (rule) =>
-                rule.required().error("Order reference is required"),
-            }),
+
             defineField({
               name: "orderNumber",
               title: "Order Number",

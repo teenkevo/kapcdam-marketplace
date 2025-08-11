@@ -119,6 +119,7 @@ export const donation = defineType({
       description: "Current payment status",
       options: {
         list: [
+          { title: "Not Initiated", value: "not_initiated" },
           { title: "Pending", value: "pending" },
           { title: "Completed", value: "completed" },
           { title: "Failed", value: "failed" },

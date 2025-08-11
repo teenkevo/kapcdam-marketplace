@@ -24,15 +24,35 @@ export const cartRouter = createTRPCRouter({
    */
   getUserCart: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const cart = await client.fetch(CART_ITEMS_QUERY, {
+      let cart = await client.fetch(CART_ITEMS_QUERY, {
         clerkUserId: ctx.auth.userId,
       });
 
+      // Self-healing: if cart doesn't exist, create it
       if (!cart) {
-        return null;
-      }
+        console.warn(
+          `Cart missing for user ${ctx.auth.userId}, creating new one`
+        );
 
-      console.log("cart", cart);
+        const user = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: ctx.auth.userId }
+        );
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found. Account sync required.",
+          });
+        }
+
+        cart = await client.createIfNotExists({
+          _id: `cart-${ctx.auth.userId}`,
+          _type: "cart",
+          user: { _type: "reference", _ref: user._id },
+          cartItems: [],
+        });
+      }
 
       return CartSchema.parse(cart);
     } catch (error) {

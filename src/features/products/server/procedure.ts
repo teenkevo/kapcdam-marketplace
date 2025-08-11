@@ -209,7 +209,7 @@ export const productsRouter = createTRPCRouter({
           const productConditions = [
             `_type == "product"`,
             `status == "${status}"`,
-            `totalStock > 0`,
+            `((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))`,
           ];
 
           if (search) {
@@ -447,13 +447,13 @@ export const productsRouter = createTRPCRouter({
 
   getPriceRange: baseProcedure.query(async () => {
     const query = groq`{
-      "minPrice": math::min(*[_type == "product" && status == "active" && totalStock > 0][]{
+      "minPrice": math::min(*[_type == "product" && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))][]{
         "price": select(
           hasVariants == true => math::min(variants[].price),
           price
         )
       }.price),
-      "maxPrice": math::max(*[_type == "product" && status == "active" && totalStock > 0][]{
+      "maxPrice": math::max(*[_type == "product" && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))][]{
         "price": select(
           hasVariants == true => math::max(variants[].price),
           price
@@ -626,10 +626,286 @@ export const productsRouter = createTRPCRouter({
     }
   ),
 
+  // Details for wishlist items for account page
+  getLikedProductDetails: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const query = groq`*[_type == "user" && clerkUserId == $clerkUserId][0]{ 
+        "likedProducts": likedProducts[]->{
+          _id,
+          title,
+          slug,
+          hasVariants,
+          status,
+          "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+          "price": select(
+            hasVariants == true => variants[isDefault == true][0].price,
+            price
+          ),
+          "totalStock": select(
+            hasVariants == true => math::sum(variants[].stock),
+            totalStock
+          ),
+          "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+          "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+          category-> {
+            _id,
+            name,
+            slug,
+            hasParent,
+            displayImage,
+            parent-> {
+              _id,
+              name,
+              slug
+            }
+          },
+          "variantOptions": variants[] {
+            sku,
+            price,
+            stock,
+            isDefault,
+            attributes[] {
+              "attributeName": attributeRef->name,
+              "attributeCode": attributeRef->code.current,
+              value
+            }
+          },
+          "hasDiscount": defined(discount) && discount.isActive == true,
+          "discountInfo": select(
+            defined(discount) && discount.isActive == true => discount,
+            null
+          )
+        }
+      }`;
+
+      const result = await client.fetch(query, { clerkUserId: ctx.auth.userId });
+      
+      if (!result || !result.likedProducts) {
+        return [];
+      }
+
+      const cleanedProducts = result.likedProducts.map(cleanProductData);
+      
+      return z.array(productListItemSchema).parse(cleanedProducts);
+    } catch (error) {
+      console.error("Failed to fetch liked product details:", error);
+      
+      if (error instanceof Error && error.name === "ZodError") {
+        throw new TRPCError({
+          code: "PARSE_ERROR",
+          message: "Invalid liked product data structure returned from database",
+          cause: error,
+        });
+      }
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch liked product details",
+      });
+    }
+  }),
+
   getRelatedProducts: baseProcedure
     .input(getRelatedProductsInputSchema)
     .query(async ({ input }) => {
-      const { productId, categoryId, limit } = input;
+      const { productId, productIds, categoryId, categoryIds, limit } = input;
+      
+      // Handle multiple products case (or empty array for random products)
+      if (productIds !== undefined) {
+        // For multiple products, we'll aggregate categories and find related products
+        // First, get categories from the provided products (if any)
+        let productCategories = [];
+        if (productIds && productIds.length > 0) {
+          productCategories = await client.fetch(
+            groq`*[_type == "product" && _id in $productIds]{
+              "categoryId": category._ref,
+              "categorySlug": category->slug.current
+            }`,
+            { productIds }
+          );
+        }
+        
+        // Extract unique category IDs
+        const uniqueCategoryIds = [...new Set(
+          productCategories
+            .map((p: any) => p.categoryId)
+            .filter(Boolean)
+        )];
+        
+        if (uniqueCategoryIds.length === 0) {
+          // If no categories found (or no productIds), return random products
+          const excludeIds = productIds && productIds.length > 0 ? productIds : [];
+          const randomProducts = await client.fetch(
+            groq`*[_type == "product" && !(_id in $excludeIds) && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
+              _id,
+              title,
+              slug,
+              hasVariants,
+              status,
+              "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+              "price": select(
+                hasVariants == true => variants[isDefault == true][0].price,
+                price
+              ),
+              "totalStock": select(
+                hasVariants == true => math::sum(variants[].stock),
+                totalStock
+              ),
+              "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+              "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+              category-> {
+                _id,
+                name,
+                slug,
+                hasParent,
+                parent-> {
+                  _id,
+                  name,
+                  slug
+                }
+              },
+              "variantOptions": variants[] {
+                sku,
+                price,
+                stock,
+                isDefault,
+                attributes[] {
+                  "attributeName": attributeRef->name,
+                  "attributeCode": attributeRef->code.current,
+                  value
+                }
+              },
+              "hasDiscount": defined(discount) && discount.isActive == true,
+              "discountInfo": select(
+                defined(discount) && discount.isActive == true => discount,
+                null
+              )
+            }`,
+            { excludeIds }
+          );
+          
+          return z.array(productListItemSchema).parse((randomProducts || []).map(cleanProductData));
+        }
+        
+        // Get related products from the same categories
+        const excludeIds = productIds && productIds.length > 0 ? productIds : [];
+        const relatedProducts = await client.fetch(
+          groq`*[_type == "product" && !(_id in $excludeIds) && category._ref in $categoryIds && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
+            _id,
+            title,
+            slug,
+            hasVariants,
+            status,
+            "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+            "price": select(
+              hasVariants == true => variants[isDefault == true][0].price,
+              price
+            ),
+            "totalStock": select(
+              hasVariants == true => math::sum(variants[].stock),
+              totalStock
+            ),
+            "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+            "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+            category-> {
+              _id,
+              name,
+              slug,
+              hasParent,
+              parent-> {
+                _id,
+                name,
+                slug
+              }
+            },
+            "variantOptions": variants[] {
+              sku,
+              price,
+              stock,
+              isDefault,
+              attributes[] {
+                "attributeName": attributeRef->name,
+                "attributeCode": attributeRef->code.current,
+                value
+              }
+            },
+            "hasDiscount": defined(discount) && discount.isActive == true,
+            "discountInfo": select(
+              defined(discount) && discount.isActive == true => discount,
+              null
+            )
+          }`,
+          { excludeIds, categoryIds: uniqueCategoryIds }
+        );
+        
+        const cleanedRelatedProducts = (relatedProducts || []).map(cleanProductData);
+
+        // If we have less than the limit, fill up with random products from different categories
+        if (cleanedRelatedProducts.length < limit) {
+          const remainingLimit = limit - cleanedRelatedProducts.length;
+          const fallbackProducts = await client.fetch(
+            groq`*[_type == "product" && !(_id in $excludeIds) && !(category._ref in $categoryIds) && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${remainingLimit}] {
+              _id,
+              title,
+              slug,
+              hasVariants,
+              status,
+              "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+              "price": select(
+                hasVariants == true => variants[isDefault == true][0].price,
+                price
+              ),
+              "totalStock": select(
+                hasVariants == true => math::sum(variants[].stock),
+                totalStock
+              ),
+              "averageRating": math::avg(*[_type == "reviews" && product._ref == ^._id && status == "approved"].rating),
+              "totalReviews": count(*[_type == "reviews" && product._ref == ^._id && status == "approved"]),
+              category-> {
+                _id,
+                name,
+                slug,
+                hasParent,
+                parent-> {
+                  _id,
+                  name,
+                  slug
+                }
+              },
+              "variantOptions": variants[] {
+                sku,
+                price,
+                stock,
+                isDefault,
+                attributes[] {
+                  "attributeName": attributeRef->name,
+                  "attributeCode": attributeRef->code.current,
+                  value
+                }
+              },
+              "hasDiscount": defined(discount) && discount.isActive == true,
+              "discountInfo": select(
+                defined(discount) && discount.isActive == true => discount,
+                null
+              )
+            }`,
+            { excludeIds, categoryIds: uniqueCategoryIds, remainingLimit }
+          );
+          
+          const cleanedFallbackProducts = (fallbackProducts || []).map(cleanProductData);
+          cleanedRelatedProducts.push(...cleanedFallbackProducts);
+        }
+        
+        return z.array(productListItemSchema).parse(cleanedRelatedProducts);
+      }
+      
+      // Original single product logic
+      if (!productId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST", 
+          message: "Either productId or productIds must be provided"
+        });
+      }
 
       try {
         let query = "";
@@ -638,7 +914,7 @@ export const productsRouter = createTRPCRouter({
 
         if (categoryId) {
           // First try to get products from the same category
-          query = groq`*[_type == "product" && _id != $productId && category._ref == $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+          query = groq`*[_type == "product" && _id != $productId && category._ref == $categoryId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
             _id,
             title,
             slug,
@@ -686,7 +962,7 @@ export const productsRouter = createTRPCRouter({
           params.categoryId = categoryId;
         } else {
           // If no category, get random products excluding the current one
-          query = groq`*[_type == "product" && _id != $productId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${limit}] {
+          query = groq`*[_type == "product" && _id != $productId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${limit}] {
             _id,
             title,
             slug,
@@ -739,7 +1015,7 @@ export const productsRouter = createTRPCRouter({
         // If we have less than the limit and we were filtering by category, get random products to fill up
         if (cleanedProducts.length < limit && categoryId) {
           const remainingLimit = limit - cleanedProducts.length;
-          const fallbackQuery = groq`*[_type == "product" && _id != $productId && category._ref != $categoryId && status == "active" && totalStock > 0] | order(_createdAt desc) [0...${remainingLimit}] {
+          const fallbackQuery = groq`*[_type == "product" && _id != $productId && category._ref != $categoryId && status == "active" && ((hasVariants == false && totalStock > 0) || (hasVariants == true && math::sum(variants[].stock) > 0))] | order(_createdAt desc) [0...${remainingLimit}] {
             _id,
             title,
             slug,

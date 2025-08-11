@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { addressSchema } from "@/features/checkout/schemas/checkout-form";
 
 // Order creation input schema
 export const createOrderSchema = z.object({
-  shippingAddress: z.object({ addressId: z.string() }), // Only existing addresses
+  shippingAddress: z.object({ addressId: z.string() }),
   deliveryMethod: z.enum(["pickup", "local_delivery"]),
   paymentMethod: z.enum(["pesapal", "cod"]),
   selectedDeliveryZone: z
@@ -25,23 +24,6 @@ export const createOrderSchema = z.object({
     .optional(),
 });
 
-// Order response schema
-export const orderResponseSchema = z.object({
-  orderId: z.string(),
-  orderNumber: z.string(),
-  total: z.number(),
-  paymentRequired: z.boolean(),
-  paymentMethod: z.enum(["pesapal", "cod"]),
-  shippingAddress: z.object({
-    addressId: z.string(),
-  }),
-  user: z.object({
-    email: z.string(),
-    firstName: z.string().nullable().optional(),
-    lastName: z.string().nullable().optional(),
-  }),
-});
-
 // Order status update schema
 export const updateOrderStatusSchema = z.object({
   orderId: z.string(),
@@ -59,77 +41,78 @@ export const updateOrderStatusSchema = z.object({
 // Payment status update schema
 export const updatePaymentStatusSchema = z.object({
   orderId: z.string(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "partial"]),
+  paymentStatus: z.enum([
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+    "not_initiated",
+  ]),
   transactionId: z.string().nullable().optional(),
   paidAt: z.string().nullable().optional(),
 });
 
-// Order item for creation (handling Sanity's nullable behavior)
-export const orderItemSchema = z.object({
-  type: z.enum(["product", "course"]),
-  quantity: z.number().min(1),
-  originalPrice: z.number(),
-  discountApplied: z.number().default(0),
-  finalPrice: z.number(),
-  lineTotal: z.number(),
-  productId: z.string().nullable().optional(),
-  courseId: z.string().nullable().optional(),
-  selectedVariantSku: z.string().nullable().optional(),
-  preferredStartDate: z.string().nullable().optional(),
-  // Snapshots for historical data
-  productSnapshot: z
-    .object({
-      title: z.string(),
-      sku: z.string().nullable().optional(),
-      variantInfo: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
-  courseSnapshot: z
-    .object({
-      title: z.string(),
-      description: z.string().nullable().optional(),
-      duration: z.string().nullable().optional(),
-      skillLevel: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+// Schema for the billing address
+const billingAddressSchema = z.object({
+  _id: z.string(),
+  address: z.string(),
+  city: z.string(),
+  fullName: z.string(),
+  phone: z.string(),
 });
 
-// Sanity order schema for parsing returned data
-export const sanityOrderSchema = z.object({
-  _id: z.string(),
-  orderNumber: z.string(),
-  orderDate: z.string(),
-  customer: z.object({
-    _ref: z.string(),
-    _type: z.literal("reference"),
-  }),
-  subtotal: z.number(),
-  tax: z.number().nullable().default(0),
-  shippingCost: z.number().nullable().default(0),
-  totalItemDiscounts: z.number().nullable().default(0),
+// Schema for the customer details
+const customerSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string(),
+  lastName: z.string(),
+});
+
+// Schema for a single item within the order (embedded object with _key)
+const orderItemSchema = z.object({
+  _key: z.string(),
+  name: z.string(),
+  quantity: z.number().int().positive(),
+  unitPrice: z.number(),
+  lineTotal: z.number(),
+  type: z.enum(["product", "course"]),
+  discountApplied: z.number(),
+  image: z.any().nullable(),
+  itemImage: z.any().nullable(),
+  productId: z.string().nullable(),
+  courseId: z.string().nullable(),
+  preferredStartDate: z.string().datetime().nullable(),
+  variantSku: z.string().nullable(),
+});
+
+export const orderSchema = z.object({
+  orderId: z.string(),
+  billingAddress: billingAddressSchema,
+  customer: customerSchema,
+  deliveryMethod: z.string(),
+
+  estimatedDelivery: z.string().datetime().nullable().optional(),
+  deliveredAt: z.string().datetime().nullable().optional(),
+  orderDate: z.string().datetime(),
+  subtotal: z.number().optional(),
+  shippingCost: z.number().optional(),
+  orderItems: z.array(orderItemSchema),
   orderLevelDiscount: z
     .object({
-      discountCode: z
-        .object({
-          _ref: z.string(),
-          _type: z.literal("reference"),
-        })
-        .nullable()
-        .optional(),
+      couponApplied: z.string(),
       discountAmount: z.number(),
-      originalPercentage: z.number(),
-      appliedAt: z.string(),
     })
     .nullable()
     .optional(),
-  total: z.number(),
-  currency: z.string().default("UGX"),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "partial"]),
-  paymentMethod: z.enum(["pesapal", "cod"]),
-  transactionId: z.string().nullable().optional(),
-  paidAt: z.string().nullable().optional(),
+  orderNumber: z.string(),
+  paymentMethod: z.string(),
+  paymentStatus: z.enum([
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+    "not_initiated",
+  ]),
   status: z.enum([
     "pending",
     "confirmed",
@@ -138,34 +121,37 @@ export const sanityOrderSchema = z.object({
     "delivered",
     "cancelled",
   ]),
-  notes: z.string().nullable().optional(),
-  isActive: z.boolean().default(true),
-  shippingAddress: z.object({
-    _id: z.string(),
-    label: z.enum(["home", "work", "other"]),
-    fullName: z.string(),
-    phone: z.string(),
-    address: z.string(),
-    landmark: z.string().nullable().optional(),
-    city: z.string().nullable().optional(),
-    country: z.string().default("Uganda"),
-    deliveryInstructions: z.string().nullable().optional(),
-    isDefault: z.boolean().default(false),
-    isActive: z.boolean().default(true),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  }),
-  deliveryMethod: z.enum(["pickup", "local_delivery"]),
-  estimatedDelivery: z.string().nullable().optional(),
-  deliveredAt: z.string().nullable().optional(),
+  total: z.number(),
+  transactionId: z.string().nullable(),
 });
 
 // Types
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
-export type OrderResponse = z.infer<typeof orderResponseSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type UpdatePaymentStatusInput = z.infer<
   typeof updatePaymentStatusSchema
 >;
-export type OrderItemInput = z.infer<typeof orderItemSchema>;
-export type SanityOrder = z.infer<typeof sanityOrderSchema>;
+export type OrderResponse = z.infer<typeof orderSchema>;
+
+// Lightweight order meta for routing/decision
+export const orderMetaSchema = z.object({
+  orderId: z.string(),
+  paymentMethod: z.enum(["pesapal", "cod"]),
+  paymentStatus: z.enum([
+    "not_initiated",
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+  ]),
+  status: z.enum([
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ]),
+  transactionId: z.string().nullable(),
+});
+export type OrderMeta = z.infer<typeof orderMetaSchema>;

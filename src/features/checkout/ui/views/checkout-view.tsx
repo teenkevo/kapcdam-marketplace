@@ -13,17 +13,20 @@ import {
   CheckoutFormSkeleton,
   OrderSummarySkeleton,
 } from "../components/checkout-skeleton";
+import { Loader2 } from "lucide-react";
 
 export default function CheckoutView() {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  
+
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+
   const { data: userCart, isLoading: isCartLoading } = useQuery(
     trpc.cart.getUserCart.queryOptions()
   );
-  
-  const { 
+
+  const {
     formState,
     handleFormValidChange,
     handleFormDataChange,
@@ -37,15 +40,12 @@ export default function CheckoutView() {
     originalPercentage: number;
   } | null>(null);
 
-  // Create order mutation - simplified to only redirect to order page
   const createOrderMutation = useMutation(
     trpc.orders.createOrder.mutationOptions({
       onSuccess: async (result) => {
         toast.success(`Order ${result.orderNumber} created successfully!`);
 
-        // Comprehensive cache invalidation for cart-related queries
         try {
-          // 1. Invalidate all cart queries
           await queryClient.invalidateQueries({ queryKey: ["cart"] });
 
           // 2. Remove all cart query cache to force fresh fetch
@@ -60,15 +60,10 @@ export default function CheckoutView() {
           await queryClient.invalidateQueries({
             queryKey: ["cart", "getDisplayData"],
           });
-
         } catch (error) {
           console.error("Cache invalidation error:", error);
-       
         }
 
-        
-
-        // Always redirect to order-specific checkout page
         router.push(`/checkout/${result.orderId}`);
       },
       onError: (error) => {
@@ -94,6 +89,8 @@ export default function CheckoutView() {
       return;
     }
 
+    setIsProcessingOrder(true);
+
     const { formData } = formState;
 
     const orderData = {
@@ -104,7 +101,6 @@ export default function CheckoutView() {
       appliedCoupon,
     };
 
-    console.log("Submitting order with data:", orderData); // Debug log
     createOrderMutation.mutate(orderData);
   };
 
@@ -126,20 +122,31 @@ export default function CheckoutView() {
     );
   }
 
-  // Show empty cart message if no cart or cart is empty
-  if (!userCart || !userCart.cartItems || userCart.cartItems.length === 0) {
+  if (isProcessingOrder) {
+    const paymentMethod = formState.formData?.paymentMethod;
+    
     return (
-      <div className="max-w-4xl mx-auto py-10 md:py-20 text-center">
-        <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
-        <p className="text-lg text-muted-foreground mb-8">
-          Add some items to your cart to proceed with checkout
-        </p>
-        <button
-          onClick={() => router.push('/marketplace')}
-          className="px-8 py-3 bg-[#C5F82A] text-black font-semibold rounded-lg hover:bg-[#B8E625]"
-        >
-          Continue Shopping
-        </button>
+      <div className="max-w-7xl flex-1 mx-auto py-10 md:py-20 relative flex justify-center items-center">
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <div className=" text-center">
+            <Loader2 className="animate-spin rounded-full h-12 w-12 text-[#C5F82A] mx-auto mb-4" />
+            <h3 className="text-base font-medium mb-2">
+              {createOrderMutation.isPending
+                ? "Processing your order"
+                : paymentMethod === "cod"
+                ? "Order placed successfully!"
+                : "Redirecting to pesapal"}
+            </h3>
+
+            <p className="text-gray-600 text-sm">
+              {createOrderMutation.isPending
+                ? "Please wait while we prepare your order"
+                : paymentMethod === "cod"
+                ? "Your order is confirmed and will be processed shortly"
+                : "Make secure payment to complete your order"}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -147,15 +154,6 @@ export default function CheckoutView() {
   return (
     <div className="max-w-7xl mx-auto py-10 md:py-20 relative">
       {/* Processing Overlay - simplified for order creation only */}
-      {createOrderMutation.isPending && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C5F82A] mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">Creating Your Order...</h3>
-            <p className="text-gray-600">Please wait while we prepare your order</p>
-          </div>
-        </div>
-      )}
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Left Column - Checkout Form */}
@@ -169,18 +167,22 @@ export default function CheckoutView() {
 
         {/* Right Column - Order Summary */}
         <div className="lg:sticky lg:top-8 lg:self-start">
-          <OrderSummary
-            userCart={userCart}
-            shippingCost={formState.shippingCost}
-            onPrimaryAction={handlePlaceOrder}
-            primaryActionText={
-              createOrderMutation.isPending ? "Creating Order..." : "Place Order"
-            }
-            primaryActionDisabled={
-              !formState.isValid || createOrderMutation.isPending
-            }
-            onCouponChange={handleCouponChange}
-          />
+          {userCart && (
+            <OrderSummary
+              userCart={userCart}
+              shippingCost={formState.shippingCost}
+              onPrimaryAction={handlePlaceOrder}
+              primaryActionText={
+                createOrderMutation.isPending
+                  ? "Creating Order..."
+                  : "Place Order"
+              }
+              primaryActionDisabled={
+                !formState.isValid || createOrderMutation.isPending
+              }
+              onCouponChange={handleCouponChange}
+            />
+          )}
         </div>
       </div>
     </div>

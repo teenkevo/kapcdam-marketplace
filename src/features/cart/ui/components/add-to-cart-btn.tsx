@@ -11,17 +11,22 @@ import { useEffect, useState } from "react";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
+import { cn } from "@/lib/utils";
 
 type Props = {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
+  appearance?: "primary" | "subtle";
 };
 
 export const AddToLocalCartButton = ({
   product,
   quantity = 1,
   availableStock,
+  label,
+  appearance = "primary",
 }: Props) => {
   const { addLocalCartItem, isInCart, items } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +98,13 @@ export const AddToLocalCartButton = ({
   return (
     <div className="relative flex-1">
       <Button
-        className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full relative"
+        className={
+          appearance === "primary"
+            ? "bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full relative"
+            : "h-8 px-3 text-xs"
+        }
+        variant={appearance === "primary" ? undefined : "outline"}
+        size={appearance === "primary" ? undefined : "sm"}
         onClick={handleAddToCart}
         disabled={
           isLoading ||
@@ -107,17 +118,17 @@ export const AddToLocalCartButton = ({
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Adding...
+            {appearance === "primary" ? "Adding..." : ""}
           </>
         ) : isSyncing ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Syncing...
+            {appearance === "primary" ? "Syncing..." : ""}
           </>
         ) : (
           <>
             <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            {label || (appearance === "primary" ? "Add to Cart" : "Add")}
           </>
         )}
       </Button>
@@ -129,10 +140,14 @@ export const AddToServerCartButton = ({
   product,
   quantity = 1,
   availableStock,
+  label,
+  appearance = "primary",
 }: {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
+  appearance?: "primary" | "subtle";
 }) => {
   const [isInCart, setIsInCart] = useState(false);
   const [currentCartQuantity, setCurrentCartQuantity] = useState(0);
@@ -236,9 +251,13 @@ export const AddToServerCartButton = ({
   };
 
   return (
-    <div className="relative flex-1">
+    <div className={cn("relative flex-1", appearance === "subtle" && "w-fit flex-none")}>
       <Button
-        className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
+        className={cn(
+          "bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full relative",
+          appearance === "subtle" && "h-6 px-3 text-xs w-fit"
+        )}
+        size={appearance === "primary" ? undefined : "sm"}
         onClick={handleAddToCart}
         disabled={
           addItemToCart.isPending ||
@@ -251,12 +270,14 @@ export const AddToServerCartButton = ({
         {addItemToCart.isPending ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Adding...
+            {appearance === "primary" ? "Adding..." : ""}
           </>
         ) : (
           <>
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            {appearance !== "subtle" && (
+              <ShoppingCart className="w-4 h-4 mr-2" />
+            )}
+            {label || "Add to Cart"}
           </>
         )}
       </Button>
@@ -268,10 +289,14 @@ export const AddToCartButton = ({
   product,
   quantity,
   availableStock,
+  label,
+  appearance,
 }: {
   product: LocalCartItemType;
   quantity?: number;
   availableStock?: number;
+  label?: string;
+  appearance?: "primary" | "subtle";
 }) => {
   const user = useUser();
 
@@ -280,12 +305,16 @@ export const AddToCartButton = ({
       product={product}
       quantity={quantity}
       availableStock={availableStock}
+      label={label}
+      appearance={appearance}
     />
   ) : (
     <AddToLocalCartButton
       product={product}
       quantity={quantity}
       availableStock={availableStock}
+      label={label}
+      appearance={appearance}
     />
   );
 };

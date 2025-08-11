@@ -241,7 +241,6 @@ export const couponRouter = createTRPCRouter({
         orderNumber: z.string(),
         orderTotal: z.number(),
         discountAmount: z.number(),
-        orderId: z.string(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -274,12 +273,11 @@ export const couponRouter = createTRPCRouter({
           });
         }
 
-        // Add usage record to the discount code
+        // Add usage record to the discount code (order reference removed; track by orderNumber only)
         const usageRecord = {
           _key: `usage-${Date.now()}`,
           user: { _type: "reference", _ref: user._id },
           usedAt: new Date().toISOString(),
-          order: { _type: "reference", _ref: input.orderId },
           orderNumber: input.orderNumber,
           discountAmount: input.discountAmount,
           orderTotal: input.orderTotal,
@@ -307,6 +305,66 @@ export const couponRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to apply coupon",
+        });
+      }
+    }),
+
+  // Revert a coupon usage by orderNumber (when an order is cancelled)
+  revertCouponUsage: protectedProcedure
+    .input(
+      z.object({
+        code: z.string(),
+        orderNumber: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const coupon = await client.fetch(
+          groq`*[_type == "discountCodes" && code == $code][0]{
+            _id,
+            percentage,
+            usedBy
+          }`,
+          { code: input.code.toUpperCase() }
+        );
+
+        if (!coupon) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Discount code not found",
+          });
+        }
+
+        const usageIndex = (coupon.usedBy || []).findIndex(
+          (u: any) => u.orderNumber === input.orderNumber
+        );
+
+        if (usageIndex === -1) {
+          // Nothing to revert
+          return { success: true, message: "No usage record to revert" };
+        }
+
+        const usage = coupon.usedBy[usageIndex];
+
+        // Remove the usage record and decrement counters
+        const updatedUsedBy = coupon.usedBy.filter(
+          (_: any, idx: number) => idx !== usageIndex
+        );
+
+        await client
+          .patch(coupon._id)
+          .set({ usedBy: updatedUsedBy })
+          .dec({ currentUses: 1 })
+          .dec({ totalDiscountGiven: usage.discountAmount })
+          .dec({ totalOrderValue: usage.orderTotal })
+          .commit();
+
+        return { success: true, message: "Coupon usage reverted" };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to revert coupon usage",
         });
       }
     }),

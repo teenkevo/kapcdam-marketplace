@@ -35,9 +35,7 @@ export const structure: StructureResolver = (S) =>
 
       // Orders & Customer Data
       S.documentTypeListItem("order").title("Orders"),
-      S.documentTypeListItem("orderItem")
-        .title("Order Items")
-        .icon(CreditCardIcon),
+
       S.documentTypeListItem("user").title("Customer Accounts").icon(UserIcon),
       S.documentTypeListItem("address")
         .title("Customer Addresses")

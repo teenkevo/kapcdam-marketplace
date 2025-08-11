@@ -119,9 +119,13 @@ const getOneProductInputSchema = z.object({
 });
 
 const getRelatedProductsInputSchema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: z.string().min(1, "Product ID is required").optional(),
+  productIds: z.array(z.string()).optional(),
   categoryId: z.string().optional(),
+  categoryIds: z.array(z.string()).optional(),
   limit: z.number().min(1).max(8).default(4),
+}).refine(data => data.productId || (data.productIds && data.productIds.length > 0), {
+  message: "Either productId or productIds must be provided",
 });
 
 const priceRangeSchema = z.object({

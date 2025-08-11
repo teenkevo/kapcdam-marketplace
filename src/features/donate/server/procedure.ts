@@ -67,14 +67,9 @@ const createDonationSchema = z.object({
   isBankTransfer: z.boolean().default(false),
 });
 
-const processDonationPaymentSchema = z.object({
-  donationId: z.string(),
-  notification_id: z.string().url(),
-});
-
 const updateDonationStatusSchema = z.object({
   donationId: z.string(),
-  paymentStatus: z.enum(["pending", "completed", "failed", "refunded"]),
+  paymentStatus: z.enum(["not_initiated", "pending", "completed", "failed", "refunded"]),
   transactionId: z.string().optional(),
   orderTrackingId: z.string().optional(),
   confirmationCode: z.string().optional(),
@@ -83,6 +78,21 @@ const updateDonationStatusSchema = z.object({
   amount: z.number().optional(),
   isRecurring: z.boolean().default(false),
 });
+
+const processDonationPaymentSchema = z.object({
+  donationId: z.string(),
+});
+
+// Lightweight donation meta for routing/decision
+const donationMetaSchema = z.object({
+  donationId: z.string(),
+  paymentStatus: z.enum(["not_initiated", "pending", "completed", "failed", "refunded"]),
+  orderTrackingId: z.string().nullable(),
+  amount: z.number(),
+  type: z.enum(["one_time", "monthly"]),
+});
+
+export type DonationMeta = z.infer<typeof donationMetaSchema>;
 
 export function generateDonationId(): string {
   const year = new Date().getFullYear();
@@ -106,7 +116,7 @@ export const donationsRouter = createTRPCRouter({
           donorInfo: input.donorInfo,
           isBankTransfer: input.isBankTransfer,
           message: input.message,
-          paymentStatus: "pending",
+          paymentStatus: input.isBankTransfer ? "pending" : "not_initiated",
           thankYouSent: false,
           donatedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
@@ -322,6 +332,166 @@ export const donationsRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to handle recurring payment",
+        });
+      }
+    }),
+
+  // Lightweight status fetcher for routing/decisions
+  getDonationStatus: baseProcedure
+    .input(z.object({ donationId: z.string() }))
+    .query(async ({ input }) => {
+      const meta = await client.fetch(
+        `*[_type == "donation" && donationId == $donationId][0]{
+          donationId,
+          paymentStatus,
+          orderTrackingId,
+          amount,
+          type
+        }`,
+        { donationId: input.donationId }
+      );
+
+      if (!meta) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Donation not found" });
+      }
+
+      return donationMetaSchema.parse(meta);
+    }),
+
+  // Process payment for existing donation
+  processDonationPayment: baseProcedure
+    .input(processDonationPaymentSchema)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Fetch donation details
+        const donation = await client.fetch(
+          `*[_type == "donation" && donationId == $donationId][0]{
+            _id,
+            donationId,
+            amount,
+            type,
+            paymentStatus,
+            donorInfo,
+            recurringDetails
+          }`,
+          { donationId: input.donationId }
+        );
+
+        if (!donation) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Donation not found",
+          });
+        }
+
+        if (donation.paymentStatus !== "not_initiated") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Payment processing not required for this donation",
+          });
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || process.env.NEXT_PUBLIC_BASE_URL;
+
+        // Register IPN
+        const registerIpn = await fetch(
+          `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ctx.pesapalToken}`,
+            },
+            body: JSON.stringify({
+              ipn_notification_type: "POST",
+              url: `${baseUrl}/api/webhooks/pesapal`,
+            }),
+          }
+        );
+
+        if (!registerIpn.ok) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to register IPN",
+          });
+        }
+
+        const ipnResult = await registerIpn.json();
+
+        const orderPayload: PesapalOrderRequest = {
+          id: donation.donationId,
+          amount: donation.amount,
+          currency: "USD",
+          description: `Donation to KAPCDAM - ${donation.type === "monthly" ? "Monthly" : "One-time"}`,
+          callback_url: `${baseUrl}/api/donation/callback`,
+          notification_id: ipnResult.ipn_id,
+          billing_address: {
+            email_address: donation.donorInfo.email,
+            phone_number: donation.donorInfo.phone,
+            country_code: "US",
+            first_name: donation.donorInfo.firstName,
+            last_name: donation.donorInfo.lastName,
+            line_1: "Donation Address", // Required by Pesapal
+            city: "Kampala",
+          },
+        };
+
+        if (donation.type === "monthly" && donation.recurringDetails) {
+          orderPayload.subscription_details = {
+            start_date: new Date(donation.recurringDetails.startDate).toISOString().split('T')[0],
+            end_date: donation.recurringDetails.endDate 
+              ? new Date(donation.recurringDetails.endDate).toISOString().split('T')[0]
+              : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            frequency: "MONTHLY",
+          };
+          orderPayload.account_number = donation.donationId;
+        }
+
+        // Submit order to Pesapal
+        const paymentResponse = await fetch(
+          `${process.env.PESAPAL_API_URL}/Transactions/SubmitOrderRequest`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ctx.pesapalToken}`,
+            },
+            body: JSON.stringify(orderPayload),
+          }
+        );
+
+        if (!paymentResponse.ok) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to submit donation to payment processor",
+          });
+        }
+
+        const paymentResult = await paymentResponse.json();
+
+        // Update donation with tracking ID
+        await client
+          .patch(donation._id)
+          .set({
+            orderTrackingId: paymentResult.order_tracking_id,
+            paymentStatus: "pending",
+            updatedAt: new Date().toISOString(),
+          })
+          .commit();
+
+        return {
+          paymentUrl: paymentResult.redirect_url,
+          orderTrackingId: paymentResult.order_tracking_id,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Donation payment processing error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to process donation payment",
         });
       }
     }),

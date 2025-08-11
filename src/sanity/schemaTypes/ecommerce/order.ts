@@ -42,12 +42,7 @@ export const order = defineType({
       title: "Order Items",
       type: "array",
       description: "Items in this order",
-      of: [
-        {
-          type: "reference",
-          to: [{ type: "orderItem" }],
-        },
-      ],
+      of: [{ type: "orderItem" }],
       readOnly: true,
     }),
     defineField({
@@ -92,42 +87,24 @@ export const order = defineType({
       name: "orderLevelDiscount",
       title: "Order-Level Discount",
       type: "object",
-      description: "Applied coupon discount information",
+      description:
+        "Applied coupon discount information (e.g., 'TEST20 20% OFF')",
       fields: [
         defineField({
-          name: "discountCode",
-          title: "Discount Code",
-          type: "reference",
-          to: [{ type: "discountCodes" }],
-          description: "Reference to the applied discount code",
+          name: "couponApplied",
+          title: "Coupon Applied",
+          type: "string",
+          description: "Coupon display text (e.g., 'TEST20 20% OFF')",
+          validation: (rule) =>
+            rule.required().error("Coupon applied text is required"),
         }),
         defineField({
           name: "discountAmount",
           title: "Discount Amount (UGX)",
           type: "number",
-          description: "Actual discount amount applied",
+          description: "Actual discount amount applied at order level",
           validation: (rule) =>
             rule.required().min(0).error("Discount amount cannot be negative"),
-        }),
-        defineField({
-          name: "originalPercentage",
-          title: "Original Percentage (%)",
-          type: "number",
-          description: "Original percentage from the discount code",
-          validation: (rule) =>
-            rule
-              .required()
-              .min(1)
-              .max(100)
-              .error("Percentage must be between 1% and 100%"),
-        }),
-        defineField({
-          name: "appliedAt",
-          title: "Applied At",
-          type: "datetime",
-          description: "When the discount was applied",
-          validation: (rule) => rule.required(),
-          initialValue: () => new Date().toISOString(),
         }),
       ],
     }),
@@ -159,16 +136,16 @@ export const order = defineType({
       description: "Current payment status",
       options: {
         list: [
+          { title: "Not Initiated", value: "not_initiated" },
           { title: "Pending", value: "pending" },
           { title: "Paid", value: "paid" },
           { title: "Failed", value: "failed" },
           { title: "Refunded", value: "refunded" },
-          { title: "Partial Payment", value: "partial" },
         ],
         layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Payment status is required"),
-      initialValue: "pending",
+      initialValue: "not_initiated",
     }),
 
     defineField({
@@ -214,6 +191,7 @@ export const order = defineType({
           { title: "Pending", value: "pending" },
           { title: "Confirmed", value: "confirmed" },
           { title: "Processing", value: "processing" },
+          { title: "Ready", value: "ready" },
           { title: "Shipped", value: "shipped" },
           { title: "Delivered", value: "delivered" },
           { title: "Cancelled", value: "cancelled" },
@@ -222,22 +200,6 @@ export const order = defineType({
       },
       validation: (rule) => rule.required().error("Order status is required"),
       initialValue: "pending",
-    }),
-
-    defineField({
-      name: "notes",
-      title: "Internal Notes",
-      type: "text",
-      description: "Internal admin notes about this order",
-      rows: 3,
-    }),
-
-    defineField({
-      name: "isActive",
-      title: "Order Active",
-      type: "boolean",
-      description: "Is this order visible/active?",
-      initialValue: true,
     }),
 
     defineField({
@@ -282,6 +244,13 @@ export const order = defineType({
       description: "When the order was actually delivered",
       hidden: ({ document }) => document?.status !== "delivered",
     }),
+    defineField({
+      name: "notes",
+      title: "Internal Notes",
+      type: "text",
+      description: "Internal admin notes about this order",
+      rows: 3,
+    }),
   ],
 
   preview: {
@@ -291,6 +260,7 @@ export const order = defineType({
       customerName: "customer.firstName",
       total: "total",
       paymentStatus: "paymentStatus",
+      paymentMethod: "paymentMethod",
       status: "status",
       orderDate: "orderDate",
     },
@@ -300,6 +270,7 @@ export const order = defineType({
       customerName,
       total,
       paymentStatus,
+      paymentMethod,
       status,
       orderDate,
     }) {
@@ -319,9 +290,22 @@ export const order = defineType({
         ? status.charAt(0).toUpperCase() + status.slice(1)
         : "Pending";
 
+      // Add payment method indicator
+      const paymentMethodIcon = paymentMethod === "cod" ? " 💵" : " 💳";
+      
+      const title = customerName 
+        ? `${orderNumber}${paymentMethodIcon} - ${customerName}`
+        : `${orderNumber}${paymentMethodIcon}`;
+
+      let subtitle = `${totalFormatted} • ${paymentMethod === "cod" ? "COD" : "Pesapal"}: ${paymentStatusDisplay}`;
+      
+      if (status && status !== "pending") {
+        subtitle += ` • ${orderStatusDisplay}`;
+      }
+
       return {
-        title: `${orderNumber}`,
-        subtitle: `${totalFormatted} • ${customerDisplay} • ${paymentStatusDisplay} • ${orderStatusDisplay} • ${date}`,
+        title,
+        subtitle,
         media: null,
       };
     },

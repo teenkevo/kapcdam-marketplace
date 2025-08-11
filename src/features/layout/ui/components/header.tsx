@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import MegaMenu from "@/features/layout/ui/components/mega-menu";
 import Image from "next/image";
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { HydrationBoundary } from "@tanstack/react-query";
 import { LogIn } from "lucide-react";
 
@@ -15,7 +15,8 @@ import { CartSheet } from "@/features/cart/ui/components/cart-sheet";
 import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
-import { expandCartVariants } from "@/features/cart/helpers";
+import { WishlistSheet } from "@/features/products/ui/components/wishlist-sheet";
+import { UserNavButton } from "@/features/auth/ui/components/user-nav";
 
 // Define the data for the mega menus
 const takeActionSections = [
@@ -177,7 +178,8 @@ export default async function Header() {
           <div className="flex items-center space-x-4">
             {userId ? (
               <>
-                <UserButton />
+                {/* Account menu */}
+                <UserNavButton />
                 <HydrationBoundary>
                   <Suspense fallback={<CartNavButtonFallBack />}>
                     <CartNavButtonWrapper />
@@ -195,6 +197,7 @@ export default async function Header() {
               </>
             )}
             <CartSheet />
+            <WishlistSheet />
             <CartBubble />
           </div>
         </div>

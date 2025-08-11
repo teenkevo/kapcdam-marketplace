@@ -9,11 +9,10 @@ import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
 import {
   createOrderSchema,
-  orderResponseSchema,
+  orderSchema,
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
-  sanityOrderSchema,
-  type CreateOrderInput,
+  orderMetaSchema,
   type OrderResponse,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -23,6 +22,8 @@ import {
   type PesapalOrderRequest,
 } from "@/features/payments/schema";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { getDisplayTitle } from "@/features/cart/helpers";
+import { nanoid } from "nanoid";
 
 // Generate order number in format KAPC-YYYY-XXX
 function generateOrderNumber(): string {
@@ -30,6 +31,96 @@ function generateOrderNumber(): string {
   const randomNumber = Math.floor(Math.random() * 999) + 1;
   const paddedNumber = randomNumber.toString().padStart(3, "0");
   return `KAPC-${year}-${paddedNumber}`;
+}
+
+// Stock management utility functions
+async function reduceStockForOrder(orderItems: any[]) {
+  const stockUpdates = [];
+
+  for (const orderItem of orderItems) {
+    if (orderItem.type === "product" && orderItem.product) {
+      const product = orderItem.product;
+      const quantity = orderItem.quantity;
+
+      if (product.hasVariants && orderItem.variantSku) {
+        // Reduce variant stock
+        stockUpdates.push(
+          client
+            .patch(product._id)
+            .dec({
+              [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+            })
+            .commit()
+        );
+      } else if (!product.hasVariants && product.totalStock !== undefined) {
+        // Reduce product total stock
+        stockUpdates.push(
+          client.patch(product._id).dec({ totalStock: quantity }).commit()
+        );
+      }
+    }
+  }
+
+  // Execute all stock updates
+  if (stockUpdates.length > 0) {
+    await Promise.all(stockUpdates);
+    console.log(`Reduced stock for ${stockUpdates.length} products/variants`);
+  }
+}
+
+async function restoreStockForOrder(orderItems: any[]) {
+  const stockUpdates = [];
+
+  for (const orderItem of orderItems) {
+    if (orderItem.type === "product" && orderItem.product) {
+      const product = orderItem.product;
+      const quantity = orderItem.quantity;
+
+      if (product.hasVariants && orderItem.variantSku) {
+        // Restore variant stock
+        stockUpdates.push(
+          client
+            .patch(product._id)
+            .inc({
+              [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+            })
+            .commit()
+        );
+      } else if (!product.hasVariants && product.totalStock !== undefined) {
+        // Restore product total stock
+        stockUpdates.push(
+          client.patch(product._id).inc({ totalStock: quantity }).commit()
+        );
+      }
+    }
+  }
+
+  // Execute all stock updates
+  if (stockUpdates.length > 0) {
+    await Promise.all(stockUpdates);
+    console.log(`Restored stock for ${stockUpdates.length} products/variants`);
+  }
+}
+
+// Helper function to determine if stock should be restored for an order
+function shouldRestoreStockForOrder(order: any): boolean {
+  // COD orders always had stock reduced at creation, so restore stock when cancelled
+  if (order.paymentMethod === "cod") {
+    return true;
+  }
+  
+  // Pesapal orders only had stock reduced if payment was completed
+  if (order.paymentMethod === "pesapal") {
+    // Only restore stock if payment was actually completed (stock was reduced)
+    if (order.paymentStatus === "paid") {
+      return true;
+    }
+    // Don't restore stock for not_initiated, pending, failed orders (stock never reduced)
+    return false;
+  }
+  
+  // For any other payment methods, assume stock was reduced and should be restored
+  return true;
 }
 
 // Calculate order totals from cart data
@@ -101,7 +192,7 @@ function calculateOrderTotals(
     totalItemDiscounts: itemDiscountTotal,
     orderLevelDiscount,
     shippingCost,
-    total: Math.max(0, total), // Ensure total is never negative
+    total: Math.max(0, total),
   };
 }
 
@@ -110,35 +201,33 @@ export const ordersRouter = createTRPCRouter({
    * Process payment for an existing order
    */
   processOrderPayment: protectedProcedure
-    .input(
-      z.object({
-        orderId: z.string(),
-      })
-    )
+    .input(z.object({ orderId: z.string() }))
     .mutation(
       async ({
         ctx,
         input,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
-          // Get order details
+          // Fetch order server-side and validate ownership
           const order = await client.fetch(
-            groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0] {
-            _id,
-            orderNumber,
-            total,
-            currency,
-            paymentMethod,
-            customer->{email, firstName, lastName},
-            shippingAddress->{_id, phone, address, city, fullName}
-          }`,
+            groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+              "orderId": _id,
+              orderNumber,
+              total,
+              paymentMethod,
+              paymentStatus,
+              transactionId,
+              customer->{ email, firstName, lastName },
+              "billingAddress": shippingAddress->{ phone, address, city, fullName },
+              orderItems[]{ name }
+            }`,
             { orderId: input.orderId, clerkUserId: ctx.auth.userId }
           );
 
           if (!order) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message: "Order not found or access denied",
+              message: "Order not found",
             });
           }
 
@@ -165,7 +254,7 @@ export const ordersRouter = createTRPCRouter({
               },
               body: JSON.stringify({
                 ipn_notification_type: "POST",
-                url: `${baseUrl}/api/webhooks/pesapal`,
+                url: `${baseUrl}/api/webhooks/pesapal/orders`,
               }),
             }
           );
@@ -179,26 +268,25 @@ export const ordersRouter = createTRPCRouter({
 
           const ipnResult = await registerIpn.json();
 
-          // Create Pesapal payment request following donation pattern
           const pesapalRequest: PesapalOrderRequest = {
-            id: order._id,
-            currency: order.currency || "UGX",
+            id: order.orderNumber,
+            currency: "UGX",
             amount: order.total,
-            description: `Order ${order.orderNumber} - Kapcdam Marketplace`,
-            callback_url: `${baseUrl}/api/payment/callback?orderId=${order._id}`,
+            description: `Order for ${order.orderItems.map((item: any) => item.name).join(", ")}`,
+            callback_url: `${baseUrl}/api/payment/orders/callback/${order.orderId}`,
             notification_id: ipnResult.ipn_id,
             billing_address: {
               email_address: order.customer.email,
-              phone_number: order.shippingAddress.phone,
+              phone_number: order.billingAddress.phone,
               country_code: "UG",
               first_name:
                 order.customer.firstName ||
-                order.shippingAddress.fullName.split(" ")[0],
+                order.billingAddress.fullName.split(" ")[0],
               last_name:
                 order.customer.lastName ||
-                order.shippingAddress.fullName.split(" ").slice(1).join(" "),
-              line_1: order.shippingAddress.address,
-              city: order.shippingAddress.city || "Kampala",
+                order.billingAddress.fullName.split(" ").slice(1).join(" "),
+              line_1: order.billingAddress.address,
+              city: order.billingAddress.city,
             },
           };
 
@@ -226,7 +314,7 @@ export const ordersRouter = createTRPCRouter({
 
           // Update order with tracking ID
           await client
-            .patch(order._id)
+            .patch(order.orderId)
             .set({
               transactionId: paymentResult.order_tracking_id,
               paymentStatus: "pending",
@@ -255,65 +343,71 @@ export const ordersRouter = createTRPCRouter({
    */
   createOrder: protectedProcedure
     .input(createOrderSchema)
-    .mutation(async ({ ctx, input }): Promise<OrderResponse> => {
-      try {
-        const {
-          shippingAddress,
-          deliveryMethod,
-          paymentMethod,
-          selectedDeliveryZone,
-          appliedCoupon,
-        } = input;
+    .mutation(
+      async ({
+        ctx,
+        input,
+      }): Promise<{ orderId: string; orderNumber: string }> => {
+        try {
+          const {
+            shippingAddress,
+            deliveryMethod,
+            paymentMethod,
+            selectedDeliveryZone,
+            appliedCoupon,
+          } = input;
 
-        // 1. Fetch and validate cart
-        const cart = await client.fetch(CART_ITEMS_QUERY, {
-          clerkUserId: ctx.auth.userId,
-        });
-
-        if (!cart) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Cart not found or access denied",
+          const cart = await client.fetch(CART_ITEMS_QUERY, {
+            clerkUserId: ctx.auth.userId,
           });
-        }
 
-        const validatedCart = CartSchema.parse(cart);
+          if (!cart) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Cart not found or access denied",
+            });
+          }
 
-        if (!validatedCart.cartItems || validatedCart.cartItems.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Cart is empty",
-          });
-        }
+          const validatedCart = CartSchema.parse(cart);
 
-        // 2. Get user reference
-        const user = await client.fetch(
-          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
-          { clerkUserId: ctx.auth.userId }
-        );
+          if (
+            !validatedCart.cartItems ||
+            validatedCart.cartItems.length === 0
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cart is empty",
+            });
+          }
 
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found",
-          });
-        }
+          // 2. Get user reference
+          const user = await client.fetch(
+            groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+            { clerkUserId: ctx.auth.userId }
+          );
 
-        // 3. Fetch product/course display data for pricing
-        const productIds = validatedCart.cartItems
-          .filter((item) => item.type === "product" && item.productId)
-          .map((item) => item.productId!);
+          if (!user) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "User not found",
+            });
+          }
 
-        const courseIds = validatedCart.cartItems
-          .filter((item) => item.type === "course" && item.courseId)
-          .map((item) => item.courseId!);
+          // 3. Fetch product/course display data for pricing
+          const productIds = validatedCart.cartItems
+            .filter((item) => item.type === "product" && item.productId)
+            .map((item) => item.productId!);
 
-        const selectedSKUs = validatedCart.cartItems
-          .filter((item) => item.selectedVariantSku)
-          .map((item) => item.selectedVariantSku!);
+          const courseIds = validatedCart.cartItems
+            .filter((item) => item.type === "course" && item.courseId)
+            .map((item) => item.courseId!);
 
-        const cartDisplayData = await client.fetch(
-          groq`{
+          const selectedSKUs = validatedCart.cartItems
+            .filter((item) => item.selectedVariantSku)
+            .map((item) => item.selectedVariantSku!);
+
+          const cartDisplayData = await client.fetch(
+            groq`{
             "products": *[_type == "product" && _id in $productIds] {
               _id,
               title,
@@ -347,128 +441,160 @@ export const ordersRouter = createTRPCRouter({
               )
             }
           }`,
-          { productIds, courseIds, selectedSKUs }
-        );
-
-        // 4. Calculate shipping cost
-        const shippingCost =
-          deliveryMethod === "pickup" ? 0 : selectedDeliveryZone?.fee || 0;
-
-        // 5. Calculate totals
-        const totals = calculateOrderTotals(
-          validatedCart.cartItems,
-          cartDisplayData,
-          appliedCoupon,
-          shippingCost
-        );
-
-        // 6. Check for existing pending orders and cancel them (as per lifecycle Phase 3)
-        const existingPendingOrders = await client.fetch(
-          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"]`,
-          { clerkUserId: ctx.auth.userId }
-        );
-
-        // Cancel any existing pending orders
-        if (existingPendingOrders.length > 0) {
-          await Promise.all(
-            existingPendingOrders.map((order: any) =>
-              client
-                .patch(order._id)
-                .set({
-                  status: "cancelled",
-                  paymentStatus: "cancelled",
-                  updatedAt: new Date().toISOString(),
-                })
-                .commit()
-            )
+            { productIds, courseIds, selectedSKUs }
           );
-        }
 
-        // 7. Generate order number
-        const orderNumber = generateOrderNumber();
+          // 4. Calculate shipping cost
+          const shippingCost =
+            deliveryMethod === "pickup" ? 0 : selectedDeliveryZone?.fee || 0;
 
-        // 8. Get discount code reference if coupon is applied
-        let discountCodeRef = null;
-        if (appliedCoupon) {
-          const discountCode = await client.fetch(
-            groq`*[_type == "discountCodes" && code == $code][0]{ _id }`,
-            { code: appliedCoupon.code.toUpperCase() }
+          // 5. Calculate totals
+          const totals = calculateOrderTotals(
+            validatedCart.cartItems,
+            cartDisplayData,
+            appliedCoupon,
+            shippingCost
           );
-          if (discountCode) {
-            discountCodeRef = { _type: "reference", _ref: discountCode._id };
+
+          // 6. Check for existing pending pesapal orders and delete them (single pending constraint)
+          if (paymentMethod === "pesapal") {
+            const existingPendingPesapalOrders = await client.fetch(
+              groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentMethod == "pesapal" && paymentStatus in ["pending", "not_initiated"]]{
+                _id,
+                orderNumber,
+                paymentMethod,
+                paymentStatus,
+                orderLevelDiscount,
+                orderItems[] {
+                  type,
+                  quantity,
+                  variantSku,
+                  product->{_id, hasVariants, totalStock},
+                  course->{_id}
+                }
+              }`,
+              { clerkUserId: ctx.auth.userId }
+            );
+
+            if (existingPendingPesapalOrders.length > 0) {
+              // Revert coupons and restore stock for orders before deletion
+              for (const order of existingPendingPesapalOrders) {
+                // Revert coupon usage
+                if (order.orderLevelDiscount?.couponApplied) {
+                  try {
+                    const code = order.orderLevelDiscount.couponApplied.split(" ")[0];
+                    const { couponRouter } = await import(
+                      "@/features/coupons/server/procedure"
+                    );
+                    const couponCtx = {
+                      auth: ctx.auth,
+                      pesapalToken: ctx.pesapalToken,
+                    } as any;
+                    await couponRouter.createCaller(couponCtx).revertCouponUsage({
+                      code,
+                      orderNumber: order.orderNumber,
+                    });
+                  } catch (err) {
+                    console.error("Failed to revert coupon usage:", err);
+                  }
+                }
+
+                // Only restore stock for orders that actually had stock reduced
+                if (order.orderItems?.length > 0) {
+                  if (shouldRestoreStockForOrder(order)) {
+                    try {
+                      await restoreStockForOrder(order.orderItems);
+                      console.log(`✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+                    } catch (err) {
+                      console.error("Failed to restore stock for deleted order:", err);
+                    }
+                  } else {
+                    console.log(`ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+                  }
+                }
+              }
+
+              // Delete all existing pending pesapal orders (we don't keep cancelled orders)
+              await Promise.all(
+                existingPendingPesapalOrders.map((order: any) =>
+                  client.delete(order._id)
+                )
+              );
+            }
           }
-        }
 
-        // 9. Validate shipping address (must be existing address ID only)
-        let addressId: string;
+          // 7. Generate order number
+          const orderNumber = generateOrderNumber();
 
-        if ("addressId" in shippingAddress) {
-          // Using existing address
-          addressId = shippingAddress.addressId;
+          // 8. Generate coupon display text if coupon is applied
+          let couponDisplayText = null;
+          if (appliedCoupon) {
+            // Create Amazon-style coupon display: "TEST20 20% OFF"
+            couponDisplayText = `${appliedCoupon.code.toUpperCase()} ${appliedCoupon.originalPercentage}% OFF`;
+          }
 
-          // Verify address belongs to user
-          const existingAddress = await client.fetch(
-            groq`*[_type == "address" && _id == $addressId && user->clerkUserId == $clerkUserId][0]`,
-            { addressId, clerkUserId: ctx.auth.userId }
-          );
+          // 9. Validate shipping address (must be existing address ID only)
+          let addressId: string;
 
-          if (!existingAddress) {
+          if ("addressId" in shippingAddress) {
+            // Using existing address
+            addressId = shippingAddress.addressId;
+
+            // Verify address belongs to user
+            const existingAddress = await client.fetch(
+              groq`*[_type == "address" && _id == $addressId && user->clerkUserId == $clerkUserId][0]`,
+              { addressId, clerkUserId: ctx.auth.userId }
+            );
+
+            if (!existingAddress) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Address not found or access denied",
+              });
+            }
+          } else {
             throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Address not found or access denied",
+              code: "BAD_REQUEST",
+              message:
+                "Address must be selected from existing addresses. Please create an address first.",
             });
           }
-        } else {
-          // No longer supporting address creation during order - addresses must exist
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "Address must be selected from existing addresses. Please create an address first.",
-          });
-        }
 
-        // 10. Create order document
-        const orderDoc = {
-          _type: "order",
-          orderNumber,
-          orderDate: new Date().toISOString(),
-          customer: { _type: "reference", _ref: user._id },
-          subtotal: totals.subtotal,
-          tax: 0,
-          shippingCost: totals.shippingCost,
-          totalItemDiscounts: totals.totalItemDiscounts,
-          ...(appliedCoupon && {
-            orderLevelDiscount: {
-              ...(discountCodeRef && { discountCode: discountCodeRef }),
-              discountAmount: appliedCoupon.discountAmount,
-              originalPercentage: appliedCoupon.originalPercentage,
-              appliedAt: new Date().toISOString(),
-            },
-          }),
-          total: totals.total,
-          currency: "UGX",
-          paymentStatus: "pending",
-          paymentMethod,
-          status: "pending",
-          isActive: true,
-          shippingAddress: { _type: "reference", _ref: addressId },
-          deliveryMethod,
-          ...(selectedDeliveryZone && {
-            estimatedDelivery: new Date(
-              Date.now() + 24 * 60 * 60 * 1000 // Default to 24 hours from now
-            ).toISOString(),
-          }),
-        };
+          // 10. Create order document
+          const orderDoc = {
+            _type: "order",
+            orderNumber,
+            orderDate: new Date().toISOString(),
+            customer: { _type: "reference", _ref: user._id },
+            subtotal: totals.subtotal,
+            tax: 0,
+            shippingCost: totals.shippingCost,
+            totalItemDiscounts: totals.totalItemDiscounts,
+            ...(appliedCoupon && {
+              orderLevelDiscount: {
+                couponApplied: couponDisplayText,
+                discountAmount: appliedCoupon.discountAmount,
+              },
+            }),
+            total: totals.total,
+            currency: "UGX",
+            paymentStatus: paymentMethod === "pesapal" ? "not_initiated" : "pending",
+            paymentMethod,
+            status: paymentMethod === "cod" ? "confirmed" : "pending",
 
-        const createdOrder = await client.create(orderDoc);
+            shippingAddress: { _type: "reference", _ref: addressId },
+            deliveryMethod,
+            estimatedDelivery: selectedDeliveryZone
+              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours for delivery
+              : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days for pickup
+          };
 
-        // 11. Create order items
-        const orderItems = await Promise.all(
-          validatedCart.cartItems.map(async (cartItem) => {
+          // 11. Create order items as embedded objects
+          const orderItems = validatedCart.cartItems.map((cartItem) => {
             let originalPrice = 0;
             let discountApplied = 0;
-            let productSnapshot = null;
-            let courseSnapshot = null;
+            let itemName = "";
+            let variantSku = null;
 
             if (cartItem.type === "product") {
               const product = cartDisplayData.products?.find(
@@ -486,20 +612,17 @@ export const ordersRouter = createTRPCRouter({
                     ? parseInt(variant.price)
                     : parseInt(product.price);
 
-                  productSnapshot = {
-                    title: product.title,
-                    sku: cartItem.selectedVariantSku,
-                    variantInfo: variant?.attributes
-                      ?.map((attr: any) => `${attr.name}: ${attr.value}`)
-                      .join(", "),
-                  };
+                  // Generate Amazon-style name for variant
+                  itemName = variant?.attributes
+                    ? `${product.title} ${variant.attributes
+                        .map((attr: any) => `${attr.name} - ${attr.value}`)
+                        .join(", ")}`
+                    : product.title;
+
+                  variantSku = cartItem.selectedVariantSku;
                 } else {
                   originalPrice = parseInt(product.price);
-                  productSnapshot = {
-                    title: product.title,
-                    sku: null,
-                    variantInfo: null,
-                  };
+                  itemName = product.title;
                 }
 
                 // Calculate discount
@@ -520,12 +643,7 @@ export const ordersRouter = createTRPCRouter({
               );
               if (course) {
                 originalPrice = parseInt(course.price);
-                courseSnapshot = {
-                  title: course.title,
-                  description: course.description,
-                  duration: course.duration,
-                  skillLevel: course.skillLevel,
-                };
+                itemName = course.title;
 
                 // Calculate discount
                 if (
@@ -539,126 +657,109 @@ export const ordersRouter = createTRPCRouter({
               }
             }
 
-            const finalPrice = originalPrice - discountApplied;
-            const lineTotal = finalPrice * cartItem.quantity;
+            const unitPrice = originalPrice - discountApplied;
+            const lineTotal = unitPrice * cartItem.quantity;
 
-            const orderItem = {
+            return {
               _type: "orderItem",
-              order: { _type: "reference", _ref: createdOrder._id },
+              _key: nanoid(10),
               type: cartItem.type,
+              name: itemName,
+              ...(variantSku && { variantSku }),
               quantity: cartItem.quantity,
               originalPrice,
               discountApplied,
-              finalPrice,
+              unitPrice,
               lineTotal,
               ...(cartItem.type === "product" && {
                 product: { _type: "reference", _ref: cartItem.productId },
-                ...(productSnapshot && { variantSnapshot: productSnapshot }),
               }),
               ...(cartItem.type === "course" && {
                 course: { _type: "reference", _ref: cartItem.courseId },
                 ...(cartItem.preferredStartDate && {
                   preferredStartDate: cartItem.preferredStartDate,
                 }),
-                ...(courseSnapshot && { courseSnapshot }),
               }),
-              fulfillmentStatus: "pending",
-              addedAt: new Date().toISOString(),
-              isActive: true,
             };
+          });
 
-            return client.create(orderItem);
-          })
-        );
+          // 12. Create order document with embedded order items
+          const orderDocWithItems = {
+            ...orderDoc,
+            orderItems,
+          };
 
-        // 12. Update order document with references to created order items
-        const orderItemReferences = orderItems.map(item => ({
-          _type: "reference",
-          _ref: item._id,
-          _key: item._id
-        }));
+          const createdOrder = await client.create(orderDocWithItems);
 
-        await client
-          .patch(createdOrder._id)
-          .set({
-            orderItems: orderItemReferences
-          })
-          .commit();
-
-        // 13. Clear the cart
-        await client
-          .patch(cart._id)
-          .set({
-            cartItems: [], 
-          })
-          .commit();
-
-       
-        try {
-          // Invalidate pages that depend on cart data
-          revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
-          revalidatePath("/checkout", "page"); // Invalidate checkout pages
-
-          // Invalidate Sanity Live cache tags for cart queries
-          revalidateTag("cart-items"); // Invalidate cart items queries
-          revalidateTag("cart-display"); // Invalidate cart display data queries
-        } catch (error) {
-          console.error("Cache invalidation error:", error);
-          // Don't fail the order creation if cache invalidation fails
-        }
-
-        // 15. Apply coupon if provided and track usage
-        if (appliedCoupon && ctx.auth.userId) {
-          try {
-            // Import coupon router to apply coupon
-            const { couponRouter } = await import(
-              "@/features/coupons/server/procedure"
-            );
-
-            // Create a TRPC context for the coupon application
-            const couponCtx = {
-              auth: ctx.auth,
-              pesapalToken: ctx.pesapalToken,
-            };
-
-            // Apply the coupon and track usage
-            await couponRouter.createCaller(couponCtx).applyCoupon({
-              code: appliedCoupon.code,
-              orderNumber,
-              orderTotal: totals.subtotal + totals.shippingCost,
-              discountAmount: appliedCoupon.discountAmount,
-              orderId: createdOrder._id,
-            });
-          } catch (error) {
-            console.error("Failed to apply coupon:", error);
-            // Don't fail the order creation if coupon tracking fails
+          // Reduce stock immediately for COD orders (Pesapal handled by webhook)
+          if (paymentMethod === "cod") {
+            await reduceStockForOrder(orderItems);
           }
-        }
 
-        return {
-          orderId: createdOrder._id,
-          orderNumber,
-          total: totals.total,
-          paymentRequired: paymentMethod === "pesapal" && totals.total > 0,
-          paymentMethod,
-          shippingAddress: { addressId },
-          user: {
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-          },
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
+          // 13. Clear the cart
+          await client
+            .patch(cart._id)
+            .set({
+              cartItems: [],
+            })
+            .commit();
+
+          try {
+            // Invalidate pages that depend on cart data
+            revalidatePath("/", "layout"); // Invalidate layout cache (header with cart)
+            revalidatePath("/checkout", "page"); // Invalidate checkout pages
+
+            // Invalidate Sanity Live cache tags for cart queries
+            revalidateTag("cart-items"); // Invalidate cart items queries
+            revalidateTag("cart-display"); // Invalidate cart display data queries
+          } catch (error) {
+            console.error("Cache invalidation error:", error);
+            // Don't fail the order creation if cache invalidation fails
+          }
+
+          // 15. Apply coupon if provided and track usage
+          if (appliedCoupon && ctx.auth.userId) {
+            try {
+              // Import coupon router to apply coupon
+              const { couponRouter } = await import(
+                "@/features/coupons/server/procedure"
+              );
+
+              // Create a TRPC context for the coupon application
+              const couponCtx = {
+                auth: ctx.auth,
+                pesapalToken: ctx.pesapalToken,
+              };
+
+              // Apply the coupon and track usage
+              await couponRouter.createCaller(couponCtx).applyCoupon({
+                code: appliedCoupon.code,
+                orderNumber,
+                orderTotal: totals.subtotal + totals.shippingCost,
+                discountAmount: appliedCoupon.discountAmount,
+              });
+            } catch (error) {
+              console.error("Failed to apply coupon:", error);
+              // Don't fail the order creation if coupon tracking fails
+            }
+          }
+
+          return {
+            orderId: createdOrder._id,
+            orderNumber,
+          };
+        } catch (error) {
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+          console.error("Order creation error:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create order",
+          });
         }
-        console.error("Order creation error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create order",
-        });
       }
-    }),
+    ),
 
   /**
    * Update order status
@@ -669,9 +770,21 @@ export const ordersRouter = createTRPCRouter({
       try {
         const { orderId, status, notes } = input;
 
-        // Verify order ownership or admin access
+        // Verify order ownership or admin access (fetch order items if cancelling for stock reversion)
         const order = await client.fetch(
-          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]`,
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            status,
+            ${status === "cancelled" ? `paymentMethod,
+            paymentStatus,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }` : ""}
+          }`,
           { orderId, clerkUserId: ctx.auth.userId }
         );
 
@@ -682,7 +795,22 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        const updateData: any = { status, updatedAt: new Date().toISOString() };
+        // Only restore stock for orders that actually had stock reduced
+        if (status === "cancelled" && order.orderItems?.length > 0) {
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for cancelled order:", error);
+              // Don't fail the status update if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order (${order.paymentStatus}) - stock was never reduced`);
+          }
+        }
+
+        const updateData: any = { status };
 
         if (notes) {
           updateData.notes = notes;
@@ -720,7 +848,6 @@ export const ordersRouter = createTRPCRouter({
 
         const updateData: any = {
           paymentStatus,
-          updatedAt: new Date().toISOString(),
         };
 
         if (transactionId) {
@@ -759,13 +886,39 @@ export const ordersRouter = createTRPCRouter({
       z.object({
         limit: z.number().min(1).max(50).default(10),
         offset: z.number().min(0).default(0),
+        timeRange: z.enum(["30days", "3months"]).or(z.string().regex(/^\d{4}$/)).optional(),
+        searchQuery: z.string().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       try {
+        // Build dynamic filter conditions
+        let dateFilter = "";
+        let searchFilter = "";
+        
+        if (input.timeRange) {
+          const now = new Date();
+          if (input.timeRange === "30days") {
+            const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30)).toISOString();
+            dateFilter = ` && orderDate >= "${thirtyDaysAgo}"`;
+          } else if (input.timeRange === "3months") {
+            const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3)).toISOString();
+            dateFilter = ` && orderDate >= "${threeMonthsAgo}"`;
+          } else if (/^\d{4}$/.test(input.timeRange)) {
+            // Year filter
+            const year = input.timeRange;
+            dateFilter = ` && dateTime(orderDate) >= dateTime("${year}-01-01T00:00:00Z") && dateTime(orderDate) < dateTime("${parseInt(year) + 1}-01-01T00:00:00Z")`;
+          }
+        }
+        
+        if (input.searchQuery) {
+          const searchTerm = input.searchQuery.toLowerCase();
+          searchFilter = ` && (lower(orderNumber) match "*${searchTerm}*" || orderItems[lower(name) match "*${searchTerm}*"])`;
+        }
+
         const orders = await client.fetch(
-          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && isActive == true] | order(orderDate desc) [$offset...$limit] {
-            _id,
+          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId${dateFilter}${searchFilter}] | order(orderDate desc) [$offset...$limit] {
+            "orderId": _id,
             orderNumber,
             orderDate,
             subtotal,
@@ -776,7 +929,30 @@ export const ordersRouter = createTRPCRouter({
             status,
             deliveryMethod,
             estimatedDelivery,
-            deliveredAt
+            deliveredAt,
+            "userJoinDate": customer->_createdAt,
+            orderItems[]{
+              type,
+              name,
+              quantity,
+              variantSku,
+              image,
+              // Get product/course images
+              "itemImage": select(
+                type == "product" => product->images[0],
+                type == "course" => course->images[0],
+                null
+              ),
+              // IDs for actions (buy again / write review)
+              "productId": select(
+                type == "product" => product->_id,
+                null
+              ),
+              "courseId": select(
+                type == "course" => course->_id,
+                null
+              )
+            }
           }`,
           {
             clerkUserId: ctx.auth.userId,
@@ -794,53 +970,85 @@ export const ordersRouter = createTRPCRouter({
       }
     }),
 
-  /**
-   * Get pending order for user (for checkout back button handling)
-   */
-  getPendingOrder: protectedProcedure.query(async ({ ctx }) => {
+  // Count of user's orders for overview
+  getUserOrdersCount: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const pendingOrder = await client.fetch(
-        groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0] {
-            _id,
-            orderNumber,
-            orderDate,
-            subtotal,
-            shippingCost,
-            total,
-            currency,
-            paymentMethod,
-            "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
-              _id,
-              type,
-              quantity,
-              finalPrice,
-              lineTotal,
-              product->{title},
-              course->{title},
-              variantSnapshot,
-              courseSnapshot
-            }
-          }`,
+      const count = await client.fetch(
+        groq`count(*[_type == "order" && customer->clerkUserId == $clerkUserId])`,
         { clerkUserId: ctx.auth.userId }
       );
-
-      console.log("pendingOrder", pendingOrder);
-
-      return pendingOrder;
+      return { count: Number(count) || 0 };
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        console.error("Schema validation error:", error.errors);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Invalid cart data structure",
-        });
-      }
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch pending order",
+        message: "Failed to fetch order count",
       });
     }
   }),
+
+  // Lightweight status fetcher for routing/decisions
+  getOrderStatus: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const meta = await client.fetch(
+        groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+          "orderId": _id,
+          paymentMethod,
+          paymentStatus,
+          status,
+          transactionId
+        }`,
+        { orderId: input.orderId, clerkUserId: ctx.auth.userId }
+      );
+
+      if (!meta) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      }
+
+      return orderMetaSchema.parse(meta);
+    }),
+
+  /**
+   * Reset order for payment retry - sets order to initial payment state
+   */
+  resetOrderForPayment: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId } = input;
+
+        // Verify order ownership
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]`,
+          { orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // Reset order to initial payment state for checkout page
+        const updatedOrder = await client
+          .patch(orderId)
+          .set({
+            paymentStatus: "not_initiated",
+            status: "pending",
+          })
+          .unset(["transactionId", "paymentFailureReason"])
+          .commit();
+
+        return { success: true, order: updatedOrder };
+      } catch (error) {
+        console.error("Failed to reset order for payment:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reset order for payment",
+        });
+      }
+    }),
 
   /**
    * Cancel pending order (for checkout back button handling)
@@ -849,30 +1057,83 @@ export const ordersRouter = createTRPCRouter({
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        // Verify order ownership and pending status
-        const order = await client.fetch(
-          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId && paymentStatus == "pending"][0]`,
-          { orderId: input.orderId, clerkUserId: ctx.auth.userId }
-        );
-
-        if (!order) {
+        if (!input.orderId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Pending order not found or access denied",
           });
         }
 
-        // Cancel the order
-        const cancelledOrder = await client
-          .patch(input.orderId)
-          .set({
-            status: "cancelled",
-            paymentStatus: "cancelled",
-            updatedAt: new Date().toISOString(),
-          })
-          .commit();
+        // Fetch order to get orderNumber, coupon info, and order items for revert
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            orderNumber,
+            paymentMethod,
+            paymentStatus,
+            orderLevelDiscount,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
+          }`,
+          { orderId: input.orderId, clerkUserId: ctx.auth.userId }
+        );
 
-        return { success: true, order: cancelledOrder };
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // If coupon was applied, revert its usage before deleting order
+        const couponAppliedText: string | undefined =
+          order.orderLevelDiscount?.couponApplied;
+        if (couponAppliedText) {
+          try {
+            // couponApplied is like "TEST20 20% OFF" → extract code before first space
+            const code = couponAppliedText.split(" ")[0];
+            const { couponRouter } = await import(
+              "@/features/coupons/server/procedure"
+            );
+            const couponCtx = {
+              auth: ctx.auth,
+              pesapalToken: ctx.pesapalToken,
+            } as any;
+            await couponRouter.createCaller(couponCtx).revertCouponUsage({
+              code,
+              orderNumber: order.orderNumber,
+            });
+          } catch (err) {
+            console.error("Failed to revert coupon usage on cancel:", err);
+          }
+        }
+
+        // Only restore stock for orders that actually had stock reduced
+        if (order.orderItems?.length > 0) {
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for cancelled order:", error);
+              // Don't fail the cancellation if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+          }
+        }
+
+        await client.delete(input.orderId);
+
+        return {
+          success: true,
+          message: "Pending order deleted successfully.",
+        };
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -893,39 +1154,47 @@ export const ordersRouter = createTRPCRouter({
       try {
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0] {
-            _id,
+            "orderId": _id,
             orderNumber,
             orderDate,
             subtotal,
-            tax,
             shippingCost,
-            totalItemDiscounts,
-            orderLevelDiscount,
             total,
-            currency,
             paymentStatus,
             paymentMethod,
-            transactionId,
-            paidAt,
             status,
-            notes,
-            shippingAddress->,
             deliveryMethod,
             estimatedDelivery,
             deliveredAt,
-            "orderItems": *[_type == "orderItem" && order._ref == ^._id] {
-              _id,
+            transactionId,
+            customer->{email, firstName, lastName},
+            orderLevelDiscount,
+            "billingAddress": shippingAddress->{_id, phone, address, city, fullName},
+            orderItems[] {
+              _key,
               type,
+              name,
+              variantSku,
               quantity,
-              originalPrice,
               discountApplied,
-              finalPrice,
+              unitPrice,
               lineTotal,
-              product->,
-              course->,
-              variantSnapshot,
-              courseSnapshot,
-              fulfillmentStatus
+              "image": coalesce(product->images[0], course->images[0]),
+              "itemImage": select(
+                type == "product" => product->images[0],
+                type == "course" => course->images[0],
+                null
+              ),
+              // IDs for actions (buy again / write review)
+              "productId": select(
+                type == "product" => product->_id,
+                null
+              ),
+              "courseId": select(
+                type == "course" => course->_id,
+                null
+              ),
+              preferredStartDate
             }
           }`,
           { orderId: input.orderId, clerkUserId: ctx.auth.userId }
@@ -938,8 +1207,17 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        return order;
+        const validatedOrder = orderSchema.parse(order);
+
+        return validatedOrder;
       } catch (error) {
+        if (error instanceof z.ZodError) {
+          console.error("Schema validation error:", error.errors);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Invalid order data structure",
+          });
+        }
         if (error instanceof TRPCError) {
           throw error;
         }

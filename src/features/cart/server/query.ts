@@ -36,7 +36,7 @@ export const CART_DISPLAY_QUERY = defineQuery(`
     "variants": variants[sku in $selectedSKUs] {
       sku,
       price,
-      totalStock,
+      stock,
       isDefault,
       attributes[] {
         "id": attributeRef._ref,
