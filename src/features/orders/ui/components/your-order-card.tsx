@@ -35,7 +35,16 @@ type Props = {
   order: OrderResponse;
 };
 
-function getStatusConfig(status: string, paymentStatus: string) {
+function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: string) {
+  // Special handling for COD orders - show order status instead of payment status
+  if (paymentMethod === "cod" && paymentStatus === "pending") {
+    return {
+      color: "bg-blue-100 text-blue-800",
+      icon: CheckCircle,
+      label: "Order Received",
+    };
+  }
+  
   if (paymentStatus === "pending" || paymentStatus === "failed") {
     return {
       color:
@@ -86,7 +95,7 @@ export function YourOrderCard({ order }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const statusConfig = getStatusConfig(order.status, order.paymentStatus);
+  const statusConfig = getStatusConfig(order.status, order.paymentStatus, order.paymentMethod);
 
   // Mutations for order actions
   const resetOrderMutation = useMutation(
@@ -125,7 +134,8 @@ export function YourOrderCard({ order }: Props) {
 
   // Determine which actions to show based on order status
   const isPendingOrFailedPayment =
-    order.paymentStatus === "pending" || order.paymentStatus === "failed";
+    (order.paymentStatus === "pending" || order.paymentStatus === "failed") &&
+    order.paymentMethod !== "cod";
   const isConfirmedNotDelivered =
     order.status === "confirmed" && !order.deliveredAt;
   const isDelivered = order.status === "delivered" || order.deliveredAt;

@@ -88,7 +88,7 @@ export default function YourOrdersView() {
       <div className="space-y-6">
         {Array.isArray(orders) &&
           orders.map((order) => (
-            <YourOrderCard key={order._id} order={order} />
+            <YourOrderCard key={order.orderId} order={order} />
           ))}
       </div>
     </>

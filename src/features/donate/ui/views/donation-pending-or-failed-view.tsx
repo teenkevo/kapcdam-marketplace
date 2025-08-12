@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { TriangleAlert, Clock, Heart, RefreshCw } from "lucide-react";
+import { TriangleAlert, Clock, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 interface Props {
@@ -27,7 +27,7 @@ export default function DonationPendingOrFailedView({ donationId, mode }: Props)
     trpc.donations.processDonationPayment.mutationOptions({
       onSuccess: ({ paymentUrl }) => {
         setIsProcessing(true);
-        window.location.href = paymentUrl;
+        router.push(paymentUrl);
       },
       onError: (error) => {
         toast.error(`Payment processing failed: ${error.message}`);
@@ -37,6 +37,7 @@ export default function DonationPendingOrFailedView({ donationId, mode }: Props)
   );
 
   const handleRetryPayment = useCallback(() => {
+    // Single mutation flow like orders - no reset chain needed
     processDonationPaymentMutation.mutate({ donationId });
   }, [donationId, processDonationPaymentMutation]);
 
@@ -94,8 +95,7 @@ export default function DonationPendingOrFailedView({ donationId, mode }: Props)
                 Processing payment...
               </h3>
               <p className="text-gray-600 mb-1">
-                We're preparing your payment session. You'll be redirected
-                to the payment gateway shortly.
+                You'll be redirected to the payment gateway shortly.
               </p>
               <p className="text-sm text-gray-500">
                 Please do not close this window.
@@ -128,7 +128,7 @@ export default function DonationPendingOrFailedView({ donationId, mode }: Props)
           <p className="text-gray-700 mb-2">
             Donation ID: <span className="font-semibold">{donationId}</span>
           </p>
-          <p className="text-lg font-semibold text-gray-900 mb-4">{formattedAmount}</p>
+          <p className="text-lg font-semibold text-gray-900 mb-6">{formattedAmount}</p>
 
           {isFailed && (
             <p className="text-gray-600 mb-6 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -138,15 +138,9 @@ export default function DonationPendingOrFailedView({ donationId, mode }: Props)
           )}
 
           {isPending && (
-            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-center space-x-2 text-blue-800 mb-2">
-                <Heart className="h-5 w-5 fill-current" />
-                <span className="font-medium">Your generosity matters!</span>
-              </div>
-              <p className="text-blue-800 text-sm">
-                Click "Continue Donation" below to complete your contribution and make a difference.
-              </p>
-            </div>
+            <p className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+              Click "Continue Donation" below to complete your contribution.
+            </p>
           )}
 
           <div className="space-y-3">

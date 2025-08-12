@@ -83,6 +83,10 @@ const processDonationPaymentSchema = z.object({
   donationId: z.string(),
 });
 
+const resetDonationForPaymentSchema = z.object({
+  donationId: z.string(),
+});
+
 // Lightweight donation meta for routing/decision
 const donationMetaSchema = z.object({
   donationId: z.string(),
@@ -358,6 +362,51 @@ export const donationsRouter = createTRPCRouter({
       return donationMetaSchema.parse(meta);
     }),
 
+  // Reset donation for payment retry - sets donation to initial payment state
+  resetDonationForPayment: baseProcedure
+    .input(resetDonationForPaymentSchema)
+    .mutation(async ({ input }) => {
+      try {
+        const { donationId } = input;
+
+        // Verify donation exists
+        const donation = await client.fetch(
+          `*[_type == "donation" && donationId == $donationId][0]`,
+          { donationId }
+        );
+
+        if (!donation) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Donation not found",
+          });
+        }
+
+        // Reset donation to initial payment state for retry
+        const updatedDonation = await client
+          .patch(donation._id)
+          .set({
+            paymentStatus: "not_initiated",
+            updatedAt: new Date().toISOString(),
+          })
+          .unset(["orderTrackingId", "transactionId", "paymentFailureReason"])
+          .commit();
+
+        console.log(`🔄 Donation ${donationId} reset for payment retry`);
+
+        return { success: true, donation: updatedDonation };
+      } catch (error) {
+        console.error("Failed to reset donation for payment:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reset donation for payment",
+        });
+      }
+    }),
+
   // Process payment for existing donation
   processDonationPayment: baseProcedure
     .input(processDonationPaymentSchema)
@@ -384,7 +433,22 @@ export const donationsRouter = createTRPCRouter({
           });
         }
 
-        if (donation.paymentStatus !== "not_initiated") {
+        // Handle pending donations by resetting them internally (no separate frontend reset needed)
+        if (donation.paymentStatus === "pending") {
+          await client
+            .patch(donation._id)
+            .set({
+              paymentStatus: "not_initiated",
+              updatedAt: new Date().toISOString(),
+            })
+            .unset(["orderTrackingId", "transactionId", "paymentFailureReason"])
+            .commit();
+          
+          console.log(`🔄 Donation ${input.donationId} reset internally for retry`);
+        }
+
+        // Only reject if it's completed, failed, or refunded  
+        if (!["not_initiated", "pending"].includes(donation.paymentStatus)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Payment processing not required for this donation",
