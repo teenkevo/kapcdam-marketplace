@@ -839,6 +839,7 @@ export const ordersRouter = createTRPCRouter({
 
   /**
    * Update payment status (for webhooks/callbacks)
+   * NOTE: This procedure has built-in protection against orderItems modification
    */
   updatePaymentStatus: baseProcedure
     .input(updatePaymentStatusSchema)
@@ -846,6 +847,7 @@ export const ordersRouter = createTRPCRouter({
       try {
         const { orderId, paymentStatus, transactionId, paidAt } = input;
 
+        // SECURITY: Explicitly prevent any orderItems modifications
         const updateData: any = {
           paymentStatus,
         };
@@ -864,6 +866,9 @@ export const ordersRouter = createTRPCRouter({
           updateData.paidAt = paidAt || new Date().toISOString();
         }
 
+        // Log all order updates for audit trail
+        console.log(`🔒 Order update protection: Updating order ${orderId} with safe data only:`, updateData);
+
         const updatedOrder = await client
           .patch(orderId)
           .set(updateData)
@@ -871,6 +876,7 @@ export const ordersRouter = createTRPCRouter({
 
         return updatedOrder;
       } catch (error) {
+        console.error("❌ Order update failed:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update payment status",
