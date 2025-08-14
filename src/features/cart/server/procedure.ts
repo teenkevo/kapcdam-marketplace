@@ -651,4 +651,34 @@ export const cartRouter = createTRPCRouter({
         });
       }
     }),
+
+  deleteUserCart: baseProcedure
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        // Find user's cart
+        const cart = await client.fetch(
+          groq`*[_type == "cart" && user._ref == $userId][0]`,
+          { userId: input.userId }
+        );
+
+        if (!cart) {
+          return { deleted: false, message: "Cart not found" };
+        }
+
+        // Delete the cart
+        await client.delete(cart._id);
+
+        return {
+          deleted: true,
+          deletedCartId: cart._id,
+        };
+      } catch (error) {
+        console.error("Failed to delete user cart:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete user cart",
+        });
+      }
+    }),
 });
