@@ -17,17 +17,19 @@ import { Suspense } from "react";
 import { CartBubble } from "@/features/cart/ui/components/cart-bubble";
 import { WishlistSheet } from "@/features/products/ui/components/wishlist-sheet";
 import { UserNavButton } from "@/features/auth/ui/components/user-nav";
+import { isAdminUser } from "@/features/auth/lib/roles";
 
 // Define the data for the mega menus
-const takeActionSections = [
+const getTakeActionSections = (isAdmin: boolean) => [
   {
     heading: "Get Involved",
     items: [
       {
         title: "Donate Now",
         description: "Support our mission with a contribution.",
-        href: "/donate",
+        href: isAdmin ? "#" : "/donate",
         icon: "DollarSign" as const,
+        disabled: isAdmin,
       },
       {
         title: "Start a Fundraiser",
@@ -151,6 +153,7 @@ const whyKAPCDAMSections = [
 
 export default async function Header() {
   const { userId } = await auth();
+  const isAdmin = userId ? await isAdminUser() : false;
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -170,7 +173,7 @@ export default async function Header() {
           </div>
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <MegaMenu label="Take Action" sections={takeActionSections} />
+            <MegaMenu label="Take Action" sections={getTakeActionSections(isAdmin)} />
             <MegaMenu label="About Us" sections={aboutUsSections} />
             <MegaMenu label="Why KAPCDAM?" sections={whyKAPCDAMSections} />
           </nav>
@@ -180,11 +183,14 @@ export default async function Header() {
               <>
                 {/* Account menu */}
                 <UserNavButton />
-                <HydrationBoundary>
-                  <Suspense fallback={<CartNavButtonFallBack />}>
-                    <CartNavButtonWrapper />
-                  </Suspense>
-                </HydrationBoundary>
+                {/* Only show cart for non-admin users */}
+                {!isAdmin && (
+                  <HydrationBoundary>
+                    <Suspense fallback={<CartNavButtonFallBack />}>
+                      <CartNavButtonWrapper />
+                    </Suspense>
+                  </HydrationBoundary>
+                )}
               </>
             ) : (
               <>
@@ -196,9 +202,14 @@ export default async function Header() {
                 <CartNavButtonLocalWrapper />
               </>
             )}
-            <CartSheet />
-            <WishlistSheet />
-            <CartBubble />
+            {/* Only show cart/wishlist UI for non-admin users */}
+            {!isAdmin && (
+              <>
+                <CartSheet />
+                <WishlistSheet />
+                <CartBubble />
+              </>
+            )}
           </div>
         </div>
       </div>

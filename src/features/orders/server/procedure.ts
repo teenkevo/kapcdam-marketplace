@@ -3,6 +3,7 @@ import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure,
+  customerProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
@@ -341,7 +342,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Create a new order from cart
    */
-  createOrder: protectedProcedure
+  createOrder: customerProcedure
     .input(createOrderSchema)
     .mutation(
       async ({
@@ -887,7 +888,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Get user's orders
    */
-  getUserOrders: protectedProcedure
+  getUserOrders: customerProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(10),
@@ -977,7 +978,7 @@ export const ordersRouter = createTRPCRouter({
     }),
 
   // Count of user's orders for overview
-  getUserOrdersCount: protectedProcedure.query(async ({ ctx }) => {
+  getUserOrdersCount: customerProcedure.query(async ({ ctx }) => {
     try {
       const count = await client.fetch(
         groq`count(*[_type == "order" && customer->clerkUserId == $clerkUserId])`,
@@ -993,7 +994,7 @@ export const ordersRouter = createTRPCRouter({
   }),
 
   // Lightweight status fetcher for routing/decisions
-  getOrderStatus: protectedProcedure
+  getOrderStatus: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       const meta = await client.fetch(
@@ -1017,7 +1018,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Reset order for payment retry - sets order to initial payment state
    */
-  resetOrderForPayment: protectedProcedure
+  resetOrderForPayment: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -1059,7 +1060,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Cancel pending order (for checkout back button handling)
    */
-  cancelPendingOrder: protectedProcedure
+  cancelPendingOrder: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -1154,7 +1155,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Get order by ID
    */
-  getOrderById: protectedProcedure
+  getOrderById: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       try {

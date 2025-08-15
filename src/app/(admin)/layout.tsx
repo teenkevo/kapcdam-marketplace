@@ -2,6 +2,8 @@ import { ReactNode } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getAdminUser } from "@/features/auth/lib/roles";
+import Link from "next/link";
+import { GotToHomeButton } from "@/features/home/ui/components/shop-button";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -35,12 +37,13 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
               </div>
             </div>
             <nav className="flex space-x-8">
-              <a
+              <GotToHomeButton />
+              {/* <Link
                 href="/admin/manage-orders"
                 className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
                 Manage Orders
-              </a>
+              </Link> */}
             </nav>
           </div>
         </div>

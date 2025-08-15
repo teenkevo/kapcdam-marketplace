@@ -31,6 +31,37 @@ export const isAdminUser = async () => {
   }
 };
 
+// New function to check if user is a customer (not an admin)
+export const isCustomerUser = async () => {
+  const { userId } = await auth();
+  
+  if (!userId) return false;
+
+  try {
+    // Check if user is an admin - if so, they're not a customer
+    const adminTeamMember = await client.fetch(
+      groq`*[_type == "team" && clerkId == $clerkId && role == "admin" && isActive == true][0]`,
+      { clerkId: userId }
+    );
+    
+    // If admin user exists, they're not a customer
+    if (adminTeamMember) {
+      return false;
+    }
+    
+    // Check if regular customer user exists
+    const customerUser = await client.fetch(
+      groq`*[_type == "user" && clerkUserId == $clerkUserId && status == "active"][0]`,
+      { clerkUserId: userId }
+    );
+    
+    return !!customerUser;
+  } catch (error) {
+    console.error("Error checking customer user:", error);
+    return false;
+  }
+};
+
 // Get admin user with details (with fallback to Clerk metadata)
 export const getAdminUser = async () => {
   const { userId, sessionClaims } = await auth();

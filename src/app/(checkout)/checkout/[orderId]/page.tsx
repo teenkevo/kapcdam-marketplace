@@ -5,6 +5,7 @@ import OrderSuccessView from "@/features/orders/ui/views/order-success-view";
 import PaymentRedirectView from "@/features/orders/ui/views/payment-redirect-view";
 import { trpc } from "@/trpc/server";
 import { CheckoutStateManager } from "./checkout-state-manager";
+import { isAdminUser } from "@/features/auth/lib/roles";
 
 interface Props {
   params: Promise<{ orderId: string }>;
@@ -15,6 +16,12 @@ export default async function OrderCheckoutPage({ params }: Props) {
 
   if (!userId) {
     redirect("/sign-in");
+  }
+
+  // Block admin users from accessing checkout
+  const isAdmin = await isAdminUser();
+  if (isAdmin) {
+    redirect("/admin/manage-orders?message=checkout-restricted");
   }
 
   const { orderId } = await params;

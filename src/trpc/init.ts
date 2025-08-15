@@ -55,9 +55,31 @@ const isAdmin = t.middleware(async ({ next, ctx }) => {
   });
 });
 
+const isCustomer = t.middleware(async ({ next, ctx }) => {
+  if (!ctx.auth.userId) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  // Check if user is an admin - if so, block access to customer features
+  const adminUser = await getAdminUser();
+  if (adminUser) {
+    throw new TRPCError({ 
+      code: "FORBIDDEN",
+      message: "Customer-only feature. Admin users cannot access shopping cart, wishlist, or customer orders." 
+    });
+  }
+
+  return next({
+    ctx: {
+      auth: ctx.auth,
+    },
+  });
+});
+
 // Base router and procedure helpers
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure;
 export const protectedProcedure = baseProcedure.use(isAuthed);
 export const adminProcedure = baseProcedure.use(isAdmin);
+export const customerProcedure = baseProcedure.use(isCustomer);

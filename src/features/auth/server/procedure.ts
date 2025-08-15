@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   protectedProcedure,
+  customerProcedure,
   baseProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
@@ -143,7 +144,7 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
-  getProfile: protectedProcedure.query(async ({ ctx }) => {
+  getProfile: customerProcedure.query(async ({ ctx }) => {
     const { auth } = ctx;
     try {
       const user = await client.fetch(
@@ -167,7 +168,7 @@ export const userRouter = createTRPCRouter({
     }
   }),
 
-  updateProfile: protectedProcedure
+  updateProfile: customerProcedure
     .input(userProfileSchema)
     .mutation(async ({ input, ctx }) => {
       const { auth } = ctx;

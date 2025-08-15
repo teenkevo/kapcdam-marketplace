@@ -3,6 +3,7 @@ import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure,
+  customerProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
@@ -22,7 +23,7 @@ export const cartRouter = createTRPCRouter({
   /**
    * Get the authenticated user's "forever cart"
    */
-  getUserCart: protectedProcedure.query(async ({ ctx }) => {
+  getUserCart: customerProcedure.query(async ({ ctx }) => {
     try {
       let cart = await client.fetch(CART_ITEMS_QUERY, {
         clerkUserId: ctx.auth.userId,
@@ -75,7 +76,7 @@ export const cartRouter = createTRPCRouter({
    * Add item to authenticated user's "forever cart"
    * Cart should already exist (created via Clerk webhook)
    */
-  addToCart: protectedProcedure
+  addToCart: customerProcedure
     .input(addToCartSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -252,7 +253,7 @@ export const cartRouter = createTRPCRouter({
   /**
    * Update quantity of specific cart item using item index
    */
-  updateCartItem: protectedProcedure
+  updateCartItem: customerProcedure
     .input(updateCartItemSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -313,7 +314,7 @@ export const cartRouter = createTRPCRouter({
    * Clear all items from user's "forever cart"
    * Used after successful order creation - empties cart but keeps it
    */
-  clearCart: protectedProcedure
+  clearCart: customerProcedure
     .input(z.object({ cartId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -351,7 +352,7 @@ export const cartRouter = createTRPCRouter({
    * Sync localStorage cart items to user's Sanity cart
    * Used during Phase 2: Login & Syncing
    */
-  syncCartToUser: protectedProcedure
+  syncCartToUser: customerProcedure
     .input(syncCartSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -572,7 +573,7 @@ export const cartRouter = createTRPCRouter({
    * Check if user has a pending payment order
    * Used for handling browser back button scenario from payment page
    */
-  checkPendingOrder: protectedProcedure.query(async ({ ctx }) => {
+  checkPendingOrder: customerProcedure.query(async ({ ctx }) => {
     try {
       const pendingOrder = await client.fetch(
         groq`*[_type == "order" && user->clerkUserId == $clerkUserId && status == "pending_payment"][0] {
@@ -611,7 +612,7 @@ export const cartRouter = createTRPCRouter({
    * Cancel a pending payment order
    * Used when user cancels checkout or wants to start over
    */
-  cancelPendingOrder: protectedProcedure
+  cancelPendingOrder: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
