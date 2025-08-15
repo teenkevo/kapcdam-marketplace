@@ -776,7 +776,7 @@ export const ordersRouter = createTRPCRouter({
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             status,
-            ${status === "cancelled" ? `paymentMethod,
+            ${status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" ? `paymentMethod,
             paymentStatus,
             orderItems[] {
               type,
@@ -797,7 +797,7 @@ export const ordersRouter = createTRPCRouter({
         }
 
         // Only restore stock for orders that actually had stock reduced
-        if (status === "cancelled" && order.orderItems?.length > 0) {
+        if (status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" && order.orderItems?.length > 0) {
           if (shouldRestoreStockForOrder(order)) {
             try {
               await restoreStockForOrder(order.orderItems);
@@ -817,7 +817,7 @@ export const ordersRouter = createTRPCRouter({
           updateData.notes = notes;
         }
 
-        if (status === "delivered") {
+        if (status === "DELIVERED") {
           updateData.deliveredAt = new Date().toISOString();
         }
 
@@ -1283,7 +1283,7 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        if (order.status === "cancelled") {
+        if (order.status === "CANCELLED_BY_ADMIN" || order.status === "CANCELLED_BY_USER") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Order is already cancelled",

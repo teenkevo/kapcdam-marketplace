@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     // Map Pesapal status to our payment status
     // Per Pesapal docs, webhook delivers a final outcome only (no "pending")
     let paymentStatus: "paid" | "failed" | "refunded";
-    let orderStatus: string;
+    let orderStatus: "PROCESSING" | "FAILED_PAYMENT" | "REFUNDED";
 
     switch (transactionStatus.payment_status_description?.toLowerCase()) {
       case "completed":
