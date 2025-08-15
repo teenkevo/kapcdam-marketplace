@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import {
-  baseProcedure,
+  adminProcedure,
   createTRPCRouter,
 } from "@/trpc/init";
 import { z } from "zod";
@@ -87,7 +87,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Get all orders for admin management
    */
-  getAllOrders: baseProcedure
+  getAllOrders: adminProcedure
     .input(adminOrderFilterSchema)
     .query(async ({ ctx, input }) => {
       try {
@@ -210,7 +210,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Get orders statistics for admin dashboard
    */
-  getOrdersStats: baseProcedure.query(async ({ ctx }) => {
+  getOrdersStats: adminProcedure.query(async ({ ctx }) => {
     try {
       const stats = await client.fetch(
         groq`{
@@ -256,7 +256,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Update order status as admin (no ownership check)
    */
-  updateOrderStatusAdmin: baseProcedure
+  updateOrderStatusAdmin: adminProcedure
     .input(updateOrderStatusSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -338,7 +338,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Cancel order with admin notes
    */
-  cancelOrderWithNotes: baseProcedure
+  cancelOrderWithNotes: adminProcedure
     .input(cancelOrderWithNotesSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -416,7 +416,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Get single order by ID for admin (no ownership check)
    */
-  getOrderByIdAdmin: baseProcedure
+  getOrderByIdAdmin: adminProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       try {
@@ -503,7 +503,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Update product availability status
    */
-  updateProductAvailability: baseProcedure
+  updateProductAvailability: adminProcedure
     .input(
       z.object({
         productId: z.string(),
@@ -566,7 +566,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Reactivate a cancelled order
    */
-  reactivateOrder: baseProcedure
+  reactivateOrder: adminProcedure
     .input(reactivateOrderSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -655,7 +655,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Initiate refund for an order
    */
-  initiateRefund: baseProcedure
+  initiateRefund: adminProcedure
     .input(initiateRefundSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -769,7 +769,7 @@ export const adminOrdersRouter = createTRPCRouter({
   /**
    * Process actual Pesapal refund using stored confirmation code
    */
-  processPesapalRefund: baseProcedure
+  processPesapalRefund: adminProcedure
     .input(z.object({ 
       orderId: z.string(),
       amount: z.number(),
