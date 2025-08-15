@@ -251,6 +251,74 @@ export const order = defineType({
       description: "Internal admin notes about this order",
       rows: 3,
     }),
+
+    defineField({
+      name: "orderHistory",
+      title: "Order History",
+      type: "array",
+      description: "Track all status changes and admin actions on this order",
+      of: [
+        {
+          type: "object",
+          fields: [
+            defineField({
+              name: "status",
+              title: "Status",
+              type: "string",
+              options: {
+                list: [
+                  { title: "Pending", value: "pending" },
+                  { title: "Confirmed", value: "confirmed" },
+                  { title: "Processing", value: "processing" },
+                  { title: "Ready", value: "ready" },
+                  { title: "Shipped", value: "shipped" },
+                  { title: "Delivered", value: "delivered" },
+                  { title: "Cancelled", value: "cancelled" },
+                ],
+              },
+              validation: (rule) => rule.required().error("Status is required"),
+            }),
+            defineField({
+              name: "timestamp",
+              title: "Timestamp",
+              type: "datetime",
+              validation: (rule) => rule.required().error("Timestamp is required"),
+            }),
+            defineField({
+              name: "adminId",
+              title: "Admin ID",
+              type: "string",
+              description: "ID of the admin who made this change",
+            }),
+            defineField({
+              name: "notes",
+              title: "Notes",
+              type: "text",
+              description: "Additional notes about this status change",
+            }),
+          ],
+          preview: {
+            select: {
+              status: "status",
+              timestamp: "timestamp",
+              notes: "notes",
+            },
+            prepare({ status, timestamp, notes }) {
+              const date = new Date(timestamp).toLocaleDateString();
+              const title = `${status.toUpperCase()} - ${date}`;
+              const subtitle = notes ? notes.substring(0, 60) + "..." : "";
+              return {
+                title,
+                subtitle,
+              };
+            },
+          },
+        },
+      ],
+      options: {
+        sortable: false, // Keep chronological order
+      },
+    }),
   ],
 
   preview: {

@@ -14,6 +14,7 @@ import {
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
   orderMetaSchema,
+  customerCancelOrderSchema,
   type OrderResponse,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -209,7 +210,6 @@ export const ordersRouter = createTRPCRouter({
         input,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
-          // Fetch order server-side and validate ownership
           const order = await client.fetch(
             groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
               "orderId": _id,
@@ -1231,6 +1231,114 @@ export const ordersRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch order",
+        });
+      }
+    }),
+
+  /**
+   * Cancel confirmed/processing order (customer-initiated)
+   */
+  cancelConfirmedOrder: customerProcedure
+    .input(customerCancelOrderSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId, reason, notes } = input;
+
+        // Verify order ownership and fetch order details
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            status,
+            orderNumber,
+            paymentMethod,
+            paymentStatus,
+            orderHistory,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
+          }`,
+          { orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // Only allow cancellation for confirmed or processing orders
+        if (!["confirmed", "processing"].includes(order.status)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order cannot be cancelled at this stage. Only confirmed or processing orders can be cancelled.",
+          });
+        }
+
+        if (order.status === "cancelled") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order is already cancelled",
+          });
+        }
+
+        // Restore stock for the cancelled order if applicable
+        if (order.orderItems?.length > 0) {
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for customer-cancelled order:", error);
+              // Don't fail the cancellation if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+          }
+        }
+
+        // Create new history entry for customer cancellation
+        const historyEntry = {
+          _key: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          status: "cancelled",
+          timestamp: new Date().toISOString(),
+          adminId: null, // Customer cancellation
+          notes: notes ? `Customer cancellation - ${reason}: ${notes}` : `Customer cancellation - ${reason}`,
+        };
+
+        // Update order to cancelled with customer notes and history
+        const customerNotes = notes 
+          ? `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}] ${notes}`
+          : `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}]`;
+        
+        const currentHistory = order.orderHistory || [];
+
+        const updatedOrder = await client
+          .patch(orderId)
+          .set({
+            status: "cancelled",
+            notes: customerNotes,
+            cancelledAt: new Date().toISOString(),
+            orderHistory: [...currentHistory, historyEntry],
+          })
+          .commit();
+
+        return {
+          success: true,
+          message: "Order cancelled successfully",
+          order: updatedOrder,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to cancel order",
         });
       }
     }),

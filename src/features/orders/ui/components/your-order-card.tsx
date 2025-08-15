@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2Icon,
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -28,8 +30,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { OrderItem } from "./order-item";
 import { type OrderResponse } from "@/features/orders/schema";
+import { CustomerOrderCancelDialog } from "./customer-order-cancel-dialog";
 
 type Props = {
   order: OrderResponse;
@@ -69,6 +78,24 @@ function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: 
         icon: CheckCircle,
         label: "Confirmed",
       };
+    case "processing":
+      return {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: CheckCircle,
+        label: "Preparing",
+      };
+    case "ready":
+      return {
+        color: "bg-purple-100 text-purple-800",
+        icon: CheckCircle,
+        label: "Ready",
+      };
+    case "shipped":
+      return {
+        color: "bg-purple-100 text-purple-800",
+        icon: CheckCircle,
+        label: "Shipped",
+      };
     case "delivered":
       return {
         color: "bg-green-100 text-green-800",
@@ -94,6 +121,7 @@ export function YourOrderCard({ order }: Props) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const statusConfig = getStatusConfig(order.status, order.paymentStatus, order.paymentMethod);
 
@@ -140,6 +168,7 @@ export function YourOrderCard({ order }: Props) {
     order.status === "confirmed" && !order.deliveredAt;
   const isDelivered = order.status === "delivered" || order.deliveredAt;
   const canShowItemActions = order.status === "confirmed" || isDelivered;
+  const canCancelOrder = ["confirmed", "processing"].includes(order.status);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-UG", {
@@ -261,27 +290,67 @@ export function YourOrderCard({ order }: Props) {
                   </AlertDialog>
                 </div>
               ) : isConfirmedNotDelivered ? (
-                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="font-semibold hover:underline inline-flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Track Order
-                  </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Track Order
+                    </Button>
+                  </Link>
+                  {canCancelOrder && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setShowCancelDialog(true)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel Order
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               ) : (
-                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="font-semibold hover:underline inline-flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    View Order Details
-                  </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View Order Details
+                    </Button>
+                  </Link>
+                  {canCancelOrder && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setShowCancelDialog(true)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel Order
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -301,6 +370,20 @@ export function YourOrderCard({ order }: Props) {
           ))}
         </ul>
       </CardContent>
+
+      {/* Customer Cancel Dialog */}
+      <CustomerOrderCancelDialog
+        orderId={order.orderId}
+        orderNumber={order.orderNumber}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onOrderCancelled={() => {
+          // Invalidate order queries to refresh the orders list
+          queryClient.invalidateQueries(
+            trpc.orders.getUserOrders.queryOptions({ limit: 20, offset: 0 })
+          );
+        }}
+      />
     </Card>
   );
 }

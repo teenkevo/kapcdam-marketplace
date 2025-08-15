@@ -81,16 +81,16 @@ function getTrackingSteps(
         steps[1].description = "Your order is confirmed and being prepared";
         break;
       case "processing":
-        steps[1].status = "completed";
-        steps[2].status = "current";
-        steps[2].title = "Processing";
-        steps[2].description = "Your order is being processed";
+        // Processing should show as "Preparing" step current, not shipped
+        steps[1].status = "current";
+        steps[1].title = "Preparing";
+        steps[1].description = "Your order is being prepared";
         break;
       case "ready":
         steps[1].status = "completed";
         steps[2].status = "current";
         steps[2].title = "Ready for Pickup/Delivery";
-        steps[2].description = "Your order is ready";
+        steps[2].description = "Your order is ready for collection or delivery";
         break;
       case "shipped":
         steps[1].status = "completed";

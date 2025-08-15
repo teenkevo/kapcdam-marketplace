@@ -1,16 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { format } from "date-fns";
-import { Loader2, CheckCircle, Clock, Package, Truck, MapPin } from "lucide-react";
+import { Loader2, CheckCircle, Clock, Package, Truck, MapPin, MoreHorizontal, X } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { OrderItem } from "../components/order-item";
 import { OrderDetailsViewSkeleton } from "../components/order-details-view-skeleton";
 import { RelatedProductsSection } from "@/features/products/ui/components/related-products-section";
+import { CustomerOrderCancelDialog } from "../components/customer-order-cancel-dialog";
 
 type Props = {
   orderId: string;
@@ -40,8 +49,8 @@ function getStatusConfig(status: string, paymentStatus: string) {
       };
     case "processing":
       return {
-        color: "bg-blue-100 text-blue-800",
-        label: "Processing",
+        color: "bg-yellow-100 text-yellow-800",
+        label: "Preparing",
       };
     case "ready":
       return {
@@ -145,17 +154,17 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
     }
 
     if (step.step === "preparing") {
-      if (["pending", "confirmed"].includes(orderStatus)) {
+      if (["pending", "confirmed", "processing"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
       } else if (
-        ["processing", "ready", "shipped", "delivered"].includes(orderStatus)
+        ["ready", "shipped", "delivered"].includes(orderStatus)
       ) {
         return { ...step, status: "completed" as const };
       }
     }
 
     if (step.step === "shipped") {
-      if (["processing", "ready"].includes(orderStatus)) {
+      if (["ready"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
       } else if (["shipped", "delivered"].includes(orderStatus)) {
         return { ...step, status: "completed" as const };
@@ -233,6 +242,7 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
 
 export function OrderDetailsView({ orderId }: Props) {
   const trpc = useTRPC();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const {
     data: order,
@@ -300,6 +310,28 @@ export function OrderDetailsView({ orderId }: Props) {
             </h1>
           </div>
         </div>
+        
+        {/* Order Actions Dropdown */}
+        {["confirmed", "processing"].includes(order.status) && (
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setShowCancelDialog(true)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel Order
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
       <Card className="overflow-hidden border rounded-xl">
@@ -441,6 +473,18 @@ export function OrderDetailsView({ orderId }: Props) {
         }
         limit={4}
         className="px-0 pt-8"
+      />
+
+      {/* Customer Cancel Dialog */}
+      <CustomerOrderCancelDialog
+        orderId={order.orderId}
+        orderNumber={order.orderNumber}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onOrderCancelled={() => {
+          // Refresh the order data
+          window.location.reload();
+        }}
       />
     </div>
   );

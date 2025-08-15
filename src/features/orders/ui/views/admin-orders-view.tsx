@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { AdminOrderCard } from "../components/admin-order-card";
@@ -9,39 +9,134 @@ import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Accordion } from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
+import type { AdminOrderResponse } from "../../schema";
 
-type OrderStatus = "all" | "pending" | "confirmed" | "processing" | "ready" | "shipped" | "delivered" | "cancelled";
-type PaymentStatus = "all" | "not_initiated" | "pending" | "paid" | "failed" | "refunded";
+type OrderStatus =
+  | "all"
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "ready"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+type PaymentStatus =
+  | "all"
+  | "not_initiated"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded";
+
+type TabFilter = "all" | "pending" | "ready" | "cancelled";
 
 export function AdminOrdersView() {
   const trpc = useTRPC();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus>("all");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<PaymentStatus>("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] =
+    useState<PaymentStatus>("all");
   const [currentPage, setCurrentPage] = useState(0);
-  
+  const [activeItem, setActiveItem] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<TabFilter>("all");
+
   const limit = 20;
   const offset = currentPage * limit;
 
-  // Get orders
+  // Get all orders (no server-side filtering except search for performance)
   const {
-    data: orders,
+    data: allOrders,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useQuery({
     ...trpc.adminOrders.getAllOrders.queryOptions({
-      limit,
-      offset,
-      status: statusFilter,
-      paymentStatus: paymentStatusFilter,
+      limit: 200, // Get more orders for client-side filtering
+      offset: 0,
+      status: "all",
+      paymentStatus: "all", 
       searchQuery: searchQuery.trim() || undefined,
     }),
   });
 
+  // Client-side filtering and calculations
+  const { filteredOrders, tabCounts } = useMemo(() => {
+    console.log("🔍 Raw allOrders data:", allOrders);
+    
+    if (!allOrders || !Array.isArray(allOrders)) {
+      console.log("❌ No allOrders data available or not an array");
+      return { filteredOrders: [], tabCounts: { all: 0, pending: 0, ready: 0, cancelled: 0 } };
+    }
+
+    console.log("✅ Orders count:", allOrders.length);
+    console.log("📋 Sample order structure:", allOrders[0]);
+    
+    // Calculate tab counts
+    const counts = {
+      all: allOrders.length,
+      pending: allOrders.filter(order => 
+        order.status === "confirmed" || order.status === "processing"
+      ).length,
+      ready: allOrders.filter(order => 
+        order.status === "ready" || order.status === "shipped"
+      ).length,
+      cancelled: allOrders.filter(order => order.status === "cancelled").length,
+    };
+
+    console.log("📊 Tab counts:", counts);
+
+    // Filter orders based on active tab
+    let filtered = allOrders;
+    if (activeTab === "pending") {
+      filtered = allOrders.filter(order => 
+        order.status === "confirmed" || order.status === "processing"
+      );
+    } else if (activeTab === "ready") {
+      filtered = allOrders.filter(order => 
+        order.status === "ready" || order.status === "shipped"
+      );
+    } else if (activeTab === "cancelled") {
+      filtered = allOrders.filter(order => order.status === "cancelled");
+    }
+    // "all" tab shows everything
+
+    console.log(`🎯 Filtered orders for tab "${activeTab}":`, filtered.length);
+
+    return { filteredOrders: filtered, tabCounts: counts };
+  }, [allOrders, activeTab]);
+
+  // Paginate filtered orders
+  const paginatedOrders = useMemo(() => {
+    const startIndex = currentPage * limit;
+    return filteredOrders.slice(startIndex, startIndex + limit);
+  }, [filteredOrders, currentPage, limit]);
+
+  useEffect(() => {
+    if (paginatedOrders && paginatedOrders.length > 0) {
+      setActiveItem(paginatedOrders[0].orderId);
+    }
+  }, [paginatedOrders]);
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeTab]);
+
   // Get statistics
-  const { data: stats, isLoading: isStatsLoading, error: statsError } = useQuery({
+  const {
+    data: stats,
+    isLoading: isStatsLoading,
+    error: statsError,
+  } = useQuery({
     ...trpc.adminOrders.getOrdersStats.queryOptions(),
   });
 
@@ -60,11 +155,20 @@ export function AdminOrdersView() {
     setCurrentPage(0); // Reset to first page
   };
 
+  // Tab configuration
+  const tabs = [
+    { id: "all" as TabFilter, label: "All Orders", count: tabCounts.all },
+    { id: "pending" as TabFilter, label: "Pending", count: tabCounts.pending },
+    { id: "ready" as TabFilter, label: "Ready for Pickup/Delivery", count: tabCounts.ready },
+    { id: "cancelled" as TabFilter, label: "Cancelled", count: tabCounts.cancelled },
+  ];
+
   if (isLoading) {
     return <AdminOrdersViewSkeleton />;
   }
 
   if (error) {
+    console.error("❌ Orders query error:", error);
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="text-red-500 mb-4">⚠️</div>
@@ -72,14 +176,22 @@ export function AdminOrdersView() {
           Unable to load orders
         </h3>
         <p className="text-gray-500 mb-6">
-          We couldn't load the orders. Please try again later.
+          We couldn't load the orders. Please check the console for details.
         </p>
+        <details className="mb-4 text-left max-w-lg">
+          <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+            Show error details
+          </summary>
+          <pre className="mt-2 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-40">
+            {JSON.stringify(error, null, 2)}
+          </pre>
+        </details>
         <Button onClick={() => refetch()}>Retry</Button>
       </div>
     );
   }
 
-  if (!orders || (orders as any)?.length === 0) {
+  if (!allOrders || !Array.isArray(allOrders) || allOrders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
@@ -87,18 +199,16 @@ export function AdminOrdersView() {
           No orders found
         </h3>
         <p className="text-gray-500 mb-6">
-          {searchQuery || statusFilter !== "all" || paymentStatusFilter !== "all"
+          {searchQuery || activeTab !== "all"
             ? "No orders match your current filters. Try adjusting your search criteria."
-            : "No orders have been placed yet."
-          }
+            : "No orders have been placed yet."}
         </p>
-        {(searchQuery || statusFilter !== "all" || paymentStatusFilter !== "all") && (
-          <Button 
-            variant="outline" 
+        {(searchQuery || activeTab !== "all") && (
+          <Button
+            variant="outline"
             onClick={() => {
               setSearchQuery("");
-              setStatusFilter("all");
-              setPaymentStatusFilter("all");
+              setActiveTab("all");
               setCurrentPage(0);
             }}
           >
@@ -153,81 +263,103 @@ export function AdminOrdersView() {
         </div>
       )}
 
-      {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-lg border space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <Input
-              placeholder="Search orders (order number, customer name, email, items...)"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={(value) => handleStatusFilter(value as OrderStatus)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Order Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="shipped">Shipped</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Payment Status Filter */}
-          <Select value={paymentStatusFilter} onValueChange={(value) => handlePaymentStatusFilter(value as PaymentStatus)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Payment Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Payments</SelectItem>
-              <SelectItem value="not_initiated">Not Initiated</SelectItem>
-              <SelectItem value="pending">Payment Pending</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="failed">Payment Failed</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Order Tabs */}
+      <div className="bg-white rounded-lg border">
+        {/* Tab Headers */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-4" aria-label="Tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                  activeTab === tab.id
+                    ? "border-[#C5F82A] text-gray-900"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                )}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </nav>
         </div>
 
-        {/* Active Filters */}
-        <div className="flex flex-wrap gap-2">
-          {statusFilter !== "all" && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setStatusFilter("all")}>
-              Status: {statusFilter} ×
-            </Badge>
-          )}
-          {paymentStatusFilter !== "all" && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setPaymentStatusFilter("all")}>
-              Payment: {paymentStatusFilter} ×
-            </Badge>
-          )}
+        {/* Search Section */}
+        <div className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search orders (order number, customer name, email, items...)"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Active Filters */}
           {searchQuery && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setSearchQuery("")}>
-              Search: "{searchQuery}" ×
-            </Badge>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Badge
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => setSearchQuery("")}
+              >
+                Search: "{searchQuery}" ×
+              </Badge>
+            </div>
           )}
         </div>
       </div>
 
       {/* Orders List */}
-      <div className="space-y-4">
-        {(orders as any)?.map?.((order: any) => (
-          <AdminOrderCard key={order.orderId} order={order} onOrderUpdated={refetch} />
-        ))}
-      </div>
+      {paginatedOrders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-lg border">
+          <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            No orders found
+          </h3>
+          <p className="text-gray-500 mb-6">
+            {searchQuery 
+              ? `No orders match your search "${searchQuery}" in the ${tabs.find(t => t.id === activeTab)?.label} tab.`
+              : `No orders in the ${tabs.find(t => t.id === activeTab)?.label} tab.`
+            }
+          </p>
+          {(searchQuery || activeTab !== "all") && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("");
+                setActiveTab("all");
+                setCurrentPage(0);
+              }}
+            >
+              View all orders
+            </Button>
+          )}
+        </div>
+      ) : (
+        <Accordion
+          type="single"
+          collapsible
+          value={activeItem}
+          onValueChange={setActiveItem}
+          className="space-y-4"
+        >
+          {paginatedOrders?.map?.((order) => (
+            <AdminOrderCard
+              key={order.orderId}
+              order={order}
+              onOrderUpdated={refetch}
+              isActive={activeItem === order.orderId}
+            />
+          ))}
+        </Accordion>
+      )}
 
       {/* Pagination */}
-      {(orders as any)?.length === limit && (
+      {filteredOrders.length > limit && (
         <div className="flex justify-center gap-2">
           <Button
             variant="outline"
@@ -236,9 +368,13 @@ export function AdminOrdersView() {
           >
             Previous
           </Button>
+          <span className="flex items-center px-4 py-2 text-sm text-gray-700">
+            Page {currentPage + 1} of {Math.ceil(filteredOrders.length / limit)}
+          </span>
           <Button
             variant="outline"
             onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={(currentPage + 1) * limit >= filteredOrders.length}
           >
             Next
           </Button>
