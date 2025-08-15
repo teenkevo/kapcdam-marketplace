@@ -45,6 +45,15 @@ type Props = {
 };
 
 function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: string) {
+  // Check for cancelled status FIRST - regardless of payment method or payment status
+  if (status === "CANCELLED_BY_USER" || status === "CANCELLED_BY_ADMIN") {
+    return {
+      color: "bg-red-100 text-red-800",
+      icon: X,
+      label: status === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
+    };
+  }
+
   // Special handling for COD orders - show order status instead of payment status
   if (paymentMethod === "cod" && paymentStatus === "pending") {
     return {
@@ -66,47 +75,65 @@ function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: 
   }
 
   switch (status) {
-    case "pending":
+    case "PENDING_PAYMENT":
       return {
         color: "bg-orange-100 text-orange-800",
         icon: Clock,
-        label: "Pending",
+        label: "Waiting for Payment",
       };
-    case "confirmed":
+    case "FAILED_PAYMENT":
+      return {
+        color: "bg-red-100 text-red-800",
+        icon: AlertTriangle,
+        label: "Payment Failed",
+      };
+    case "PROCESSING":
       return {
         color: "bg-blue-100 text-blue-800",
         icon: CheckCircle,
-        label: "Confirmed",
+        label: "Order Confirmed",
       };
-    case "processing":
-      return {
-        color: "bg-yellow-100 text-yellow-800",
-        icon: CheckCircle,
-        label: "Preparing",
-      };
-    case "ready":
+    case "READY_FOR_DELIVERY":
       return {
         color: "bg-purple-100 text-purple-800",
         icon: CheckCircle,
-        label: "Ready",
+        label: "Ready for Pickup",
       };
-    case "shipped":
+    case "OUT_FOR_DELIVERY":
       return {
         color: "bg-purple-100 text-purple-800",
         icon: CheckCircle,
-        label: "Shipped",
+        label: "Out for Delivery",
       };
-    case "delivered":
+    case "DELIVERED":
       return {
         color: "bg-green-100 text-green-800",
         icon: CheckCircle,
         label: "Delivered",
       };
-    case "cancelled":
+    case "CANCELLED_BY_USER":
       return {
-        color: "bg-gray-100 text-gray-800",
+        color: "bg-red-100 text-red-800",
         icon: X,
         label: "Cancelled",
+      };
+    case "CANCELLED_BY_ADMIN":
+      return {
+        color: "bg-red-100 text-red-800",
+        icon: X,
+        label: "Cancelled by Store",
+      };
+    case "REFUND_PENDING":
+      return {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: Clock,
+        label: "Refund Processing",
+      };
+    case "REFUNDED":
+      return {
+        color: "bg-green-100 text-green-800",
+        icon: CheckCircle,
+        label: "Refunded",
       };
     default:
       return {
@@ -165,10 +192,10 @@ export function YourOrderCard({ order }: Props) {
     (order.paymentStatus === "pending" || order.paymentStatus === "failed") &&
     order.paymentMethod !== "cod";
   const isConfirmedNotDelivered =
-    order.status === "confirmed" && !order.deliveredAt;
-  const isDelivered = order.status === "delivered" || order.deliveredAt;
-  const canShowItemActions = order.status === "confirmed" || isDelivered;
-  const canCancelOrder = ["confirmed", "processing"].includes(order.status);
+    order.status === "PROCESSING" && !order.deliveredAt;
+  const isDelivered = order.status === "DELIVERED" || order.deliveredAt;
+  const canShowItemActions = order.status === "PROCESSING" || isDelivered;
+  const canCancelOrder = ["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-UG", {

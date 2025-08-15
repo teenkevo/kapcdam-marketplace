@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Clock, Package, Truck, MapPin } from "lucide-react";
+import { CheckCircle, Clock, Package, Truck, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type TrackingStep = {
@@ -52,62 +52,89 @@ function getTrackingSteps(
     },
   ];
 
-  // Set payment step status
-  if (paymentStatus === "paid") {
-    steps[0].status = "completed";
-  } else if (paymentStatus === "pending") {
-    steps[0].status = "current";
-    steps[0].title = "Payment Pending";
-    steps[0].description = "Waiting for payment confirmation";
-    steps[0].icon = Clock;
-  } else if (paymentStatus === "failed") {
-    steps[0].status = "current";
-    steps[0].title = "Payment Failed";
-    steps[0].description = "Payment was not successful";
-    steps[0].icon = Clock;
-    return steps; // Don't process further steps if payment failed
-  }
-
-  // Set order status steps based on order status
-  if (paymentStatus === "paid") {
-    switch (orderStatus) {
-      case "pending":
-        // Payment received, but order not yet confirmed
-        steps[1].status = "current";
-        break;
-      case "confirmed":
-        steps[1].status = "current";
-        steps[1].title = "Preparing";
-        steps[1].description = "Your order is confirmed and being prepared";
-        break;
-      case "processing":
-        // Processing should show as "Preparing" step current, not shipped
-        steps[1].status = "current";
-        steps[1].title = "Preparing";
-        steps[1].description = "Your order is being prepared";
-        break;
-      case "ready":
-        steps[1].status = "completed";
-        steps[2].status = "current";
-        steps[2].title = "Ready for Pickup/Delivery";
-        steps[2].description = "Your order is ready for collection or delivery";
-        break;
-      case "shipped":
-        steps[1].status = "completed";
-        steps[2].status = "completed";
-        steps[3].status = "current";
-        break;
-      case "delivered":
-        steps[1].status = "completed";
-        steps[2].status = "completed";
-        steps[3].status = "completed";
-        break;
-      case "cancelled":
-        steps[1].status = "current";
-        steps[1].title = "Cancelled";
-        steps[1].description = "Your order has been cancelled";
-        break;
-    }
+  // Handle enhanced order statuses
+  switch (orderStatus) {
+    case "PENDING_PAYMENT":
+      steps[0].status = "current";
+      steps[0].title = "Payment Pending";
+      steps[0].description = "Waiting for payment confirmation";
+      steps[0].icon = Clock;
+      break;
+      
+    case "FAILED_PAYMENT":
+      steps[0].status = "current";
+      steps[0].title = "Payment Failed";
+      steps[0].description = "Payment was not successful";
+      steps[0].icon = Clock;
+      break;
+      
+    case "PROCESSING":
+      steps[0].status = "completed";
+      steps[1].status = "current";
+      steps[1].title = "Processing";
+      steps[1].description = "Your order is confirmed and being prepared";
+      break;
+      
+    case "READY_FOR_DELIVERY":
+      steps[0].status = "completed";
+      steps[1].status = "completed";
+      steps[2].status = "current";
+      steps[2].title = "Ready for Pickup/Delivery";
+      steps[2].description = "Your order is ready for collection or delivery";
+      break;
+      
+    case "OUT_FOR_DELIVERY":
+      steps[0].status = "completed";
+      steps[1].status = "completed";
+      steps[2].status = "completed";
+      steps[3].status = "current";
+      break;
+      
+    case "DELIVERED":
+      steps[0].status = "completed";
+      steps[1].status = "completed";
+      steps[2].status = "completed";
+      steps[3].status = "completed";
+      break;
+      
+    case "CANCELLED_BY_USER":
+    case "CANCELLED_BY_ADMIN":
+      // Insert cancellation step - use X icon to make it clear it's cancelled
+      steps.splice(1, 0, {
+        id: "cancelled",
+        title: orderStatus === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
+        description: orderStatus === "CANCELLED_BY_USER" 
+          ? "You cancelled this order" 
+          : "This order was cancelled by the store",
+        icon: X,
+        status: "current",
+      });
+      steps[0].status = paymentStatus === "paid" ? "completed" : "pending";
+      break;
+      
+    case "REFUND_PENDING":
+      // Show refund processing step
+      steps.splice(1, 0, {
+        id: "cancelled",
+        title: "Cancelled - Refund Processing",
+        description: "Your refund is being processed",
+        icon: Clock,
+        status: "current",
+      });
+      steps[0].status = "completed";
+      break;
+      
+    case "REFUNDED":
+      // Show completed refund
+      steps.splice(1, 0, {
+        id: "refunded",
+        title: "Refunded",
+        description: "Your refund has been completed",
+        icon: CheckCircle,
+        status: "completed",
+      });
+      steps[0].status = "completed";
+      break;
   }
 
   return steps;

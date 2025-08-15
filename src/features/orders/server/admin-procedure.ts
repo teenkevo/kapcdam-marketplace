@@ -2,42 +2,40 @@ import { TRPCError } from "@trpc/server";
 import {
   baseProcedure,
   createTRPCRouter,
-  protectedProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
-import { 
-  updateOrderStatusSchema, 
-  type OrderResponse, 
-  adminOrdersArraySchema, 
+import {
+  updateOrderStatusSchema,
+  type OrderResponse,
+  adminOrdersArraySchema,
   type AdminOrderResponse,
   reactivateOrderSchema,
   initiateRefundSchema,
-  getPreviousStatus
+  getPreviousStatus,
+  isRefundableOrder,
+  validateOrderStateTransition,
 } from "../schema";
 
 const adminOrderFilterSchema = z.object({
   limit: z.number().min(1).max(200).default(20),
   offset: z.number().min(0).default(0),
-  status: z.enum([
-    "all",
-    "pending", 
-    "confirmed", 
-    "processing",
-    "ready", 
-    "shipped", 
-    "delivered", 
-    "cancelled"
-  ]).default("all"),
-  paymentStatus: z.enum([
-    "all",
-    "not_initiated",
-    "pending", 
-    "paid", 
-    "failed", 
-    "refunded"
-  ]).default("all"),
+  status: z
+    .enum([
+      "all",
+      "pending",
+      "confirmed",
+      "processing",
+      "ready",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ])
+    .default("all"),
+  paymentStatus: z
+    .enum(["all", "not_initiated", "pending", "paid", "failed", "refunded"])
+    .default("all"),
   searchQuery: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
@@ -46,13 +44,15 @@ const adminOrderFilterSchema = z.object({
 const cancelOrderWithNotesSchema = z.object({
   orderId: z.string(),
   notes: z.string().min(1, "Cancellation notes are required"),
-  reason: z.enum([
-    "customer_request",
-    "payment_failed", 
-    "items_unavailable",
-    "fraud_suspected",
-    "other"
-  ]).default("other"),
+  reason: z
+    .enum([
+      "customer_request",
+      "payment_failed",
+      "items_unavailable",
+      "fraud_suspected",
+      "other",
+    ])
+    .default("other"),
 });
 
 // Clean and normalize order data from Sanity
@@ -71,7 +71,7 @@ function cleanOrderData(order: any) {
       firstName: order.customer?.firstName ?? "",
       lastName: order.customer?.lastName ?? "",
     },
-    orderItems: Array.isArray(order.orderItems) 
+    orderItems: Array.isArray(order.orderItems)
       ? order.orderItems.map((item: any) => ({
           ...item,
           variantSku: item.variantSku ?? null,
@@ -134,6 +134,7 @@ export const adminOrdersRouter = createTRPCRouter({
           total,
           paymentStatus,
           paymentMethod,
+          confirmationCode,
           status,
           deliveryMethod,
           estimatedDelivery,
@@ -195,11 +196,7 @@ export const adminOrdersRouter = createTRPCRouter({
 
         // Validate and parse the cleaned orders data using the admin schema
         const validatedOrders = adminOrdersArraySchema.parse(cleanedOrders);
-        console.log(
-          "Successfully validated",
-          validatedOrders.length,
-          "orders"
-        );
+        console.log("Successfully validated", validatedOrders.length, "orders");
 
         return validatedOrders;
       } catch (error) {
@@ -313,11 +310,11 @@ export const adminOrdersRouter = createTRPCRouter({
           updateData.notes = notes;
         }
 
-        if (status === "delivered") {
+        if (status === "DELIVERED") {
           updateData.deliveredAt = new Date().toISOString();
         }
 
-        if (status === "cancelled") {
+        if (status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER") {
           updateData.cancelledAt = new Date().toISOString();
         }
 
@@ -664,7 +661,7 @@ export const adminOrdersRouter = createTRPCRouter({
       try {
         const { orderId, refundType, amount, reason, notes } = input;
 
-        // Fetch the order
+        // Fetch the order with confirmation code
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId][0]{
             _id,
@@ -672,6 +669,7 @@ export const adminOrdersRouter = createTRPCRouter({
             total,
             paymentStatus,
             paymentMethod,
+            confirmationCode,
             status
           }`,
           { orderId }
@@ -684,7 +682,20 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
-        // Validate refund amount for partial refunds
+        // Validate that the order can be refunded
+        const refundValidation = isRefundableOrder(
+          order.paymentMethod,
+          order.paymentStatus,
+          order.confirmationCode
+        );
+
+        if (!refundValidation.canRefund) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: refundValidation.reason || "Order cannot be refunded",
+          });
+        }
+
         if (refundType === "partial") {
           if (!amount || amount <= 0 || amount > order.total) {
             throw new TRPCError({
@@ -751,6 +762,119 @@ export const adminOrdersRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to initiate refund",
+        });
+      }
+    }),
+
+  /**
+   * Process actual Pesapal refund using stored confirmation code
+   */
+  processPesapalRefund: baseProcedure
+    .input(z.object({ 
+      orderId: z.string(),
+      amount: z.number(),
+      reason: z.string(),
+      adminUsername: z.string().default("Admin")
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId, amount, reason, adminUsername } = input;
+
+        // Fetch order with confirmation code
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId][0]{
+            _id,
+            orderNumber,
+            total,
+            paymentStatus,
+            paymentMethod,
+            confirmationCode,
+            transactionId
+          }`,
+          { orderId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found",
+          });
+        }
+
+        // Validate refund eligibility
+        const refundValidation = isRefundableOrder(
+          order.paymentMethod,
+          order.paymentStatus,
+          order.confirmationCode
+        );
+
+        if (!refundValidation.canRefund) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: refundValidation.reason || "Order cannot be refunded",
+          });
+        }
+
+        // Get Pesapal token (you'll need to implement this based on your auth system)
+        const pesapalToken = ctx.pesapalToken;
+        if (!pesapalToken) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Pesapal authentication token not available",
+          });
+        }
+
+        // Call Pesapal refund API
+        const refundResponse = await fetch(
+          `${process.env.PESAPAL_API_URL}/Transactions/RefundRequest`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${pesapalToken}`,
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              confirmation_code: order.confirmationCode,
+              amount: amount.toString(),
+              username: adminUsername,
+              remarks: reason,
+            }),
+          }
+        );
+
+        const refundResult = await refundResponse.json();
+
+        if (!refundResponse.ok || refundResult.status !== "200") {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: refundResult.message || "Pesapal refund request failed",
+          });
+        }
+
+        // Update order with refund information
+        await client
+          .patch(orderId)
+          .set({
+            refundStatus: "processing",
+            refundAmount: amount,
+            refundInitiatedAt: new Date().toISOString(),
+          })
+          .commit();
+
+        return {
+          success: true,
+          message: refundResult.message || "Refund request submitted successfully",
+          refundAmount: amount,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Pesapal refund processing error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to process Pesapal refund",
         });
       }
     }),

@@ -49,7 +49,7 @@ export function OrderProcessButton({
   const handleProcessOrder = () => {
     processOrderMutation.mutate({
       orderId,
-      status: "processing",
+      status: "PROCESSING",
     });
   };
 

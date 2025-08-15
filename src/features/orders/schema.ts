@@ -1,5 +1,44 @@
 import { z } from "zod";
 
+// Order Status Enums - Enhanced State Machine
+
+// Primary order statuses (enhanced system)
+export const ORDER_STATUSES = [
+  "PENDING_PAYMENT",
+  "FAILED_PAYMENT", 
+  "PROCESSING",
+  "READY_FOR_DELIVERY",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "CANCELLED_BY_USER",
+  "CANCELLED_BY_ADMIN",
+  "REFUND_PENDING",
+  "REFUNDED",
+] as const;
+
+// Cancellation reasons
+export const CANCELLATION_REASONS = [
+  "customer_request",
+  "changed_mind",
+  "found_better_price", 
+  "no_longer_needed",
+  "ordered_by_mistake",
+  "delivery_too_long",
+  "payment_failed",
+  "items_unavailable",
+  "fraud_suspected",
+  "other",
+] as const;
+
+// Refund statuses
+export const REFUND_STATUSES = [
+  "not_applicable",
+  "pending",
+  "processing", 
+  "completed",
+  "failed",
+] as const;
+
 // Order creation input schema
 export const createOrderSchema = z.object({
   shippingAddress: z.object({ addressId: z.string() }),
@@ -26,15 +65,7 @@ export const createOrderSchema = z.object({
 
 // Order history entry schema
 const orderHistoryEntrySchema = z.object({
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "ready",
-    "shipped", 
-    "delivered",
-    "cancelled",
-  ]),
+  status: z.enum(ORDER_STATUSES),
   timestamp: z.string().datetime(),
   adminId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -43,15 +74,7 @@ const orderHistoryEntrySchema = z.object({
 // Order status update schema
 export const updateOrderStatusSchema = z.object({
   orderId: z.string(),
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "ready",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ]),
+  status: z.enum(ORDER_STATUSES),
   notes: z.string().nullable().optional(),
   adminId: z.string().nullable().optional(),
 });
@@ -67,6 +90,7 @@ export const updatePaymentStatusSchema = z.object({
     "not_initiated",
   ]),
   transactionId: z.string().nullable().optional(),
+  confirmationCode: z.string().nullable().optional(),
   paidAt: z.string().nullable().optional(),
 });
 
@@ -131,14 +155,7 @@ export const orderSchema = z.object({
     "refunded",
     "not_initiated",
   ]),
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ]),
+  status: z.enum(ORDER_STATUSES),
   total: z.number(),
   transactionId: z.string().nullable(),
 });
@@ -162,14 +179,7 @@ export const orderMetaSchema = z.object({
     "failed",
     "refunded",
   ]),
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ]),
+  status: z.enum(ORDER_STATUSES),
   transactionId: z.string().nullable(),
 });
 export type OrderMeta = z.infer<typeof orderMetaSchema>;
@@ -235,15 +245,8 @@ export const adminOrderSchema = z.object({
     "refunded",
   ]),
   paymentMethod: z.enum(["pesapal", "cod"]),
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "ready",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ]),
+  confirmationCode: z.string().nullable().optional(),
+  status: z.enum(ORDER_STATUSES),
   deliveryMethod: z.enum(["pickup", "local_delivery"]),
   estimatedDelivery: z.string().datetime().nullable(),
   deliveredAt: z.string().datetime().nullable(),
@@ -306,4 +309,181 @@ export function getPreviousStatus(orderHistory?: OrderHistoryEntry[]): string | 
   }
   // Return the second-to-last status
   return orderHistory[orderHistory.length - 2].status;
+}
+
+// Enhanced schemas for cancellation and refund management
+
+// Customer cancellation schema with enhanced reasons
+export const customerCancelOrderEnhancedSchema = z.object({
+  orderId: z.string(),
+  reason: z.enum(CANCELLATION_REASONS),
+  notes: z.string().nullable().optional(),
+});
+
+// Admin cancellation schema with refund options
+export const adminCancelOrderSchema = z.object({
+  orderId: z.string(),
+  reason: z.enum(CANCELLATION_REASONS),
+  notes: z.string().min(1, "Cancellation notes are required"),
+  shouldRefund: z.boolean().default(false),
+  refundAmount: z.number().optional(), // For partial refunds
+});
+
+// Refund initiation schema with enhanced validation
+export const initiateRefundEnhancedSchema = z.object({
+  orderId: z.string(),
+  refundType: z.enum(["full", "partial"]),
+  amount: z.number().optional(), // Required for partial refunds
+  reason: z.string().min(1, "Refund reason is required"),
+  notes: z.string().nullable().optional(),
+  adminId: z.string().nullable().optional(),
+});
+
+// Order state transition validation schema
+export const orderStateTransitionSchema = z.object({
+  orderId: z.string(),
+  fromStatus: z.enum(ORDER_STATUSES),
+  toStatus: z.enum(ORDER_STATUSES),
+  paymentMethod: z.enum(["pesapal", "cod"]),
+  paymentStatus: z.enum(["not_initiated", "pending", "paid", "failed", "refunded"]),
+  adminId: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+
+// Enhanced types
+export type OrderStatus = typeof ORDER_STATUSES[number];
+export type CancellationReason = typeof CANCELLATION_REASONS[number];
+export type RefundStatus = typeof REFUND_STATUSES[number];
+
+export type CustomerCancelOrderEnhancedInput = z.infer<typeof customerCancelOrderEnhancedSchema>;
+export type AdminCancelOrderInput = z.infer<typeof adminCancelOrderSchema>;
+export type InitiateRefundEnhancedInput = z.infer<typeof initiateRefundEnhancedSchema>;
+export type OrderStateTransitionInput = z.infer<typeof orderStateTransitionSchema>;
+
+// State Machine Utility Functions
+
+/**
+ * Validates if a state transition is allowed based on business rules
+ */
+export function validateOrderStateTransition(
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+  paymentMethod: "pesapal" | "cod",
+  paymentStatus: "not_initiated" | "pending" | "paid" | "failed" | "refunded"
+): { isValid: boolean; reason?: string } {
+  // Define valid state transitions
+  const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+    PENDING_PAYMENT: ["PROCESSING", "FAILED_PAYMENT", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    FAILED_PAYMENT: ["PENDING_PAYMENT", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    PROCESSING: ["READY_FOR_DELIVERY", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    READY_FOR_DELIVERY: ["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED_BY_ADMIN"], // Usually no customer cancellation once shipped
+    DELIVERED: ["REFUND_PENDING"], // Only admin can initiate refund for delivered orders
+    CANCELLED_BY_USER: ["PROCESSING"], // Reactivation possible
+    CANCELLED_BY_ADMIN: ["PROCESSING"], // Reactivation possible
+    REFUND_PENDING: ["REFUNDED", "PROCESSING"], // Refund can complete or fail back to processing
+    REFUNDED: [], // Final state
+  };
+
+  const allowedNextStates = validTransitions[fromStatus];
+  
+  if (!allowedNextStates.includes(toStatus)) {
+    return {
+      isValid: false,
+      reason: `Cannot transition from ${fromStatus} to ${toStatus}`,
+    };
+  }
+
+  // Additional business rule validations
+  if (toStatus === "REFUND_PENDING" && paymentMethod !== "pesapal") {
+    return {
+      isValid: false,
+      reason: "Refunds are only available for Pesapal payments",
+    };
+  }
+
+  if (toStatus === "REFUND_PENDING" && paymentStatus !== "paid") {
+    return {
+      isValid: false,
+      reason: "Can only refund orders that have been paid",
+    };
+  }
+
+  return { isValid: true };
+}
+
+
+/**
+ * Gets valid next states for a given order state
+ */
+export function getValidNextStates(
+  currentStatus: OrderStatus,
+  paymentMethod: "pesapal" | "cod",
+  paymentStatus: "not_initiated" | "pending" | "paid" | "failed" | "refunded"
+): OrderStatus[] {
+  const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+    PENDING_PAYMENT: ["PROCESSING", "FAILED_PAYMENT", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    FAILED_PAYMENT: ["PENDING_PAYMENT", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    PROCESSING: ["READY_FOR_DELIVERY", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    READY_FOR_DELIVERY: ["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED_BY_USER", "CANCELLED_BY_ADMIN"],
+    OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED_BY_ADMIN"],
+    DELIVERED: paymentMethod === "pesapal" ? ["REFUND_PENDING"] : [],
+    CANCELLED_BY_USER: ["PROCESSING"],
+    CANCELLED_BY_ADMIN: ["PROCESSING"],
+    REFUND_PENDING: ["REFUNDED", "PROCESSING"],
+    REFUNDED: [],
+  };
+
+  return validTransitions[currentStatus] || [];
+}
+
+/**
+ * Checks if an order can be refunded
+ */
+export function isRefundableOrder(
+  paymentMethod: "pesapal" | "cod",
+  paymentStatus: "not_initiated" | "pending" | "paid" | "failed" | "refunded",
+  confirmationCode?: string | null
+): { canRefund: boolean; reason?: string } {
+  if (paymentMethod !== "pesapal") {
+    return {
+      canRefund: false,
+      reason: "Only Pesapal payments can be refunded",
+    };
+  }
+
+  if (paymentStatus !== "paid") {
+    return {
+      canRefund: false,
+      reason: "Only paid orders can be refunded",
+    };
+  }
+
+  if (!confirmationCode) {
+    return {
+      canRefund: false,
+      reason: "Missing confirmation code required for Pesapal refunds",
+    };
+  }
+
+  return { canRefund: true };
+}
+
+/**
+ * Checks if an order can be cancelled by customer
+ */
+export function canCustomerCancelOrder(
+  orderStatus: OrderStatus,
+  paymentMethod: "pesapal" | "cod",
+  paymentStatus: "not_initiated" | "pending" | "paid" | "failed" | "refunded"
+): boolean {
+  // Customers can cancel orders in these states
+  const cancellableStates: OrderStatus[] = [
+    "PENDING_PAYMENT",
+    "FAILED_PAYMENT", 
+    "PROCESSING",
+    "READY_FOR_DELIVERY",
+  ];
+
+  return cancellableStates.includes(orderStatus);
 }

@@ -23,6 +23,9 @@ import {
   MapPin,
   Phone,
   Mail,
+  Truck,
+  Calendar,
+  Home,
 } from "lucide-react";
 import { format } from "date-fns";
 import { OrderStatusSelect } from "./order-status-select";
@@ -53,6 +56,15 @@ function getStatusConfig(
   paymentStatus: string,
   paymentMethod?: string
 ) {
+  // Check for cancelled status FIRST - regardless of payment method or payment status
+  if (status === "CANCELLED_BY_USER" || status === "CANCELLED_BY_ADMIN") {
+    return {
+      color: "bg-red-100 text-red-800",
+      icon: X,
+      label: status === "CANCELLED_BY_USER" ? "Cancelled by Customer" : "Cancelled by Admin",
+    };
+  }
+
   // Special handling for COD orders - show order status instead of payment status
   if (paymentMethod === "cod" && paymentStatus === "pending") {
     return {
@@ -74,47 +86,65 @@ function getStatusConfig(
   }
 
   switch (status) {
-    case "pending":
+    case "PENDING_PAYMENT":
       return {
         color: "bg-orange-100 text-orange-800",
         icon: Clock,
-        label: "Pending",
+        label: "Pending Payment",
       };
-    case "confirmed":
+    case "FAILED_PAYMENT":
       return {
-        color: "bg-blue-100 text-blue-800",
-        icon: CheckCircle,
-        label: "Confirmed",
+        color: "bg-red-100 text-red-800",
+        icon: AlertTriangle,
+        label: "Payment Failed",
       };
-    case "processing":
+    case "PROCESSING":
       return {
         color: "bg-blue-100 text-blue-800",
         icon: Package,
         label: "Processing",
       };
-    case "ready":
+    case "READY_FOR_DELIVERY":
       return {
         color: "bg-purple-100 text-purple-800",
         icon: Package,
-        label: "Ready",
+        label: "Ready for Delivery",
       };
-    case "shipped":
+    case "OUT_FOR_DELIVERY":
       return {
         color: "bg-indigo-100 text-indigo-800",
         icon: Package,
-        label: "Shipped",
+        label: "Out for Delivery",
       };
-    case "delivered":
+    case "DELIVERED":
       return {
         color: "bg-green-100 text-green-800",
         icon: CheckCircle,
         label: "Delivered",
       };
-    case "cancelled":
+    case "CANCELLED_BY_USER":
       return {
-        color: "bg-gray-100 text-gray-800",
+        color: "bg-red-100 text-red-800",
         icon: X,
-        label: "Cancelled",
+        label: "Cancelled by Customer",
+      };
+    case "CANCELLED_BY_ADMIN":
+      return {
+        color: "bg-red-100 text-red-800",
+        icon: X,
+        label: "Cancelled by Admin",
+      };
+    case "REFUND_PENDING":
+      return {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: Clock,
+        label: "Refund Pending",
+      };
+    case "REFUNDED":
+      return {
+        color: "bg-green-100 text-green-800",
+        icon: CheckCircle,
+        label: "Refunded",
       };
     default:
       return {
@@ -282,7 +312,7 @@ export function AdminOrderCard({
   isActive,
 }: AdminOrderCardProps) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
+  const [deliveryDetailsOpen, setDeliveryDetailsOpen] = useState(false);
 
   const statusConfig = getStatusConfig(
     order.status,
@@ -384,7 +414,7 @@ export function AdminOrderCard({
                   {/* Action buttons based on order status */}
                   {isActive ? (
                     <>
-                      {order.status === "confirmed" && (
+                      {order.status === "PENDING_PAYMENT" && (
                         <>
                           <Button
                             variant="outline"
@@ -421,7 +451,7 @@ export function AdminOrderCard({
                         </>
                       )}
                       
-                      {order.status === "processing" && (
+                      {order.status === "PROCESSING" && (
                         <>
                           <OrderReadyButton
                             orderId={order.orderId}
@@ -448,7 +478,7 @@ export function AdminOrderCard({
                         </>
                       )}
 
-                      {(order.status === "ready" || order.status === "shipped") && (
+                      {(order.status === "READY_FOR_DELIVERY" || order.status === "OUT_FOR_DELIVERY") && (
                         <>
                           <OrderDeliveredButton
                             orderId={order.orderId}
@@ -475,51 +505,32 @@ export function AdminOrderCard({
                         </>
                       )}
 
-                      {order.status === "cancelled" && (
+                      {(order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN") && (
                         <OrderCancelActions
                           orderId={order.orderId}
                           orderNumber={order.orderNumber}
                           previousStatus={getPreviousStatus(order.orderHistory)}
                           total={order.total}
+                          paymentMethod={order.paymentMethod}
+                          paymentStatus={order.paymentStatus}
+                          confirmationCode={order.confirmationCode}
                           onOrderUpdated={onOrderUpdated}
                         />
                       )}
 
-                      {(order.status === "delivered") && (
+                      {order.status === "DELIVERED" && (
                         <OrderCancelActions
                           orderId={order.orderId}
                           orderNumber={order.orderNumber}
                           previousStatus={getPreviousStatus(order.orderHistory)}
                           total={order.total}
+                          paymentMethod={order.paymentMethod}
+                          paymentStatus={order.paymentStatus}
+                          confirmationCode={order.confirmationCode}
                           onOrderUpdated={onOrderUpdated}
                         />
                       )}
 
-                      {(order.status === "pending") && (
-                        <>
-                          <OrderStatusSelect
-                            currentStatus={order.status}
-                            orderId={order.orderId}
-                            onStatusChanged={onOrderUpdated}
-                          />
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setCancelDialogOpen(true)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                Cancel Order
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </>
-                      )}
                     </>
                   ) : (
                     <AccordionTrigger
@@ -620,7 +631,7 @@ export function AdminOrderCard({
               </div>
 
               {/* Cancellation Information - Show for cancelled orders */}
-              {order.status === "cancelled" && (
+              {(order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN") && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   {(() => {
                     const cancellationInfo = parseCancellationInfo(order.notes);
@@ -655,10 +666,10 @@ export function AdminOrderCard({
                 </div>
               )}
 
-              {/* Customer Details Footer - Always visible for confirmed and above orders */}
-              {(order.status !== "pending" && order.status !== "cancelled") && (
+              {/* Delivery Information Footer - Always visible for confirmed and above orders */}
+              {(order.status !== "PENDING_PAYMENT" && order.status !== "CANCELLED_BY_USER" && order.status !== "CANCELLED_BY_ADMIN") && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
-                  <Collapsible open={customerDetailsOpen} onOpenChange={setCustomerDetailsOpen}>
+                  <Collapsible open={deliveryDetailsOpen} onOpenChange={setDeliveryDetailsOpen}>
                     <CollapsibleTrigger asChild>
                       <Button 
                         variant="ghost" 
@@ -666,54 +677,79 @@ export function AdminOrderCard({
                         className="w-full justify-between hover:bg-gray-50"
                       >
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span className="font-medium">Customer Details</span>
+                          <Truck className="h-4 w-4" />
+                          <span className="font-medium">Delivery Information</span>
                         </div>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", customerDetailsOpen && "rotate-180")} />
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", deliveryDetailsOpen && "rotate-180")} />
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                        {/* Customer Info */}
+                        {/* Delivery Method & Schedule */}
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-500" />
+                            {order.deliveryMethod === "pickup" ? (
+                              <Home className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <Truck className="h-4 w-4 text-gray-500" />
+                            )}
                             <div>
-                              <div className="font-medium text-sm">{customerName}</div>
-                              <div className="text-xs text-gray-500">Customer</div>
+                              <div className="font-medium text-sm">
+                                {order.deliveryMethod === "pickup" ? "Customer Pickup" : "Local Delivery"}
+                              </div>
+                              <div className="text-xs text-gray-500">Delivery Method</div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-gray-500" />
-                            <div>
-                              <div className="font-medium text-sm">{order.customer.email}</div>
-                              <div className="text-xs text-gray-500">Email</div>
+                          {order.estimatedDelivery && (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-gray-500" />
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {format(new Date(order.estimatedDelivery), "MMM d, yyyy 'at' h:mm a")}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {order.deliveryMethod === "pickup" ? "Pickup Time" : "Estimated Delivery"}
+                                </div>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4 text-gray-500" />
                             <div>
                               <div className="font-medium text-sm">{order.billingAddress.phone}</div>
-                              <div className="text-xs text-gray-500">Phone</div>
+                              <div className="text-xs text-gray-500">Contact Number</div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Shipping Address */}
+                        {/* Delivery Address & Contact */}
                         <div className="space-y-3">
                           <div className="flex items-start gap-2">
                             <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
                             <div className="flex-1">
-                              <div className="font-medium text-sm mb-1">Delivery Address</div>
+                              <div className="font-medium text-sm mb-1">
+                                {order.deliveryMethod === "pickup" ? "Pickup Location" : "Delivery Address"}
+                              </div>
                               <div className="text-sm text-gray-700 leading-relaxed">
-                                {order.billingAddress.address}<br />
-                                {order.billingAddress.city}
+                                <div className="font-medium">{order.billingAddress.fullName}</div>
+                                <div className="mt-1">
+                                  {order.billingAddress.address}<br />
+                                  {order.billingAddress.city}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {order.deliveryMethod === "pickup" ? "Pickup" : "Local Delivery"}
-                              </div>
+                            </div>
+                          </div>
+
+                          {/* Show customer contact info as secondary information */}
+                          <div className="border-t pt-3">
+                            <div className="text-xs text-gray-500 mb-1">Customer Contact</div>
+                            <div className="text-sm text-gray-600">
+                              {customerName}
+                              {order.customer.email && (
+                                <div className="text-xs text-gray-500 mt-0.5">{order.customer.email}</div>
+                              )}
                             </div>
                           </div>
                         </div>

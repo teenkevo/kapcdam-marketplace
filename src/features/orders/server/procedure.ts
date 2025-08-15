@@ -581,7 +581,7 @@ export const ordersRouter = createTRPCRouter({
             currency: "UGX",
             paymentStatus: paymentMethod === "pesapal" ? "not_initiated" : "pending",
             paymentMethod,
-            status: paymentMethod === "cod" ? "confirmed" : "pending",
+            status: paymentMethod === "cod" ? "PROCESSING" : "PENDING_PAYMENT",
 
             shippingAddress: { _type: "reference", _ref: addressId },
             deliveryMethod,
@@ -846,7 +846,7 @@ export const ordersRouter = createTRPCRouter({
     .input(updatePaymentStatusSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const { orderId, paymentStatus, transactionId, paidAt } = input;
+        const { orderId, paymentStatus, transactionId, confirmationCode, paidAt } = input;
 
         // SECURITY: Explicitly prevent any orderItems modifications
         const updateData: any = {
@@ -857,13 +857,17 @@ export const ordersRouter = createTRPCRouter({
           updateData.transactionId = transactionId;
         }
 
+        if (confirmationCode) {
+          updateData.confirmationCode = confirmationCode;
+        }
+
         if (paidAt) {
           updateData.paidAt = paidAt;
         }
 
         // If payment is confirmed, update order status
         if (paymentStatus === "paid") {
-          updateData.status = "confirmed";
+          updateData.status = "PROCESSING";
           updateData.paidAt = paidAt || new Date().toISOString();
         }
 
@@ -1042,7 +1046,7 @@ export const ordersRouter = createTRPCRouter({
           .patch(orderId)
           .set({
             paymentStatus: "not_initiated",
-            status: "pending",
+            status: "PENDING_PAYMENT",
           })
           .unset(["transactionId", "paymentFailureReason"])
           .commit();

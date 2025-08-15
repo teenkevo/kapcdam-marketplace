@@ -55,7 +55,7 @@ export function OrderDeliveredButton({
   const handleMarkDelivered = () => {
     markDeliveredMutation.mutate({
       orderId,
-      status: "delivered",
+      status: "DELIVERED",
     });
   };
 

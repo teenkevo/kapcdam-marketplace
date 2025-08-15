@@ -39,7 +39,7 @@ export default async function OrderCheckoutPage({ params }: Props) {
   if (meta.paymentMethod === "pesapal") {
     if (
       meta.paymentStatus === "not_initiated" &&
-      meta.status === "pending" &&
+      meta.status === "PENDING_PAYMENT" &&
       !meta.transactionId
     ) {
       // Show redirect view while CheckoutStateManager handles the actual redirect
@@ -47,13 +47,13 @@ export default async function OrderCheckoutPage({ params }: Props) {
       viewType = "payment-redirect";
     } else if (
       (meta.paymentStatus === "pending" || meta.paymentStatus === "failed") &&
-      meta.status === "pending" &&
+      (meta.status === "PENDING_PAYMENT" || meta.status === "FAILED_PAYMENT") &&
       meta.transactionId
     ) {
       viewComponent = <OrderPendingOrFailedView orderId={orderId} mode={meta.paymentStatus} />;
       viewType = "pending-failed";
       mode = meta.paymentStatus;
-    } else if (meta.paymentStatus === "paid" && meta.status === "confirmed") {
+    } else if (meta.paymentStatus === "paid" && meta.status === "PROCESSING") {
       viewComponent = <OrderSuccessView orderId={orderId} />;
       viewType = "success";
     } else {

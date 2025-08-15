@@ -6,16 +6,18 @@ import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { ORDER_STATUSES } from "../../schema";
 
-type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+type OrderStatus = typeof ORDER_STATUSES[number];
 
 const statusOptions: { value: OrderStatus; label: string; disabled?: boolean }[] = [
-  { value: "pending", label: "Pending" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "processing", label: "Processing" },
-  { value: "shipped", label: "Shipped" },
-  { value: "delivered", label: "Delivered" },
-  { value: "cancelled", label: "Cancelled", disabled: true }, // Use cancel dialog instead
+  { value: "PENDING_PAYMENT", label: "Pending Payment" },
+  { value: "PROCESSING", label: "Processing" },
+  { value: "READY_FOR_DELIVERY", label: "Ready for Delivery" },
+  { value: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
+  { value: "DELIVERED", label: "Delivered" },
+  { value: "CANCELLED_BY_USER", label: "Cancelled", disabled: true }, // Use cancel dialog instead
+  { value: "CANCELLED_BY_ADMIN", label: "Cancelled", disabled: true }, // Use cancel dialog instead
 ];
 
 type OrderStatusSelectProps = {
@@ -49,14 +51,14 @@ export function OrderStatusSelect({
   );
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (newStatus === currentStatus || newStatus === "cancelled") {
+    if (newStatus === currentStatus || newStatus === "CANCELLED_BY_USER" || newStatus === "CANCELLED_BY_ADMIN") {
       return; // Don't update if same status or cancelled (use cancel dialog)
     }
 
     setIsUpdating(true);
     
     // Add confirmation for certain status changes
-    const criticalStatuses: OrderStatus[] = ["delivered", "shipped"];
+    const criticalStatuses: OrderStatus[] = ["DELIVERED", "OUT_FOR_DELIVERY"];
     if (criticalStatuses.includes(newStatus)) {
       const confirmed = window.confirm(
         `Are you sure you want to mark this order as "${newStatus}"? This action may affect inventory and customer notifications.`
@@ -76,13 +78,14 @@ export function OrderStatusSelect({
 
   // Filter out cancelled option and any invalid statuses
   const availableOptions = statusOptions.filter(option => 
-    !option.disabled && option.value !== "cancelled"
+    !option.disabled && option.value !== "CANCELLED_BY_USER" && option.value !== "CANCELLED_BY_ADMIN"
   );
 
   // Don't allow status changes for cancelled or delivered orders
   const isDisabled = disabled || 
-    currentStatus === "cancelled" || 
-    currentStatus === "delivered" || 
+    currentStatus === "CANCELLED_BY_USER" || 
+    currentStatus === "CANCELLED_BY_ADMIN" ||
+    currentStatus === "DELIVERED" || 
     isUpdating;
 
   return (

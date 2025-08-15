@@ -26,6 +26,14 @@ type Props = {
 };
 
 function getStatusConfig(status: string, paymentStatus: string) {
+  // Check for cancelled status FIRST - regardless of payment status
+  if (status === "CANCELLED_BY_USER" || status === "CANCELLED_BY_ADMIN") {
+    return {
+      color: "bg-red-100 text-red-800",
+      label: status === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
+    };
+  }
+
   if (paymentStatus === "pending" || paymentStatus === "failed") {
     return {
       color:
@@ -37,40 +45,55 @@ function getStatusConfig(status: string, paymentStatus: string) {
   }
 
   switch (status) {
-    case "pending":
+    case "PENDING_PAYMENT":
       return {
         color: "bg-orange-100 text-orange-800",
-        label: "Pending",
+        label: "Waiting for Payment",
       };
-    case "confirmed":
+    case "FAILED_PAYMENT":
+      return {
+        color: "bg-red-100 text-red-800",
+        label: "Payment Failed",
+      };
+    case "PROCESSING":
       return {
         color: "bg-blue-100 text-blue-800",
-        label: "Confirmed",
+        label: "Order Confirmed",
       };
-    case "processing":
-      return {
-        color: "bg-yellow-100 text-yellow-800",
-        label: "Preparing",
-      };
-    case "ready":
+    case "READY_FOR_DELIVERY":
       return {
         color: "bg-purple-100 text-purple-800",
-        label: "Ready",
+        label: "Ready for Pickup",
       };
-    case "shipped":
+    case "OUT_FOR_DELIVERY":
       return {
         color: "bg-indigo-100 text-indigo-800",
-        label: "Shipped",
+        label: "Out for Delivery",
       };
-    case "delivered":
+    case "DELIVERED":
       return {
         color: "bg-green-100 text-green-800",
         label: "Delivered",
       };
-    case "cancelled":
+    case "CANCELLED_BY_USER":
       return {
-        color: "bg-red-100 text-red-800",
+        color: "bg-gray-100 text-gray-800",
         label: "Cancelled",
+      };
+    case "CANCELLED_BY_ADMIN":
+      return {
+        color: "bg-gray-100 text-gray-800",
+        label: "Cancelled by Store",
+      };
+    case "REFUND_PENDING":
+      return {
+        color: "bg-yellow-100 text-yellow-800",
+        label: "Refund Processing",
+      };
+    case "REFUNDED":
+      return {
+        color: "bg-green-100 text-green-800",
+        label: "Refunded",
       };
     default:
       return {
@@ -137,12 +160,32 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
     ];
   }
 
-  if (orderStatus === "cancelled") {
+  if (orderStatus === "CANCELLED_BY_USER" || orderStatus === "CANCELLED_BY_ADMIN") {
     return [
       {
         icon: Clock,
-        label: "Cancelled",
+        label: orderStatus === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
         status: "current",
+      },
+    ];
+  }
+
+  if (orderStatus === "REFUND_PENDING") {
+    return [
+      {
+        icon: Clock,
+        label: "Refund Processing",
+        status: "current",
+      },
+    ];
+  }
+
+  if (orderStatus === "REFUNDED") {
+    return [
+      {
+        icon: CheckCircle,
+        label: "Refunded",
+        status: "completed",
       },
     ];
   }
@@ -154,25 +197,25 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
     }
 
     if (step.step === "preparing") {
-      if (["pending", "confirmed", "processing"].includes(orderStatus)) {
+      if (["PROCESSING"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
       } else if (
-        ["ready", "shipped", "delivered"].includes(orderStatus)
+        ["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)
       ) {
         return { ...step, status: "completed" as const };
       }
     }
 
     if (step.step === "shipped") {
-      if (["ready"].includes(orderStatus)) {
+      if (["READY_FOR_DELIVERY"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
-      } else if (["shipped", "delivered"].includes(orderStatus)) {
+      } else if (["OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) {
         return { ...step, status: "completed" as const };
       }
     }
 
     if (step.step === "delivered") {
-      if (orderStatus === "delivered") {
+      if (orderStatus === "DELIVERED") {
         return { ...step, status: "completed" as const };
       }
     }
@@ -214,25 +257,25 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
     switch (step.step) {
       case "confirmed":
         // For newly created COD orders, show "Order received" as CURRENT (not completed)
-        if (orderStatus === "confirmed") status = "current";
-        else if (["processing", "ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        if (orderStatus === "PROCESSING") status = "current";
+        else if (["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) status = "completed";
         else status = "pending";
         break;
       case "preparing":
-        if (orderStatus === "processing") status = "current"; // Changed from "confirmed"
-        else if (["ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        if (orderStatus === "PROCESSING") status = "current";
+        else if (["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) status = "completed";
         else status = "pending";
         break;
       case "ready": // for pickup
-        if (orderStatus === "processing") status = "current";
-        else if (["ready", "delivered"].includes(orderStatus)) status = "completed";
+        if (orderStatus === "READY_FOR_DELIVERY") status = "current";
+        else if (["DELIVERED"].includes(orderStatus)) status = "completed";
         break;
       case "shipped": // for delivery
-        if (["processing", "ready"].includes(orderStatus)) status = "current";
-        else if (["shipped", "delivered"].includes(orderStatus)) status = "completed";
+        if (["OUT_FOR_DELIVERY"].includes(orderStatus)) status = "current";
+        else if (["DELIVERED"].includes(orderStatus)) status = "completed";
         break;
       case "delivered":
-        status = orderStatus === "delivered" ? "completed" : "pending";
+        status = orderStatus === "DELIVERED" ? "completed" : "pending";
         break;
     }
 
@@ -272,8 +315,8 @@ export function OrderDetailsView({ orderId }: Props) {
   const trackingSteps = getTrackingSteps(order.paymentStatus, order.status, order.paymentMethod, order.deliveryMethod);
 
   // Order item action logic - match YourOrderCard exactly
-  const isDelivered = order.status === "delivered";
-  const canShowItemActions = order.status === "confirmed" || isDelivered;
+  const isDelivered = order.status === "DELIVERED";
+  const canShowItemActions = order.status === "PROCESSING" || isDelivered;
 
   // Extract product IDs for related products
   const productIds = order.orderItems
@@ -308,11 +351,19 @@ export function OrderDetailsView({ orderId }: Props) {
                 {format(new Date(order.orderDate), "d MMMM yyyy")}
               </span>
             </h1>
+            {/* Status Badge */}
+            <div className="mt-2">
+              <Badge
+                className={`${statusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm shadow-none`}
+              >
+                {statusConfig.label}
+              </Badge>
+            </div>
           </div>
         </div>
         
         {/* Order Actions Dropdown */}
-        {["confirmed", "processing"].includes(order.status) && (
+        {["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status) && (
           <div className="flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -40,12 +40,16 @@ import {
   MoreHorizontal,
   AlertTriangle 
 } from "lucide-react";
+import { isRefundableOrder } from "@/features/orders/schema";
 
 type OrderCancelActionsProps = {
   orderId: string;
   orderNumber: string;
   previousStatus?: string | null;
   total: number;
+  paymentMethod: "pesapal" | "cod";
+  paymentStatus: "not_initiated" | "pending" | "paid" | "failed" | "refunded";
+  confirmationCode?: string | null;
   onOrderUpdated?: () => void;
   disabled?: boolean;
 };
@@ -57,6 +61,9 @@ export function OrderCancelActions({
   orderNumber,
   previousStatus,
   total,
+  paymentMethod,
+  paymentStatus,
+  confirmationCode,
   onOrderUpdated,
   disabled = false,
 }: OrderCancelActionsProps) {
@@ -152,6 +159,9 @@ export function OrderCancelActions({
   };
 
   const canReactivate = previousStatus && previousStatus !== "cancelled";
+  
+  // Check if order is eligible for refund
+  const refundEligibility = isRefundableOrder(paymentMethod, paymentStatus, confirmationCode);
 
   return (
     <>
@@ -175,13 +185,24 @@ export function OrderCancelActions({
               Reactivate Order
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem
-            onClick={() => setShowRefundDialog(true)}
-            className="text-green-600 hover:text-green-700"
-          >
-            <DollarSign className="h-4 w-4 mr-2" />
-            Initiate Refund
-          </DropdownMenuItem>
+          {refundEligibility.canRefund && (
+            <DropdownMenuItem
+              onClick={() => setShowRefundDialog(true)}
+              className="text-green-600 hover:text-green-700"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Initiate Refund
+            </DropdownMenuItem>
+          )}
+          {!refundEligibility.canRefund && (
+            <DropdownMenuItem disabled className="text-gray-400">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Refund Not Available
+              <div className="text-xs ml-2" title={refundEligibility.reason}>
+                ℹ️
+              </div>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

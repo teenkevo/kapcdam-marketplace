@@ -188,18 +188,21 @@ export const order = defineType({
       description: "Current order status",
       options: {
         list: [
-          { title: "Pending", value: "pending" },
-          { title: "Confirmed", value: "confirmed" },
-          { title: "Processing", value: "processing" },
-          { title: "Ready", value: "ready" },
-          { title: "Shipped", value: "shipped" },
-          { title: "Delivered", value: "delivered" },
-          { title: "Cancelled", value: "cancelled" },
+          { title: "Pending Payment", value: "PENDING_PAYMENT" },
+          { title: "Failed Payment", value: "FAILED_PAYMENT" },
+          { title: "Processing", value: "PROCESSING" },
+          { title: "Ready for Delivery", value: "READY_FOR_DELIVERY" },
+          { title: "Out for Delivery", value: "OUT_FOR_DELIVERY" },
+          { title: "Delivered", value: "DELIVERED" },
+          { title: "Cancelled by User", value: "CANCELLED_BY_USER" },
+          { title: "Cancelled by Admin", value: "CANCELLED_BY_ADMIN" },
+          { title: "Refund Pending", value: "REFUND_PENDING" },
+          { title: "Refunded", value: "REFUNDED" },
         ],
         layout: "dropdown",
       },
       validation: (rule) => rule.required().error("Order status is required"),
-      initialValue: "pending",
+      initialValue: "PENDING_PAYMENT",
     }),
 
     defineField({
@@ -252,6 +255,111 @@ export const order = defineType({
       rows: 3,
     }),
 
+    // New fields for enhanced order state machine
+    defineField({
+      name: "confirmationCode",
+      title: "Payment Confirmation Code",
+      type: "string",
+      description: "Pesapal confirmation code required for refunds",
+      hidden: ({ document }) => document?.paymentMethod !== "pesapal" || document?.paymentStatus !== "paid",
+      readOnly: true,
+    }),
+
+    defineField({
+      name: "cancellationReason",
+      title: "Cancellation Reason",
+      type: "string",
+      description: "Why this order was cancelled",
+      options: {
+        list: [
+          { title: "Customer Request", value: "customer_request" },
+          { title: "Customer Changed Mind", value: "changed_mind" },
+          { title: "Customer Found Better Price", value: "found_better_price" },
+          { title: "Customer No Longer Needed", value: "no_longer_needed" },
+          { title: "Customer Ordered by Mistake", value: "ordered_by_mistake" },
+          { title: "Delivery Taking Too Long", value: "delivery_too_long" },
+          { title: "Payment Failed", value: "payment_failed" },
+          { title: "Items Unavailable", value: "items_unavailable" },
+          { title: "Fraud Suspected", value: "fraud_suspected" },
+          { title: "Other Reason", value: "other" },
+        ],
+        layout: "dropdown",
+      },
+      hidden: ({ document }) => document?.status !== "cancelled",
+    }),
+
+    defineField({
+      name: "cancellationNotes",
+      title: "Cancellation Notes",
+      type: "text",
+      description: "Additional details about the cancellation",
+      rows: 2,
+      hidden: ({ document }) => document?.status !== "cancelled",
+    }),
+
+    defineField({
+      name: "cancelledAt",
+      title: "Cancelled At",
+      type: "datetime",
+      description: "When the order was cancelled",
+      hidden: ({ document }) => document?.status !== "cancelled",
+      readOnly: true,
+    }),
+
+    defineField({
+      name: "refundStatus",
+      title: "Refund Status",
+      type: "string",
+      description: "Current refund processing status",
+      options: {
+        list: [
+          { title: "Not Applicable", value: "not_applicable" },
+          { title: "Pending", value: "pending" },
+          { title: "Processing", value: "processing" },
+          { title: "Completed", value: "completed" },
+          { title: "Failed", value: "failed" },
+        ],
+        layout: "dropdown",
+      },
+      initialValue: "not_applicable",
+      hidden: ({ document }) => 
+        document?.paymentMethod !== "pesapal" || 
+        (document?.status !== "cancelled" && document?.paymentStatus !== "refunded"),
+    }),
+
+    defineField({
+      name: "refundAmount",
+      title: "Refund Amount (UGX)",
+      type: "number",
+      description: "Amount being refunded to customer",
+      validation: (rule) => rule.min(0).error("Refund amount cannot be negative"),
+      hidden: ({ document }) => 
+        !document?.refundStatus || 
+        document?.refundStatus === "not_applicable",
+    }),
+
+    defineField({
+      name: "refundInitiatedAt",
+      title: "Refund Initiated At",
+      type: "datetime",
+      description: "When the refund process was started",
+      readOnly: true,
+      hidden: ({ document }) => 
+        !document?.refundStatus || 
+        document?.refundStatus === "not_applicable",
+    }),
+
+
+    defineField({
+      name: "migrationVersion",
+      title: "Migration Version",
+      type: "number",
+      description: "Track order schema migration state",
+      initialValue: 0,
+      readOnly: true,
+      hidden: true,
+    }),
+
     defineField({
       name: "orderHistory",
       title: "Order History",
@@ -267,13 +375,16 @@ export const order = defineType({
               type: "string",
               options: {
                 list: [
-                  { title: "Pending", value: "pending" },
-                  { title: "Confirmed", value: "confirmed" },
-                  { title: "Processing", value: "processing" },
-                  { title: "Ready", value: "ready" },
-                  { title: "Shipped", value: "shipped" },
-                  { title: "Delivered", value: "delivered" },
-                  { title: "Cancelled", value: "cancelled" },
+                  { title: "Pending Payment", value: "PENDING_PAYMENT" },
+                  { title: "Failed Payment", value: "FAILED_PAYMENT" },
+                  { title: "Processing", value: "PROCESSING" },
+                  { title: "Ready for Delivery", value: "READY_FOR_DELIVERY" },
+                  { title: "Out for Delivery", value: "OUT_FOR_DELIVERY" },
+                  { title: "Delivered", value: "DELIVERED" },
+                  { title: "Cancelled by User", value: "CANCELLED_BY_USER" },
+                  { title: "Cancelled by Admin", value: "CANCELLED_BY_ADMIN" },
+                  { title: "Refund Pending", value: "REFUND_PENDING" },
+                  { title: "Refunded", value: "REFUNDED" },
                 ],
               },
               validation: (rule) => rule.required().error("Status is required"),

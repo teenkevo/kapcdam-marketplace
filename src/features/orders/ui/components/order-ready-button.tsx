@@ -55,7 +55,7 @@ export function OrderReadyButton({
   const handleMarkReady = () => {
     markReadyMutation.mutate({
       orderId,
-      status: "ready",
+      status: "READY_FOR_DELIVERY",
     });
   };
 

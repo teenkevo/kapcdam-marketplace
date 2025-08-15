@@ -84,12 +84,14 @@ export function AdminOrdersView() {
     const counts = {
       all: allOrders.length,
       pending: allOrders.filter(order => 
-        order.status === "confirmed" || order.status === "processing"
+        order.status === "PROCESSING"
       ).length,
       ready: allOrders.filter(order => 
-        order.status === "ready" || order.status === "shipped"
+        order.status === "READY_FOR_DELIVERY" || order.status === "OUT_FOR_DELIVERY"
       ).length,
-      cancelled: allOrders.filter(order => order.status === "cancelled").length,
+      cancelled: allOrders.filter(order => 
+        order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN"
+      ).length,
     };
 
     console.log("📊 Tab counts:", counts);
@@ -98,14 +100,16 @@ export function AdminOrdersView() {
     let filtered = allOrders;
     if (activeTab === "pending") {
       filtered = allOrders.filter(order => 
-        order.status === "confirmed" || order.status === "processing"
+        order.status === "PROCESSING"
       );
     } else if (activeTab === "ready") {
       filtered = allOrders.filter(order => 
-        order.status === "ready" || order.status === "shipped"
+        order.status === "READY_FOR_DELIVERY" || order.status === "OUT_FOR_DELIVERY"
       );
     } else if (activeTab === "cancelled") {
-      filtered = allOrders.filter(order => order.status === "cancelled");
+      filtered = allOrders.filter(order => 
+        order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN"
+      );
     }
     // "all" tab shows everything
 

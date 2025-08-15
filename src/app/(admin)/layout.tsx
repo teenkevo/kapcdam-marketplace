@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getAdminUser } from "@/features/auth/lib/roles";
 import Link from "next/link";
 import { GotToHomeButton } from "@/features/home/ui/components/shop-button";
+import { UserNavButton } from "@/features/auth/ui/components/user-nav";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -37,6 +38,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
               </div>
             </div>
             <nav className="flex space-x-8">
+              <UserNavButton />
               <GotToHomeButton />
               {/* <Link
                 href="/admin/manage-orders"
