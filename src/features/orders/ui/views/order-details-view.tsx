@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { format } from "date-fns";
 import { Loader2, CheckCircle, Clock, Package, Truck, MapPin, MoreHorizontal, X } from "lucide-react";
@@ -74,16 +74,6 @@ function getStatusConfig(status: string, paymentStatus: string) {
       return {
         color: "bg-green-100 text-green-800",
         label: "Delivered",
-      };
-    case "CANCELLED_BY_USER":
-      return {
-        color: "bg-gray-100 text-gray-800",
-        label: "Cancelled",
-      };
-    case "CANCELLED_BY_ADMIN":
-      return {
-        color: "bg-gray-100 text-gray-800",
-        label: "Cancelled by Store",
       };
     case "REFUND_PENDING":
       return {
@@ -285,6 +275,7 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
 
 export function OrderDetailsView({ orderId }: Props) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const {
@@ -533,8 +524,10 @@ export function OrderDetailsView({ orderId }: Props) {
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         onOrderCancelled={() => {
-          // Refresh the order data
-          window.location.reload();
+          // Refresh the order data without a full reload
+          queryClient.invalidateQueries(
+            trpc.orders.getOrderById.queryOptions({ orderId })
+          );
         }}
       />
     </div>

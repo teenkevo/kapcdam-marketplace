@@ -16,7 +16,22 @@ import {
   getPreviousStatus,
   isRefundableOrder,
   validateOrderStateTransition,
+  ORDER_STATUSES,
 } from "../schema";
+
+// Map filter status values to canonical ORDER_STATUSES
+function mapFilterStatusToCanonical(filterStatus: string): string | null {
+  const statusMap: Record<string, string> = {
+    "pending": "PENDING_PAYMENT",
+    "processing": "PROCESSING", 
+    "ready": "READY_FOR_DELIVERY",
+    "shipped": "OUT_FOR_DELIVERY",
+    "delivered": "DELIVERED",
+    "cancelled": "(status == \"CANCELLED_BY_USER\" || status == \"CANCELLED_BY_ADMIN\")",
+  };
+  
+  return statusMap[filterStatus] || null;
+}
 
 const adminOrderFilterSchema = z.object({
   limit: z.number().min(1).max(200).default(20),
@@ -25,8 +40,7 @@ const adminOrderFilterSchema = z.object({
     .enum([
       "all",
       "pending",
-      "confirmed",
-      "processing",
+      "processing", 
       "ready",
       "shipped",
       "delivered",
@@ -98,7 +112,15 @@ export const adminOrdersRouter = createTRPCRouter({
         let dateFilter = "";
 
         if (input.status !== "all") {
-          statusFilter = ` && status == "${input.status}"`;
+          const canonicalStatus = mapFilterStatusToCanonical(input.status);
+          if (canonicalStatus) {
+            if (input.status === "cancelled") {
+              // Special handling for cancelled status which maps to a complex condition
+              statusFilter = ` && ${canonicalStatus}`;
+            } else {
+              statusFilter = ` && status == "${canonicalStatus}"`;
+            }
+          }
         }
 
         if (input.paymentStatus !== "all") {
@@ -215,10 +237,9 @@ export const adminOrdersRouter = createTRPCRouter({
       const stats = await client.fetch(
         groq`{
           "totalOrders": count(*[_type == "order"]),
-          "pendingOrders": count(*[_type == "order" && status == "pending"]),
-          "confirmedOrders": count(*[_type == "order" && status == "confirmed"]),
-          "processingOrders": count(*[_type == "order" && status == "processing"]),
-          "deliveredOrders": count(*[_type == "order" && status == "delivered"]),
+          "pendingOrders": count(*[_type == "order" && status == "PENDING_PAYMENT"]),
+          "processingOrders": count(*[_type == "order" && status == "PROCESSING"]),
+          "deliveredOrders": count(*[_type == "order" && status == "DELIVERED"]),
           "cancelledOrders": count(*[_type == "order" && (status == "CANCELLED_BY_USER" || status == "CANCELLED_BY_ADMIN")]),
           "pendingPayments": count(*[_type == "order" && paymentStatus == "pending"]),
           "failedPayments": count(*[_type == "order" && paymentStatus == "failed"]),

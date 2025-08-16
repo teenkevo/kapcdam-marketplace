@@ -466,7 +466,7 @@ export const order = defineType({
         : "Pending";
 
       const orderStatusDisplay = status
-        ? status.charAt(0).toUpperCase() + status.slice(1)
+        ? status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
         : "Pending";
 
       // Add payment method indicator
@@ -478,7 +478,7 @@ export const order = defineType({
 
       let subtitle = `${totalFormatted} • ${paymentMethod === "cod" ? "COD" : "Pesapal"}: ${paymentStatusDisplay}`;
       
-      if (status && status !== "pending") {
+      if (status && status !== "PENDING_PAYMENT") {
         subtitle += ` • ${orderStatusDisplay}`;
       }
 
