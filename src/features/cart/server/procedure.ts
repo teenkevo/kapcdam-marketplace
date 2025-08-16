@@ -576,7 +576,7 @@ export const cartRouter = createTRPCRouter({
   checkPendingOrder: customerProcedure.query(async ({ ctx }) => {
     try {
       const pendingOrder = await client.fetch(
-        groq`*[_type == "order" && user->clerkUserId == $clerkUserId && status == "pending_payment"][0] {
+        groq`*[_type == "order" && user->clerkUserId == $clerkUserId && status == "PENDING_PAYMENT"][0] {
           _id,
           orderNumber,
           status,
@@ -618,7 +618,7 @@ export const cartRouter = createTRPCRouter({
       try {
         // Verify order ownership and status
         const order = await client.fetch(
-          groq`*[_type == "order" && _id == $orderId && user->clerkUserId == $clerkUserId && status == "pending_payment"][0]`,
+          groq`*[_type == "order" && _id == $orderId && user->clerkUserId == $clerkUserId && status == "PENDING_PAYMENT"][0]`,
           {
             orderId: input.orderId,
             clerkUserId: ctx.auth.userId,
@@ -636,7 +636,7 @@ export const cartRouter = createTRPCRouter({
         const updatedOrder = await client
           .patch(input.orderId)
           .set({
-            status: "cancelled",
+            status: "CANCELLED_BY_USER",
             updatedAt: new Date().toISOString(),
           })
           .commit();

@@ -256,8 +256,8 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
 
     switch (step.step) {
       case "confirmed":
-        // For newly created COD orders, show "Order received" as CURRENT (not completed)
-        if (orderStatus === "PROCESSING") status = "current";
+        // For PROCESSING orders, show "Order received" as COMPLETED so only preparing is current
+        if (orderStatus === "PROCESSING") status = "completed";
         else if (["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) status = "completed";
         else status = "pending";
         break;

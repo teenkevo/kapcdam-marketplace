@@ -1275,11 +1275,11 @@ export const ordersRouter = createTRPCRouter({
           });
         }
 
-        // Only allow cancellation for confirmed or processing orders
-        if (!["confirmed", "processing"].includes(order.status)) {
+        // Only allow cancellation for processing or ready for delivery orders
+        if (!["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Order cannot be cancelled at this stage. Only confirmed or processing orders can be cancelled.",
+            message: "Order cannot be cancelled at this stage. Only processing or ready for delivery orders can be cancelled.",
           });
         }
 
@@ -1308,7 +1308,7 @@ export const ordersRouter = createTRPCRouter({
         // Create new history entry for customer cancellation
         const historyEntry = {
           _key: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          status: "cancelled",
+          status: "CANCELLED_BY_USER",
           timestamp: new Date().toISOString(),
           adminId: null, // Customer cancellation
           notes: notes ? `Customer cancellation - ${reason}: ${notes}` : `Customer cancellation - ${reason}`,
@@ -1324,7 +1324,7 @@ export const ordersRouter = createTRPCRouter({
         const updatedOrder = await client
           .patch(orderId)
           .set({
-            status: "cancelled",
+            status: "CANCELLED_BY_USER",
             notes: customerNotes,
             cancelledAt: new Date().toISOString(),
             orderHistory: [...currentHistory, historyEntry],

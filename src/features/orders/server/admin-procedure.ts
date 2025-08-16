@@ -219,7 +219,7 @@ export const adminOrdersRouter = createTRPCRouter({
           "confirmedOrders": count(*[_type == "order" && status == "confirmed"]),
           "processingOrders": count(*[_type == "order" && status == "processing"]),
           "deliveredOrders": count(*[_type == "order" && status == "delivered"]),
-          "cancelledOrders": count(*[_type == "order" && status == "cancelled"]),
+          "cancelledOrders": count(*[_type == "order" && (status == "CANCELLED_BY_USER" || status == "CANCELLED_BY_ADMIN")]),
           "pendingPayments": count(*[_type == "order" && paymentStatus == "pending"]),
           "failedPayments": count(*[_type == "order" && paymentStatus == "failed"]),
           "totalRevenue": sum(*[_type == "order" && paymentStatus == "paid"].total),
@@ -371,7 +371,7 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
-        if (order.status === "cancelled") {
+        if (order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Order is already cancelled",
@@ -381,7 +381,7 @@ export const adminOrdersRouter = createTRPCRouter({
         // Create new history entry for cancellation
         const historyEntry = {
           _key: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          status: "cancelled",
+          status: "CANCELLED_BY_ADMIN",
           timestamp: new Date().toISOString(),
           adminId: "admin",
           notes: `Cancellation reason: ${reason}. ${notes}`,
@@ -394,7 +394,7 @@ export const adminOrdersRouter = createTRPCRouter({
         const updatedOrder = await client
           .patch(orderId)
           .set({
-            status: "cancelled",
+            status: "CANCELLED_BY_ADMIN",
             notes: adminNotes,
             cancelledAt: new Date().toISOString(),
             orderHistory: [...currentHistory, historyEntry],
@@ -592,7 +592,7 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
-        if (order.status !== "cancelled") {
+        if (order.status !== "CANCELLED_BY_USER" && order.status !== "CANCELLED_BY_ADMIN") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Only cancelled orders can be reactivated",

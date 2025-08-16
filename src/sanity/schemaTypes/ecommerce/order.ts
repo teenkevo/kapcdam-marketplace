@@ -245,7 +245,7 @@ export const order = defineType({
       title: "Delivered At",
       type: "datetime",
       description: "When the order was actually delivered",
-      hidden: ({ document }) => document?.status !== "delivered",
+      hidden: ({ document }) => document?.status !== "DELIVERED",
     }),
     defineField({
       name: "notes",
@@ -285,7 +285,7 @@ export const order = defineType({
         ],
         layout: "dropdown",
       },
-      hidden: ({ document }) => document?.status !== "cancelled",
+      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
     }),
 
     defineField({
@@ -294,7 +294,7 @@ export const order = defineType({
       type: "text",
       description: "Additional details about the cancellation",
       rows: 2,
-      hidden: ({ document }) => document?.status !== "cancelled",
+      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
     }),
 
     defineField({
@@ -302,7 +302,7 @@ export const order = defineType({
       title: "Cancelled At",
       type: "datetime",
       description: "When the order was cancelled",
-      hidden: ({ document }) => document?.status !== "cancelled",
+      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
       readOnly: true,
     }),
 
@@ -324,7 +324,7 @@ export const order = defineType({
       initialValue: "not_applicable",
       hidden: ({ document }) => 
         document?.paymentMethod !== "pesapal" || 
-        (document?.status !== "cancelled" && document?.paymentStatus !== "refunded"),
+        (document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN" && document?.paymentStatus !== "refunded"),
     }),
 
     defineField({
