@@ -74,22 +74,22 @@ export async function POST(request: NextRequest) {
     // Map Pesapal status to our payment status
     // Per Pesapal docs, webhook delivers a final outcome only (no "pending")
     let paymentStatus: "paid" | "failed" | "refunded";
-    let orderStatus: string;
+    let orderStatus: "PROCESSING" | "FAILED_PAYMENT" | "REFUNDED";
 
     switch (transactionStatus.payment_status_description?.toLowerCase()) {
       case "completed":
         paymentStatus = "paid";
-        orderStatus = "confirmed";
+        orderStatus = "PROCESSING";
         break;
       case "reversed":
         paymentStatus = "refunded";
-        orderStatus = order.status;
+        orderStatus = "REFUNDED";
         break;
       case "invalid":
       case "failed":
       default:
         paymentStatus = "failed";
-        orderStatus = order.status;
+        orderStatus = "FAILED_PAYMENT";
         break;
     }
 
@@ -102,8 +102,18 @@ export async function POST(request: NextRequest) {
         | "refunded"
         | "not_initiated",
       transactionId: OrderTrackingId,
+      confirmationCode: transactionStatus.confirmation_code || null,
       paidAt: paymentStatus === "paid" ? new Date().toISOString() : undefined,
     });
+
+    // Update order status based on payment outcome
+    if (orderStatus !== order.status) {
+      await trpc.orders.updateOrderStatus({
+        orderId: order._id,
+        status: orderStatus,
+        notes: `Status updated via Pesapal webhook: ${transactionStatus.payment_status_description}`,
+      });
+    }
 
     // If payment is successful, update stock levels
     if (paymentStatus === "paid" && order.orderItems?.length > 0) {

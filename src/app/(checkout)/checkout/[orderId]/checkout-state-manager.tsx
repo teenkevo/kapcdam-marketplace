@@ -67,7 +67,7 @@ export function CheckoutStateManager({
       !hasRetryGuard &&
       paymentMethod === "pesapal" &&
       paymentStatus === "not_initiated" &&
-      orderStatus === "pending" &&
+      orderStatus === "PENDING_PAYMENT" &&
       !processPaymentMutation.isPending
     ) {
       hasProcessedInitialRedirect.current = true;

@@ -47,6 +47,7 @@ interface MegaMenuItem {
   description?: string;
   href: string;
   icon?: IconName; // Changed from React.ElementType to IconName
+  disabled?: boolean;
 }
 
 interface MegaMenuSection {
@@ -160,27 +161,58 @@ export default function MegaMenu({ label, sections, id }: MegaMenuProps) {
                   <ul className="space-y-2">
                     {section.items.map((item, itemIndex) => {
                       const Icon = item.icon ? iconMap[item.icon] : null;
+                      const isDisabled = item.disabled;
+                      
+                      const content = (
+                        <>
+                          {Icon && (
+                            <Icon className={cn(
+                              "h-6 w-6 transition-colors duration-200",
+                              isDisabled 
+                                ? "text-gray-300" 
+                                : "text-gray-500 group-hover:text-gray-700"
+                            )} />
+                          )}
+                          <div>
+                            <p className={cn(
+                              "text-base font-medium transition-colors duration-200",
+                              isDisabled 
+                                ? "text-gray-400" 
+                                : "text-gray-900 group-hover:text-gray-700"
+                            )}>
+                              {item.title}
+                            </p>
+                            {item.description && (
+                              <p className={cn(
+                                "text-sm transition-colors duration-200",
+                                isDisabled 
+                                  ? "text-gray-300" 
+                                  : "text-gray-500 group-hover:text-gray-600"
+                              )}>
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      );
+
                       return (
                         <motion.li key={itemIndex} variants={itemVariants}>
-                          <Link
-                            href={item.href}
-                            className="group flex items-start space-x-3 rounded-md p-2 hover:bg-gray-50 transition-colors duration-200"
-                            onClick={handleLinkClick}
-                          >
-                            {Icon && (
-                              <Icon className="h-6 w-6 text-gray-500 group-hover:text-gray-700 transition-colors duration-200" />
-                            )}
-                            <div>
-                              <p className="text-base font-medium text-gray-900 group-hover:text-gray-700">
-                                {item.title}
-                              </p>
-                              {item.description && (
-                                <p className="text-sm text-gray-500 group-hover:text-gray-600">
-                                  {item.description}
-                                </p>
-                              )}
+                          {isDisabled ? (
+                            <div className={cn(
+                              "group flex items-start space-x-3 rounded-md p-2 cursor-not-allowed opacity-50"
+                            )}>
+                              {content}
                             </div>
-                          </Link>
+                          ) : (
+                            <Link
+                              href={item.href}
+                              className="group flex items-start space-x-3 rounded-md p-2 hover:bg-gray-50 transition-colors duration-200"
+                              onClick={handleLinkClick}
+                            >
+                              {content}
+                            </Link>
+                          )}
                         </motion.li>
                       );
                     })}

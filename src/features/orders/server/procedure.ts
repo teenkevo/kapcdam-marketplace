@@ -3,6 +3,7 @@ import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure,
+  customerProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
@@ -13,6 +14,7 @@ import {
   updateOrderStatusSchema,
   updatePaymentStatusSchema,
   orderMetaSchema,
+  customerCancelOrderSchema,
   type OrderResponse,
 } from "../schema";
 import { CART_ITEMS_QUERY } from "@/features/cart/server/query";
@@ -208,7 +210,6 @@ export const ordersRouter = createTRPCRouter({
         input,
       }): Promise<{ paymentUrl: string; orderTrackingId: string }> => {
         try {
-          // Fetch order server-side and validate ownership
           const order = await client.fetch(
             groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
               "orderId": _id,
@@ -341,7 +342,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Create a new order from cart
    */
-  createOrder: protectedProcedure
+  createOrder: customerProcedure
     .input(createOrderSchema)
     .mutation(
       async ({
@@ -580,7 +581,7 @@ export const ordersRouter = createTRPCRouter({
             currency: "UGX",
             paymentStatus: paymentMethod === "pesapal" ? "not_initiated" : "pending",
             paymentMethod,
-            status: paymentMethod === "cod" ? "confirmed" : "pending",
+            status: paymentMethod === "cod" ? "PROCESSING" : "PENDING_PAYMENT",
 
             shippingAddress: { _type: "reference", _ref: addressId },
             deliveryMethod,
@@ -775,7 +776,7 @@ export const ordersRouter = createTRPCRouter({
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             status,
-            ${status === "cancelled" ? `paymentMethod,
+            ${status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" ? `paymentMethod,
             paymentStatus,
             orderItems[] {
               type,
@@ -796,7 +797,7 @@ export const ordersRouter = createTRPCRouter({
         }
 
         // Only restore stock for orders that actually had stock reduced
-        if (status === "cancelled" && order.orderItems?.length > 0) {
+        if (status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" && order.orderItems?.length > 0) {
           if (shouldRestoreStockForOrder(order)) {
             try {
               await restoreStockForOrder(order.orderItems);
@@ -816,7 +817,7 @@ export const ordersRouter = createTRPCRouter({
           updateData.notes = notes;
         }
 
-        if (status === "delivered") {
+        if (status === "DELIVERED") {
           updateData.deliveredAt = new Date().toISOString();
         }
 
@@ -845,7 +846,7 @@ export const ordersRouter = createTRPCRouter({
     .input(updatePaymentStatusSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const { orderId, paymentStatus, transactionId, paidAt } = input;
+        const { orderId, paymentStatus, transactionId, confirmationCode, paidAt } = input;
 
         // SECURITY: Explicitly prevent any orderItems modifications
         const updateData: any = {
@@ -856,13 +857,17 @@ export const ordersRouter = createTRPCRouter({
           updateData.transactionId = transactionId;
         }
 
+        if (confirmationCode) {
+          updateData.confirmationCode = confirmationCode;
+        }
+
         if (paidAt) {
           updateData.paidAt = paidAt;
         }
 
         // If payment is confirmed, update order status
         if (paymentStatus === "paid") {
-          updateData.status = "confirmed";
+          updateData.status = "PROCESSING";
           updateData.paidAt = paidAt || new Date().toISOString();
         }
 
@@ -887,7 +892,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Get user's orders
    */
-  getUserOrders: protectedProcedure
+  getUserOrders: customerProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(10),
@@ -977,7 +982,7 @@ export const ordersRouter = createTRPCRouter({
     }),
 
   // Count of user's orders for overview
-  getUserOrdersCount: protectedProcedure.query(async ({ ctx }) => {
+  getUserOrdersCount: customerProcedure.query(async ({ ctx }) => {
     try {
       const count = await client.fetch(
         groq`count(*[_type == "order" && customer->clerkUserId == $clerkUserId])`,
@@ -993,7 +998,7 @@ export const ordersRouter = createTRPCRouter({
   }),
 
   // Lightweight status fetcher for routing/decisions
-  getOrderStatus: protectedProcedure
+  getOrderStatus: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       const meta = await client.fetch(
@@ -1017,7 +1022,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Reset order for payment retry - sets order to initial payment state
    */
-  resetOrderForPayment: protectedProcedure
+  resetOrderForPayment: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -1041,7 +1046,7 @@ export const ordersRouter = createTRPCRouter({
           .patch(orderId)
           .set({
             paymentStatus: "not_initiated",
-            status: "pending",
+            status: "PENDING_PAYMENT",
           })
           .unset(["transactionId", "paymentFailureReason"])
           .commit();
@@ -1059,7 +1064,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Cancel pending order (for checkout back button handling)
    */
-  cancelPendingOrder: protectedProcedure
+  cancelPendingOrder: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -1154,7 +1159,7 @@ export const ordersRouter = createTRPCRouter({
   /**
    * Get order by ID
    */
-  getOrderById: protectedProcedure
+  getOrderById: customerProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       try {
@@ -1230,6 +1235,114 @@ export const ordersRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch order",
+        });
+      }
+    }),
+
+  /**
+   * Cancel confirmed/processing order (customer-initiated)
+   */
+  cancelConfirmedOrder: customerProcedure
+    .input(customerCancelOrderSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId, reason, notes } = input;
+
+        // Verify order ownership and fetch order details
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            status,
+            orderNumber,
+            paymentMethod,
+            paymentStatus,
+            orderHistory,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
+          }`,
+          { orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // Only allow cancellation for processing or ready for delivery orders
+        if (!["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order cannot be cancelled at this stage. Only processing or ready for delivery orders can be cancelled.",
+          });
+        }
+
+        if (order.status === "CANCELLED_BY_ADMIN" || order.status === "CANCELLED_BY_USER") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order is already cancelled",
+          });
+        }
+
+        // Restore stock for the cancelled order if applicable
+        if (order.orderItems?.length > 0) {
+          if (shouldRestoreStockForOrder(order)) {
+            try {
+              await restoreStockForOrder(order.orderItems);
+              console.log(`✓ Stock restored for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+            } catch (error) {
+              console.error("Failed to restore stock for customer-cancelled order:", error);
+              // Don't fail the cancellation if stock restoration fails
+            }
+          } else {
+            console.log(`ℹ Skipping stock restoration for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+          }
+        }
+
+        // Create new history entry for customer cancellation
+        const historyEntry = {
+          _key: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          status: "CANCELLED_BY_USER",
+          timestamp: new Date().toISOString(),
+          adminId: null, // Customer cancellation
+          notes: notes ? `Customer cancellation - ${reason}: ${notes}` : `Customer cancellation - ${reason}`,
+        };
+
+        // Update order to cancelled with customer notes and history
+        const customerNotes = notes 
+          ? `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}] ${notes}`
+          : `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}]`;
+        
+        const currentHistory = order.orderHistory || [];
+
+        const updatedOrder = await client
+          .patch(orderId)
+          .set({
+            status: "CANCELLED_BY_USER",
+            notes: customerNotes,
+            cancelledAt: new Date().toISOString(),
+            orderHistory: [...currentHistory, historyEntry],
+          })
+          .commit();
+
+        return {
+          success: true,
+          message: "Order cancelled successfully",
+          order: updatedOrder,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to cancel order",
         });
       }
     }),

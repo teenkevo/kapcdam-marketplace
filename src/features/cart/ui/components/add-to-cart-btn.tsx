@@ -12,6 +12,12 @@ import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Props = {
   product: LocalCartItemType;
@@ -299,6 +305,45 @@ export const AddToCartButton = ({
   appearance?: "primary" | "subtle";
 }) => {
   const user = useUser();
+  const trpc = useTRPC();
+  
+  // Check if user is an admin
+  const { data: adminProfile, isLoading: isLoadingAdmin } = useQuery({
+    ...trpc.adminUser.getProfile.queryOptions(),
+    enabled: !!user.isSignedIn,
+    retry: false,
+    // If this fails, user is likely not an admin
+  });
+
+  const isAdmin = !!adminProfile && !isLoadingAdmin;
+
+  // Show disabled cart button for admin users
+  if (isAdmin) {
+    return (
+      <div className={cn("relative flex-1", appearance === "subtle" && "w-fit flex-none")}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={cn(
+                  "w-full bg-gray-200 text-gray-500 cursor-not-allowed",
+                  appearance === "subtle" && "h-6 px-3 text-xs w-fit"
+                )}
+                size={appearance === "primary" ? undefined : "sm"}
+                disabled
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                {label || "Admin Access Restricted"}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Shopping cart is only available to customers</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    );
+  }
 
   return user.isSignedIn ? (
     <AddToServerCartButton
