@@ -19,9 +19,6 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ product }: ProductCardProps) {
-  if (!product.totalStock || product.totalStock === 0) {
-    return null;
-  }
 
   const defaultVariant = product.hasVariants
     ? product.variantOptions.find((v) => v.isDefault) ||
