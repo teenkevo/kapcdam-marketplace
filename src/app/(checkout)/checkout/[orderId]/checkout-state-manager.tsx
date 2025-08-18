@@ -57,6 +57,10 @@ export function CheckoutStateManager({
     })
   );
 
+  // Note: Stock updates and cleanup now handled in callback where we have authentication
+
+  // Note: Post-payment actions (stock updates, cleanup) now handled in callback
+
   // Handle automatic redirect for not_initiated payments
   useEffect(() => {
     const retryGuardKey = `retry-guard-${orderId}`;

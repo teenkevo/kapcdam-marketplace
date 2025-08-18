@@ -241,8 +241,11 @@ export const ordersRouter = createTRPCRouter({
 
           const baseUrl =
             process.env.NEXT_PUBLIC_BASE_URL_PROD ||
-            process.env.NEXT_PUBLIC_BASE_URL;
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            "http://localhost:3000";
 
+       
+      
           // Register IPN following donation pattern
           const registerIpn = await fetch(
             `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
@@ -516,11 +519,12 @@ export const ordersRouter = createTRPCRouter({
               }
 
               // Delete all existing pending pesapal orders (we don't keep cancelled orders)
-              await Promise.all(
-                existingPendingPesapalOrders.map((order: any) =>
-                  client.delete(order._id)
-                )
-              );
+              // TEMPORARILY COMMENTED OUT FOR TESTING - per user request
+              // await Promise.all(
+              //   existingPendingPesapalOrders.map((order: any) =>
+              //     client.delete(order._id)
+              //   )
+              // );
             }
           }
 
@@ -885,6 +889,208 @@ export const ordersRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update payment status",
+        });
+      }
+    }),
+
+  /**
+   * Update stock after successful payment (authenticated)
+   */
+  updateStockAfterPayment: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId } = input;
+
+        // Fetch order with authentication check
+        const order = await client.fetch(
+          groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
+            _id,
+            orderNumber,
+            paymentStatus,
+            status,
+            stockUpdated,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
+          }`,
+          { orderId, clerkUserId: ctx.auth.userId }
+        );
+
+        if (!order) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Order not found or access denied",
+          });
+        }
+
+        // Only update stock if payment is confirmed and stock not already updated
+        if (order.paymentStatus !== "paid") {
+          throw new TRPCError({
+            code: "BAD_REQUEST", 
+            message: "Cannot update stock - payment not confirmed",
+          });
+        }
+
+        if (order.stockUpdated) {
+          console.log(`Stock already updated for order ${order.orderNumber}`);
+          return { success: true, message: "Stock already updated" };
+        }
+
+        // Update stock for each order item
+        console.log(`Updating stock for order ${order.orderNumber} with ${order.orderItems?.length || 0} items`);
+        
+        if (order.orderItems?.length > 0) {
+          for (const orderItem of order.orderItems) {
+            if (orderItem.type === "product" && orderItem.product) {
+              const product = orderItem.product;
+              const quantity = orderItem.quantity;
+
+              if (product.hasVariants && orderItem.variantSku) {
+                // Update variant stock
+                await client
+                  .patch(product._id)
+                  .dec({
+                    [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+                  })
+                  .commit();
+
+                console.log(`✓ Updated variant stock: ${orderItem.variantSku} (-${quantity})`);
+              } else {
+                // Update product total stock
+                await client
+                  .patch(product._id)
+                  .dec({ totalStock: quantity })
+                  .commit();
+
+                console.log(`✓ Updated product stock: ${product._id} (-${quantity})`);
+              }
+            }
+          }
+        }
+
+        // Mark stock as updated
+        await client
+          .patch(orderId)
+          .set({ stockUpdated: true })
+          .commit();
+
+        console.log(`✅ Stock update completed for order ${order.orderNumber}`);
+
+        return { 
+          success: true, 
+          message: "Stock updated successfully",
+          itemsUpdated: order.orderItems?.length || 0
+        };
+
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Stock update error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update stock",
+        });
+      }
+    }),
+
+  /**
+   * Clean up old pending Pesapal orders after successful payment
+   */
+  cleanupOldPesapalOrders: protectedProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orderId } = input;
+
+        // Use EXACT same logic as original deletion
+        const existingPendingPesapalOrders = await client.fetch(
+          groq`*[_type == "order" && customer->clerkUserId == $clerkUserId && paymentMethod == "pesapal" && paymentStatus in ["pending", "not_initiated"] && _id != $orderId]{
+            _id,
+            orderNumber,
+            paymentMethod,
+            paymentStatus,
+            orderLevelDiscount,
+            orderItems[] {
+              type,
+              quantity,
+              variantSku,
+              product->{_id, hasVariants, totalStock},
+              course->{_id}
+            }
+          }`,
+          { clerkUserId: ctx.auth.userId, orderId }
+        );
+
+        console.log(`Found ${existingPendingPesapalOrders.length} old pending Pesapal orders to clean up`);
+
+        if (existingPendingPesapalOrders.length > 0) {
+          // Revert coupons and restore stock for orders before deletion (same as original)
+          for (const order of existingPendingPesapalOrders) {
+            // Revert coupon usage
+            if (order.orderLevelDiscount?.couponApplied) {
+              try {
+                const code = order.orderLevelDiscount.couponApplied.split(" ")[0];
+                const { couponRouter } = await import(
+                  "@/features/coupons/server/procedure"
+                );
+                const couponCtx = {
+                  auth: ctx.auth,
+                  pesapalToken: ctx.pesapalToken,
+                } as any;
+                await couponRouter.createCaller(couponCtx).revertCouponUsage({
+                  code,
+                  orderNumber: order.orderNumber,
+                });
+                console.log(`✓ Reverted coupon for order ${order.orderNumber}`);
+              } catch (err) {
+                console.error("Failed to revert coupon usage:", err);
+              }
+            }
+
+            // Only restore stock for orders that actually had stock reduced
+            if (order.orderItems?.length > 0) {
+              if (shouldRestoreStockForOrder(order)) {
+                try {
+                  await restoreStockForOrder(order.orderItems);
+                  console.log(`✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+                } catch (err) {
+                  console.error("Failed to restore stock for deleted order:", err);
+                }
+              } else {
+                console.log(`ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+              }
+            }
+          }
+
+          // Delete all existing pending pesapal orders
+          await Promise.all(
+            existingPendingPesapalOrders.map((order: any) =>
+              client.delete(order._id)
+            )
+          );
+
+          console.log(`✅ Cleaned up ${existingPendingPesapalOrders.length} old pending Pesapal orders`);
+        }
+
+        return { 
+          success: true, 
+          cleanedUp: existingPendingPesapalOrders.length 
+        };
+
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        console.error("Order cleanup error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to cleanup old orders",
         });
       }
     }),

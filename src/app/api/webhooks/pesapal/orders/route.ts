@@ -15,7 +15,16 @@ export async function POST(request: NextRequest) {
     const { OrderTrackingId, OrderNotificationType, OrderMerchantReference } =
       body;
 
-    console.log("Processing order webhook....");
+    const isDemoMode = process.env.DEMO_PAYMENTS_ENABLED === "true";
+    console.log(`🔔 WEBHOOK ${isDemoMode ? '(DEMO MODE)' : '(LIVE)'}: Processing order webhook`, {
+      OrderTrackingId,
+      OrderNotificationType,
+      OrderMerchantReference,
+      userAgent: request.headers.get('user-agent'),
+      contentType: request.headers.get('content-type'),
+      isDemoMode,
+      timestamp: new Date().toISOString()
+    });
 
     // Find the order by orderNumber (OrderMerchantReference)
     const order = await client.fetch(
@@ -38,7 +47,13 @@ export async function POST(request: NextRequest) {
     );
 
     if (!order) {
-      console.error("Order not found:", OrderMerchantReference);
+      console.error(`🚨 WEBHOOK ERROR ${isDemoMode ? '(DEMO MODE)' : '(LIVE)'}: Order not found`, {
+        OrderMerchantReference,
+        OrderTrackingId,
+        possibleCause: "Order may have been deleted during order creation process",
+        suggestion: "Check if order deletion timing is causing race condition",
+        timestamp: new Date().toISOString()
+      });
       return NextResponse.json({
         orderNotificationType: OrderNotificationType,
         orderTrackingId: OrderTrackingId,
@@ -46,7 +61,12 @@ export async function POST(request: NextRequest) {
         status: 500,
       });
     }
-    console.log("Order found-------");
+    console.log(`✅ WEBHOOK ${isDemoMode ? '(DEMO MODE)' : '(LIVE)'}: Order found`, {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      currentStatus: order.status,
+      paymentStatus: order.paymentStatus
+    });
     // Check if webhook already processed for this transaction
     if (
       order.transactionId === OrderTrackingId &&
@@ -72,7 +92,7 @@ export async function POST(request: NextRequest) {
     console.log("webhook Transaction status:", transactionStatus);
 
     // Map Pesapal status to our payment status
-    // Per Pesapal docs, webhook delivers a final outcome only (no "pending")
+   
     let paymentStatus: "paid" | "failed" | "refunded";
     let orderStatus: "PROCESSING" | "FAILED_PAYMENT" | "REFUNDED";
 
@@ -106,60 +126,16 @@ export async function POST(request: NextRequest) {
       paidAt: paymentStatus === "paid" ? new Date().toISOString() : undefined,
     });
 
-    // Update order status based on payment outcome
-    if (orderStatus !== order.status) {
-      await trpc.orders.updateOrderStatus({
-        orderId: order._id,
-        status: orderStatus,
-        notes: `Status updated via Pesapal webhook: ${transactionStatus.payment_status_description}`,
-      });
-    }
-
-    // If payment is successful, update stock levels
-    if (paymentStatus === "paid" && order.orderItems?.length > 0) {
-      console.log("Payment successful, updating stock levels...");
-
-      const stockUpdates = [];
-
-      for (const orderItem of order.orderItems) {
-        if (orderItem.type === "product" && orderItem.product) {
-          const product = orderItem.product;
-          const quantity = orderItem.quantity;
-
-          if (product.hasVariants && orderItem.variantSku) {
-            // Update variant stock
-            stockUpdates.push(
-              client
-                .patch(product._id)
-                .dec({
-                  [`variants[sku == "${orderItem.variantSku}"].stock`]:
-                    quantity,
-                })
-                .commit()
-            );
-          } else if (!product.hasVariants && product.totalStock !== undefined) {
-            // Update product total stock
-            stockUpdates.push(
-              client.patch(product._id).dec({ totalStock: quantity }).commit()
-            );
-          }
-        }
-      }
-
-      // Execute all stock updates
-      if (stockUpdates.length > 0) {
-        await Promise.all(stockUpdates);
-        console.log(
-          `Updated stock for ${stockUpdates.length} products/variants`
-        );
-      }
-    }
-
-    console.log("Order webhook processed successfully:", {
+    // Note: Order status updates moved to callback where we have authentication context
+    console.log(`✅ WEBHOOK ${isDemoMode ? '(DEMO MODE)' : '(LIVE)'}: Payment status updated`, {
       orderId: order._id,
-      paymentStatus,
-      orderStatus,
+      orderNumber: order.orderNumber,
+      newPaymentStatus: paymentStatus,
+      expectedOrderStatus: orderStatus,
+      note: "Order status will be updated when user returns via callback"
     });
+
+
 
     return NextResponse.json({
       orderNotificationType: OrderNotificationType,
@@ -170,13 +146,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Order webhook processing error:", error);
 
-    // Extract the webhook data for error response
+    
     let webhookData: Partial<PesapalWebhookPayload> = {};
     try {
       const body = await request.clone().json();
       webhookData = body;
     } catch {
-      // Ignore if we can't parse the body for error response
+     
     }
 
     return NextResponse.json({

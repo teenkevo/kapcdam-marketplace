@@ -182,6 +182,16 @@ export const order = defineType({
     }),
 
     defineField({
+      name: "stockUpdated",
+      title: "Stock Updated",
+      type: "boolean",
+      description: "Whether stock has been updated for this order",
+      initialValue: false,
+      hidden: ({ document }) => document?.paymentStatus !== "paid",
+      readOnly: true,
+    }),
+
+    defineField({
       name: "status",
       title: "Order Status",
       type: "string",
