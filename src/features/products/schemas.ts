@@ -65,6 +65,7 @@ const productListItemSchema = z.object({
   hasVariants: z.boolean(),
   status: z.enum(["draft", "active", "archived"]),
   defaultImage: sanityAssetSchema.optional().nullable(),
+  images: z.array(sanityAssetSchema).optional().nullable(),
   price: z.string(),
   totalStock: z.number(),
   averageRating: z.number().optional().nullable(),

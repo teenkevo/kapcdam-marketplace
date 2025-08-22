@@ -120,7 +120,7 @@ export function ProductCard({ product }: ProductCardProps) {
              </div>
            )):(
              <div className="text-xs text-gray-500">
-               Has {product.variantOptions.length} product variations
+              +{additionalVariantCount} product options
              </div>
            )}
         </div>
@@ -132,6 +132,7 @@ export function ProductCard({ product }: ProductCardProps) {
               productId={product._id}
               productVariants={product.variantOptions}
               title={product.title}
+              images={product?.images}
             />
           ) : (
             <AddToCartButton

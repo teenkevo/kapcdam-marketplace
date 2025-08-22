@@ -247,6 +247,7 @@ export const productsRouter = createTRPCRouter({
               hasVariants,
               status,
               "defaultImage": coalesce(images[isDefault == true][0], images[0]),
+              images,
               "price": select(
                 hasVariants == true => variants[isDefault == true][0].price,
                 price
