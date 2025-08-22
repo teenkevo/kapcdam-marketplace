@@ -166,7 +166,7 @@ const LikeProductButton = ({ productId }: Props) => {
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sign in to like this product</AlertDialogTitle>
+            <AlertDialogTitle>Sign in to add product to wishlist</AlertDialogTitle>
             <AlertDialogDescription>Sign in to continue</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
