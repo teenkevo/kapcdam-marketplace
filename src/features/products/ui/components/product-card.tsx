@@ -13,6 +13,7 @@ import { ProductListItem } from "@/features/products/schemas";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 import LikeProductButton from "./like-product-button";
 import VariantSelector from "./variant-selector";
+import { StockStatus } from "./stock-status";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -115,9 +116,7 @@ export function ProductCard({ product }: ProductCardProps) {
            />
 
            {!product.hasVariants ?  (product.totalStock <= 10 &&(
-             <div className="text-xs text-red-500">
-               Only {product.totalStock} left in stock. Order soon
-             </div>
+             <StockStatus stock={availableStock} />
            )):(
              <div className="text-xs text-gray-500">
               +{additionalVariantCount} product options
