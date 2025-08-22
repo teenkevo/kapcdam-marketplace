@@ -1,8 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import {
-  adminProcedure,
-  createTRPCRouter,
-} from "@/trpc/init";
+import { adminProcedure, createTRPCRouter } from "@/trpc/init";
 import { z } from "zod";
 import { client } from "@/sanity/lib/client";
 import { groq } from "next-sanity";
@@ -22,14 +19,15 @@ import {
 // Map filter status values to canonical ORDER_STATUSES
 function mapFilterStatusToCanonical(filterStatus: string): string | null {
   const statusMap: Record<string, string> = {
-    "pending": "PENDING_PAYMENT",
-    "processing": "PROCESSING", 
-    "ready": "READY_FOR_DELIVERY",
-    "shipped": "OUT_FOR_DELIVERY",
-    "delivered": "DELIVERED",
-    "cancelled": "(status == \"CANCELLED_BY_USER\" || status == \"CANCELLED_BY_ADMIN\")",
+    pending: "PENDING_PAYMENT",
+    processing: "PROCESSING",
+    ready: "READY_FOR_DELIVERY",
+    shipped: "OUT_FOR_DELIVERY",
+    delivered: "DELIVERED",
+    cancelled:
+      '(status == "CANCELLED_BY_USER" || status == "CANCELLED_BY_ADMIN")',
   };
-  
+
   return statusMap[filterStatus] || null;
 }
 
@@ -40,7 +38,7 @@ const adminOrderFilterSchema = z.object({
     .enum([
       "all",
       "pending",
-      "processing", 
+      "processing",
       "ready",
       "shipped",
       "delivered",
@@ -373,11 +371,21 @@ export const adminOrdersRouter = createTRPCRouter({
             orderNumber,
             paymentMethod,
             paymentStatus,
+            total,
             orderHistory,
+            customer->{
+              _id,
+              firstName,
+              lastName,
+              email
+            },
             orderItems[] {
               type,
               quantity,
               variantSku,
+              name,
+              unitPrice,
+              lineTotal,
               product->{_id, hasVariants, totalStock},
               course->{_id}
             }
@@ -392,7 +400,10 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
-        if (order.status === "CANCELLED_BY_USER" || order.status === "CANCELLED_BY_ADMIN") {
+        if (
+          order.status === "CANCELLED_BY_USER" ||
+          order.status === "CANCELLED_BY_ADMIN"
+        ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Order is already cancelled",
@@ -421,6 +432,33 @@ export const adminOrdersRouter = createTRPCRouter({
             orderHistory: [...currentHistory, historyEntry],
           })
           .commit();
+
+        // Send cancellation email to customer
+        try {
+          const { sendOrderCancellationEmail } = await import(
+            "../lib/email-utils"
+          );
+
+          const emailResult = await sendOrderCancellationEmail(
+            updatedOrder,
+            order.customer,
+            process.env.ADMIN_EMAIL,
+            reason,
+            notes
+          );
+
+          if (emailResult.success) {
+            console.log(
+              `Order cancellation email sent for admin-cancelled order ${order.orderNumber}`
+            );
+          } else {
+            console.warn(
+              `Failed to send order cancellation email for admin-cancelled order ${order.orderNumber}`
+            );
+          }
+        } catch (emailError) {
+          console.error("Error sending order cancellation email:", emailError);
+        }
 
         return updatedOrder;
       } catch (error) {
@@ -613,7 +651,10 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
-        if (order.status !== "CANCELLED_BY_USER" && order.status !== "CANCELLED_BY_ADMIN") {
+        if (
+          order.status !== "CANCELLED_BY_USER" &&
+          order.status !== "CANCELLED_BY_ADMIN"
+        ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Only cancelled orders can be reactivated",
@@ -791,12 +832,14 @@ export const adminOrdersRouter = createTRPCRouter({
    * Process actual Pesapal refund using stored confirmation code
    */
   processPesapalRefund: adminProcedure
-    .input(z.object({ 
-      orderId: z.string(),
-      amount: z.number(),
-      reason: z.string(),
-      adminUsername: z.string().default("Admin")
-    }))
+    .input(
+      z.object({
+        orderId: z.string(),
+        amount: z.number(),
+        reason: z.string(),
+        adminUsername: z.string().default("Admin"),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       try {
         const { orderId, amount, reason, adminUsername } = input;
@@ -852,8 +895,8 @@ export const adminOrdersRouter = createTRPCRouter({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${pesapalToken}`,
-              "Accept": "application/json",
+              Authorization: `Bearer ${pesapalToken}`,
+              Accept: "application/json",
             },
             body: JSON.stringify({
               confirmation_code: order.confirmationCode,
@@ -885,7 +928,8 @@ export const adminOrdersRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: refundResult.message || "Refund request submitted successfully",
+          message:
+            refundResult.message || "Refund request submitted successfully",
           refundAmount: amount,
         };
       } catch (error) {

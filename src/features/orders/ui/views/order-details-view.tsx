@@ -151,13 +151,7 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
   }
 
   if (orderStatus === "CANCELLED_BY_USER" || orderStatus === "CANCELLED_BY_ADMIN") {
-    return [
-      {
-        icon: Clock,
-        label: orderStatus === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
-        status: "current",
-      },
-    ];
+    return null
   }
 
   if (orderStatus === "REFUND_PENDING") {
@@ -454,7 +448,7 @@ export function OrderDetailsView({ orderId }: Props) {
           </div>
 
           {/* Tracking Steps */}
-          {trackingSteps.length > 0 && (
+          {trackingSteps && trackingSteps.length > 0 && (
             <div className="mt-6 pt-4 border-t">
               <div className="flex items-center gap-6 flex-wrap">
                 {trackingSteps.map((step, index) => {

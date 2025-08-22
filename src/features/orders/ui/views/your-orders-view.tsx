@@ -15,7 +15,7 @@ export default function YourOrdersView() {
 
   // Get filter params from URL
   const [urlParams] = useQueryStates({
-    timeRange: parseAsString.withDefault("all"),
+    timeRange: parseAsString.withDefault("30days"),
     searchQuery: parseAsString.withDefault(""),
   });
 
