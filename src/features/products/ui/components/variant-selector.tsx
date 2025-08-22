@@ -158,7 +158,7 @@ export default function VariantSelector({
                 alt={title}
                 width={100}
                 height={100}
-                className="object-contain aspect-auto"
+                className="object-contain aspect-auto block md:hidden"
               />
                <h1 className="text-xl font-medium mb-4">{title}</h1>
             </div>
