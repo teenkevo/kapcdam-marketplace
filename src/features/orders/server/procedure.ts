@@ -708,6 +708,52 @@ export const ordersRouter = createTRPCRouter({
           // Reduce stock immediately for COD orders (Pesapal handled by webhook)
           if (paymentMethod === "cod") {
             await reduceStockForOrder(orderItems);
+
+            // Fire COD confirmation emails (customer + admin)
+            try {
+              const { transformOrderForEmail, transformUserForEmail } = await import(
+                "../lib/email-utils"
+              );
+              const { OrderEmailService } = await import(
+                "../lib/email-service"
+              );
+
+              const orderEmailData = transformOrderForEmail({
+                ...createdOrder,
+                orderItems,
+              } as any);
+              const userEmailData = transformUserForEmail({
+                firstName: ctx.auth.session?.user?.firstName || "Customer",
+                email: ctx.auth.session?.user?.emailAddresses?.[0]?.emailAddress || "",
+              } as any);
+
+              // Send to customer
+              await OrderEmailService.sendOrderConfirmationCOD(
+                {
+                  orderNumber: orderEmailData.orderNumber,
+                  orderItems: orderEmailData.orderItems,
+                  subtotal: orderEmailData.subtotal,
+                  total: orderEmailData.total,
+                },
+                userEmailData
+              );
+
+              // Send to admin if configured
+              if (process.env.ADMIN_EMAIL) {
+                await OrderEmailService.sendAdminOrderConfirmationCOD(
+                  {
+                    orderNumber: orderEmailData.orderNumber,
+                    orderItems: orderEmailData.orderItems,
+                    subtotal: orderEmailData.subtotal,
+                    total: orderEmailData.total,
+                  },
+                  userEmailData,
+                  process.env.ADMIN_EMAIL
+                );
+              }
+            } catch (emailErr) {
+              console.error("Failed to send COD order emails:", emailErr);
+            }
           }
 
           // 13. Clear the cart

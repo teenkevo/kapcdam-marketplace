@@ -2,6 +2,8 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import OrderCancellationEmail from "../ui/emails/order-cancelled";
 import AdminOrderCancellationEmail from "../ui/emails/order-cancellation-admin";
+import OrderConfirmationCODEmail from "../ui/emails/order-confirmation-cod";
+import AdminOrderConfirmationCODEmail from "../ui/emails/order-confirmation-cod-admin";
 
 // Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -26,6 +28,10 @@ export interface UserEmailData {
 }
 
 export class OrderEmailService {
+  private static getFromAddress(): string {
+    return process.env.FROM_EMAIL || "noreply@kapcdam.org";
+  }
+
   /**
    * Send order cancellation email to customer
    */
@@ -53,7 +59,7 @@ export class OrderEmailService {
 
       // Send email using Resend
       const result = await resend.emails.send({
-        from: process.env.FROM_EMAIL || "noreply@kampestore.com",
+        from: OrderEmailService.getFromAddress(),
         to: userData.email,
         subject: `Order #${orderData.orderNumber} Cancelled - Kapcdam Marketplace`,
         html: emailHtml,
@@ -125,7 +131,7 @@ export class OrderEmailService {
       );
 
       const result = await resend.emails.send({
-        from: process.env.FROM_EMAIL || "noreply@kampestore.com",
+        from: OrderEmailService.getFromAddress(),
         to: adminEmail,
         subject: adminSubject,
         html: adminEmailHtml,
@@ -149,6 +155,85 @@ export class OrderEmailService {
       };
     } catch (error) {
       console.error("Error sending admin notification:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Send COD order confirmation to customer
+   */
+  static async sendOrderConfirmationCOD(
+    orderData: Pick<
+      import("./email-service").OrderCancellationEmailData,
+      "orderNumber" | "orderItems" | "subtotal" | "total"
+    >,
+    userData: UserEmailData
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      if (!process.env.RESEND_API_KEY) {
+        console.warn("RESEND_API_KEY not configured, skipping email send");
+        return { success: false, error: "Email service not configured" };
+      }
+
+      const emailHtml = await render(
+        OrderConfirmationCODEmail({ order: orderData as any, user: userData })
+      );
+
+      const result = await resend.emails.send({
+        from: OrderEmailService.getFromAddress(),
+        to: userData.email,
+        subject: `Order #${orderData.orderNumber} Received - Cash on Delivery`,
+        html: emailHtml,
+      });
+
+      if (result.error) {
+        return { success: false, error: result.error.message };
+      }
+      return { success: true, messageId: result.data?.id };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Send COD order notification to admin
+   */
+  static async sendAdminOrderConfirmationCOD(
+    orderData: Pick<
+      import("./email-service").OrderCancellationEmailData,
+      "orderNumber" | "orderItems" | "subtotal" | "total"
+    >,
+    userData: UserEmailData,
+    adminEmail: string
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      if (!process.env.RESEND_API_KEY) {
+        console.warn("RESEND_API_KEY not configured, skipping admin email");
+        return { success: false, error: "Email service not configured" };
+      }
+
+      const emailHtml = await render(
+        AdminOrderConfirmationCODEmail({ order: orderData as any, user: userData })
+      );
+
+      const result = await resend.emails.send({
+        from: OrderEmailService.getFromAddress(),
+        to: adminEmail,
+        subject: `New COD Order #${orderData.orderNumber} - Kapcdam Marketplace`,
+        html: emailHtml,
+      });
+
+      if (result.error) {
+        return { success: false, error: result.error.message };
+      }
+      return { success: true, messageId: result.data?.id };
+    } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
