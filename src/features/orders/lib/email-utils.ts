@@ -103,24 +103,36 @@ export async function sendOrderCancellationEmail(
     const orderEmailData = transformOrderForEmail(order);
     const userEmailData = transformUserForEmail(user);
 
-    // Send customer email
-    const customerEmailResult =
-      await OrderEmailService.sendOrderCancellationEmail(
-        orderEmailData,
-        userEmailData
-      );
+    let customerEmailResult: { success: boolean; messageId?: string; error?: string } = { success: false };
+    let adminEmailResult: { success: boolean; messageId?: string; error?: string } = { success: false };
 
-    // Send admin notification if admin email is provided
-    let adminEmailResult = { success: false };
     if (adminEmail) {
-      adminEmailResult =
-        await OrderEmailService.sendAdminCancellationNotification(
+      const [customerOutcome, adminOutcome] = await Promise.allSettled([
+        OrderEmailService.sendOrderCancellationEmail(orderEmailData, userEmailData),
+        OrderEmailService.sendAdminCancellationNotification(
           orderEmailData,
           userEmailData,
           adminEmail,
           cancellationReason,
           notes
-        );
+        ),
+      ]);
+
+      customerEmailResult =
+        customerOutcome.status === "fulfilled"
+          ? customerOutcome.value
+          : { success: false, error: (customerOutcome.reason as Error)?.message };
+
+      adminEmailResult =
+        adminOutcome.status === "fulfilled"
+          ? adminOutcome.value
+          : { success: false, error: (adminOutcome.reason as Error)?.message };
+    } else {
+      // Only customer email to send
+      customerEmailResult = await OrderEmailService.sendOrderCancellationEmail(
+        orderEmailData,
+        userEmailData
+      );
     }
 
     return {

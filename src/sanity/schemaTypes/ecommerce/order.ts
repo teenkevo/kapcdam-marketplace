@@ -271,7 +271,7 @@ export const order = defineType({
       title: "Payment Confirmation Code",
       type: "string",
       description: "Pesapal confirmation code required for refunds",
-      hidden: ({ document }) => document?.paymentMethod !== "pesapal" || document?.paymentStatus !== "paid",
+      hidden: ({ document }) => document?.paymentMethod !== "pesapal",
       readOnly: true,
     }),
 
@@ -295,7 +295,9 @@ export const order = defineType({
         ],
         layout: "dropdown",
       },
-      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
+      hidden: ({ document }) =>
+        document?.status !== "CANCELLED_BY_USER" &&
+        document?.status !== "CANCELLED_BY_ADMIN",
     }),
 
     defineField({
@@ -304,7 +306,9 @@ export const order = defineType({
       type: "text",
       description: "Additional details about the cancellation",
       rows: 2,
-      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
+      hidden: ({ document }) =>
+        document?.status !== "CANCELLED_BY_USER" &&
+        document?.status !== "CANCELLED_BY_ADMIN",
     }),
 
     defineField({
@@ -312,7 +316,9 @@ export const order = defineType({
       title: "Cancelled At",
       type: "datetime",
       description: "When the order was cancelled",
-      hidden: ({ document }) => document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN",
+      hidden: ({ document }) =>
+        document?.status !== "CANCELLED_BY_USER" &&
+        document?.status !== "CANCELLED_BY_ADMIN",
       readOnly: true,
     }),
 
@@ -332,9 +338,11 @@ export const order = defineType({
         layout: "dropdown",
       },
       initialValue: "not_applicable",
-      hidden: ({ document }) => 
-        document?.paymentMethod !== "pesapal" || 
-        (document?.status !== "CANCELLED_BY_USER" && document?.status !== "CANCELLED_BY_ADMIN" && document?.paymentStatus !== "refunded"),
+      hidden: ({ document }) =>
+        document?.paymentMethod !== "pesapal" ||
+        (document?.status !== "CANCELLED_BY_USER" &&
+          document?.status !== "CANCELLED_BY_ADMIN" &&
+          document?.paymentStatus !== "refunded"),
     }),
 
     defineField({
@@ -342,10 +350,10 @@ export const order = defineType({
       title: "Refund Amount (UGX)",
       type: "number",
       description: "Amount being refunded to customer",
-      validation: (rule) => rule.min(0).error("Refund amount cannot be negative"),
-      hidden: ({ document }) => 
-        !document?.refundStatus || 
-        document?.refundStatus === "not_applicable",
+      validation: (rule) =>
+        rule.min(0).error("Refund amount cannot be negative"),
+      hidden: ({ document }) =>
+        !document?.refundStatus || document?.refundStatus === "not_applicable",
     }),
 
     defineField({
@@ -354,11 +362,9 @@ export const order = defineType({
       type: "datetime",
       description: "When the refund process was started",
       readOnly: true,
-      hidden: ({ document }) => 
-        !document?.refundStatus || 
-        document?.refundStatus === "not_applicable",
+      hidden: ({ document }) =>
+        !document?.refundStatus || document?.refundStatus === "not_applicable",
     }),
-
 
     defineField({
       name: "migrationVersion",
@@ -403,7 +409,8 @@ export const order = defineType({
               name: "timestamp",
               title: "Timestamp",
               type: "datetime",
-              validation: (rule) => rule.required().error("Timestamp is required"),
+              validation: (rule) =>
+                rule.required().error("Timestamp is required"),
             }),
             defineField({
               name: "adminId",
@@ -476,18 +483,21 @@ export const order = defineType({
         : "Pending";
 
       const orderStatusDisplay = status
-        ? status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
+        ? status
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (c: string) => c.toUpperCase())
         : "Pending";
 
       // Add payment method indicator
       const paymentMethodIcon = paymentMethod === "cod" ? " 💵" : " 💳";
-      
-      const title = customerName 
+
+      const title = customerName
         ? `${orderNumber}${paymentMethodIcon} - ${customerName}`
         : `${orderNumber}${paymentMethodIcon}`;
 
       let subtitle = `${totalFormatted} • ${paymentMethod === "cod" ? "COD" : "Pesapal"}: ${paymentStatusDisplay}`;
-      
+
       if (status && status !== "PENDING_PAYMENT") {
         subtitle += ` • ${orderStatusDisplay}`;
       }

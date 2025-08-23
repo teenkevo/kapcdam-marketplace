@@ -25,6 +25,7 @@ export function useCartSync() {
 
   const { data: adminProfile, isLoading: isLoadingAdmin } = useQuery({
     ...trpc.team.getAdminProfile.queryOptions(),
+    // Only check admin when authenticated. This avoids unnecessary calls.
     enabled: !!userId,
     retry: false,
   });
@@ -66,32 +67,55 @@ export function useCartSync() {
 
   // Effect to trigger the cart synchronization automatically.
   useEffect(() => {
+    // Skip entirely on admin routes to avoid any leakage
+    if (pathname?.startsWith("/admin")) {
+      hasAttemptedSync.current = false;
+      return;
+    }
+
+    // Wait until auth is loaded
+    if (!isLoaded) {
+      return;
+    }
+
+    // Reset sync attempt flag if the user logs out.
+    if (!userId) {
+      hasAttemptedSync.current = false;
+      return;
+    }
+
+    // Do not attempt anything until the admin check has finished
+    if (isLoadingAdmin) {
+      return;
+    }
+
     // --- EARLY EXIT FOR ADMINS ---
     if (isAdmin) {
       hasAttemptedSync.current = false;
       return;
     }
 
-    // Reset sync attempt flag if the user logs out.
-    if (isLoaded && !userId) {
-      hasAttemptedSync.current = false;
-    }
-
     const shouldSync =
-      isLoaded &&
-      userId &&
       hasItems() &&
       !hasAttemptedSync.current &&
       !syncCartMutation.isPending;
 
     if (shouldSync) {
-      // Mark that a sync has been attempted to prevent repeated calls.
       hasAttemptedSync.current = true;
       syncCartMutation.mutate({
         localCartItems: items,
       });
     }
-  }, [isLoaded, userId, isAdmin, items, hasItems, syncCartMutation]);
+  }, [
+    pathname,
+    isLoaded,
+    userId,
+    isLoadingAdmin,
+    isAdmin,
+    items,
+    hasItems,
+    syncCartMutation,
+  ]);
 
   // --- ADMIN-AWARE RETURN VALUES ---
 

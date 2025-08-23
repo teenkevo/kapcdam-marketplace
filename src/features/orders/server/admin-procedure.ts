@@ -410,6 +410,51 @@ export const adminOrdersRouter = createTRPCRouter({
           });
         }
 
+        // Restore stock if it had been reduced
+        try {
+          const shouldRestore =
+            order.paymentMethod === "cod" ||
+            (order.paymentMethod === "pesapal" && order.paymentStatus === "paid");
+
+          if (shouldRestore && Array.isArray(order.orderItems) && order.orderItems.length > 0) {
+            const stockUpdates: Promise<unknown>[] = [];
+
+            for (const item of order.orderItems) {
+              if (item.type === "product" && item.product) {
+                const quantity = item.quantity;
+                if (item.product.hasVariants && item.variantSku) {
+                  stockUpdates.push(
+                    client
+                      .patch(item.product._id)
+                      .inc({ [`variants[sku == "${item.variantSku}"].stock`]: quantity })
+                      .commit()
+                  );
+                } else if (!item.product.hasVariants && item.product.totalStock !== undefined) {
+                  stockUpdates.push(
+                    client.patch(item.product._id).inc({ totalStock: quantity }).commit()
+                  );
+                }
+              }
+            }
+
+            if (stockUpdates.length > 0) {
+              await Promise.all(stockUpdates);
+              console.log(
+                `✓ Stock restored for admin-cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`
+              );
+            } else {
+              console.log("No stock updates needed for this order");
+            }
+          } else {
+            console.log(
+              `ℹ Skipping stock restoration for admin-cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus})`
+            );
+          }
+        } catch (stockErr) {
+          console.error("Failed to restore stock for admin-cancelled order:", stockErr);
+          // Do not fail cancellation if stock restore fails
+        }
+
         // Create new history entry for cancellation
         const historyEntry = {
           _key: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

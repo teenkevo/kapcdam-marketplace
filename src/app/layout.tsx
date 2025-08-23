@@ -31,15 +31,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  
   return (
-    <Providers>
-      <html lang="en" suppressHydrationWarning>
-        <body className={roboto.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={roboto.className}>
+        <Providers>
           <Toaster closeButton position="top-right" />
           <NuqsAdapter>{children}</NuqsAdapter>
-        </body>
-      </html>
-    </Providers>
+        </Providers>
+      </body>
+    </html>
   );
 }
