@@ -8,9 +8,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
       <TRPCReactProvider>
-        <CartSyncProvider>
-          {children}
-        </CartSyncProvider>
+        <CartSyncProvider>{children} </CartSyncProvider>
       </TRPCReactProvider>
     </ClerkProvider>
   );

@@ -14,6 +14,7 @@ import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 import LikeProductButton from "./like-product-button";
 import VariantSelector from "./variant-selector";
 import { StockStatus } from "./stock-status";
+import { SanityAsset } from "@sanity/image-url/lib/types/types";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -131,7 +132,7 @@ export function ProductCard({ product }: ProductCardProps) {
               productId={product._id}
               productVariants={product.variantOptions}
               title={product.title}
-              images={product?.images}
+              images={product?.images as SanityAsset[]}
             />
           ) : (
             <AddToCartButton
