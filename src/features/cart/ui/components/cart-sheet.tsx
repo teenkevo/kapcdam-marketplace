@@ -29,6 +29,7 @@ import { CartType } from "@/features/cart/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExpandedProduct, expandCartVariants } from "../../helpers";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CartSheet() {
   const isMobile = useIsMobile();
@@ -371,8 +372,8 @@ export function CartSheet() {
   };
 
   const CartContent = () => (
-    <div className="flex flex-col h-full relative">
-      <div className="flex-1 overflow-y-auto pt-4 px-4 md:px-0">
+    <div className="flex flex-col h-full relative ">
+      <ScrollArea className="flex-1 pt-4 px-4 md:px-0">
         {currentTotalItems === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <ShoppingBag className="w-12 h-12 text-muted-foreground mb-4" />
@@ -770,7 +771,7 @@ export function CartSheet() {
             </AnimatePresence>
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {currentTotalItems > 0 && (
         <div

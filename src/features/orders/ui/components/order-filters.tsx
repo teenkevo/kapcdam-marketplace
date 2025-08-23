@@ -21,20 +21,20 @@ interface OrderFiltersProps {
 export function OrderFilters({ totalOrders, userJoinDate }: OrderFiltersProps) {
   // URL search params state
   const [urlParams, setUrlParams] = useQueryStates({
-    timeRange: parseAsString.withDefault("all"),
+    timeRange: parseAsString.withDefault("30days"),
     searchQuery: parseAsString.withDefault(""),
   });
-  
+
   // Local input state for search field (separate from URL param)
   const [searchInput, setSearchInput] = useState(urlParams.searchQuery);
 
   // Generate year options based on user join date
   const getYearOptions = () => {
     const currentYear = new Date().getFullYear();
-    const joinYear = userJoinDate 
-      ? new Date(userJoinDate).getFullYear() 
+    const joinYear = userJoinDate
+      ? new Date(userJoinDate).getFullYear()
       : currentYear;
-    
+
     const years = [];
     for (let year = currentYear; year >= joinYear; year--) {
       years.push(year.toString());
@@ -66,16 +66,22 @@ export function OrderFilters({ totalOrders, userJoinDate }: OrderFiltersProps) {
   }, [setUrlParams]);
 
   // Handle Enter key in search input
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  }, [handleSearch]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleSearch();
+      }
+    },
+    [handleSearch]
+  );
 
   // Handle time range changes
-  const handleTimeRangeChange = useCallback((value: string) => {
-    setUrlParams({ timeRange: value === "all" ? null : value });
-  }, [setUrlParams]);
+  const handleTimeRangeChange = useCallback(
+    (value: string) => {
+      setUrlParams({ timeRange: value === "all" ? null : value });
+    },
+    [setUrlParams]
+  );
 
   const getTimeRangeLabel = (value: string) => {
     switch (value) {
@@ -95,9 +101,12 @@ export function OrderFilters({ totalOrders, userJoinDate }: OrderFiltersProps) {
         <p className="text-gray-600 text-sm">
           {totalOrders} {totalOrders === 1 ? "order" : "orders"} placed in
         </p>
-        <Select value={urlParams.timeRange} onValueChange={handleTimeRangeChange}>
+        <Select
+          value={urlParams.timeRange}
+          onValueChange={handleTimeRangeChange}
+        >
           <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="All time" />
+            <SelectValue placeholder="Last 30 days" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All time</SelectItem>
@@ -134,7 +143,7 @@ export function OrderFilters({ totalOrders, userJoinDate }: OrderFiltersProps) {
             </Button>
           )}
         </div>
-        <Button 
+        <Button
           onClick={handleSearch}
           disabled={searchInput === urlParams.searchQuery}
           className="bg-[#C5F82A] text-black hover:bg-[#B4E729] font-semibold px-4"

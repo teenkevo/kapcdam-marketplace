@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2Icon,
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -28,14 +30,51 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { OrderItem } from "./order-item";
 import { type OrderResponse } from "@/features/orders/schema";
+import { CustomerOrderCancelDialog } from "./customer-order-cancel-dialog";
 
 type Props = {
   order: OrderResponse;
 };
 
-function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: string) {
+function getStatusConfig(
+  status: string,
+  paymentStatus: string,
+  paymentMethod?: string
+) {
+  // Check for cancelled status FIRST - regardless of payment method or payment status
+  if (status === "CANCELLED_BY_USER" || status === "CANCELLED_BY_ADMIN") {
+    return {
+      color: "bg-red-100 text-red-800",
+      icon: X,
+      label: "Cancelled",
+    };
+  }
+
+  // Check for refund statuses
+  if (status === "REFUND_PENDING") {
+    return {
+      color: "bg-yellow-100 text-yellow-800",
+      icon: Clock,
+      label: "Refund Processing",
+    };
+  }
+
+  if (status === "REFUNDED") {
+    return {
+      color: "bg-green-100 text-green-800",
+      icon: CheckCircle,
+      label: "Refunded",
+    };
+  }
+
   // Special handling for COD orders - show order status instead of payment status
   if (paymentMethod === "cod" && paymentStatus === "pending") {
     return {
@@ -44,7 +83,7 @@ function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: 
       label: "Order Received",
     };
   }
-  
+
   if (paymentStatus === "pending" || paymentStatus === "failed") {
     return {
       color:
@@ -57,29 +96,65 @@ function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: 
   }
 
   switch (status) {
-    case "pending":
+    case "PENDING_PAYMENT":
       return {
         color: "bg-orange-100 text-orange-800",
         icon: Clock,
-        label: "Pending",
+        label: "Waiting for Payment",
       };
-    case "confirmed":
+    case "FAILED_PAYMENT":
+      return {
+        color: "bg-red-100 text-red-800",
+        icon: AlertTriangle,
+        label: "Payment Failed",
+      };
+    case "PROCESSING":
       return {
         color: "bg-blue-100 text-blue-800",
         icon: CheckCircle,
-        label: "Confirmed",
+        label: "Order Confirmed",
       };
-    case "delivered":
+    case "READY_FOR_DELIVERY":
+      return {
+        color: "bg-purple-100 text-purple-800",
+        icon: CheckCircle,
+        label: "Ready for Pickup",
+      };
+    case "OUT_FOR_DELIVERY":
+      return {
+        color: "bg-purple-100 text-purple-800",
+        icon: CheckCircle,
+        label: "Out for Delivery",
+      };
+    case "DELIVERED":
       return {
         color: "bg-green-100 text-green-800",
         icon: CheckCircle,
         label: "Delivered",
       };
-    case "cancelled":
+    case "CANCELLED_BY_USER":
       return {
-        color: "bg-gray-100 text-gray-800",
+        color: "bg-red-100 text-red-800",
         icon: X,
         label: "Cancelled",
+      };
+    case "CANCELLED_BY_ADMIN":
+      return {
+        color: "bg-red-100 text-red-800",
+        icon: X,
+        label: "Cancelled by Store",
+      };
+    case "REFUND_PENDING":
+      return {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: Clock,
+        label: "Refund Processing",
+      };
+    case "REFUNDED":
+      return {
+        color: "bg-green-100 text-green-800",
+        icon: CheckCircle,
+        label: "Refunded",
       };
     default:
       return {
@@ -90,12 +165,61 @@ function getStatusConfig(status: string, paymentStatus: string, paymentMethod?: 
   }
 }
 
+// Helper function to check if order is cancelled
+function isOrderCancelled(status: string): boolean {
+  return (
+    status === "CANCELLED_BY_USER" ||
+    status === "CANCELLED_BY_ADMIN" ||
+    status === "REFUND_PENDING" ||
+    status === "REFUNDED"
+  );
+}
+
+// Helper function to get cancellation message based on payment method and status
+function getCancellationMessage(
+  status: string,
+  paymentMethod?: string,
+  paymentStatus?: string
+): string {
+  // For COD orders - they were never charged
+  if (paymentMethod === "cod") {
+    return "You were not charged for this order.";
+  }
+
+  // For other payment methods
+  switch (status) {
+    case "REFUND_PENDING":
+      return "Your refund is being processed. Please allow 3-5 business days for the refund to appear in your account.";
+    case "REFUNDED":
+      return "Your refund has been processed successfully.";
+    case "CANCELLED_BY_USER":
+    case "CANCELLED_BY_ADMIN":
+      if (paymentStatus === "completed") {
+        return "Your order has been cancelled. A refund will be processed shortly.";
+      }
+      return "Your order has been cancelled.";
+    default:
+      return "Your order has been cancelled.";
+  }
+}
+
 export function YourOrderCard({ order }: Props) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  const statusConfig = getStatusConfig(order.status, order.paymentStatus, order.paymentMethod);
+  const statusConfig = getStatusConfig(
+    order.status,
+    order.paymentStatus,
+    order.paymentMethod
+  );
+  const isCancelled = isOrderCancelled(order.status);
+  const cancellationMessage = getCancellationMessage(
+    order.status,
+    order.paymentMethod,
+    order.paymentStatus
+  );
 
   // Mutations for order actions
   const resetOrderMutation = useMutation(
@@ -135,11 +259,15 @@ export function YourOrderCard({ order }: Props) {
   // Determine which actions to show based on order status
   const isPendingOrFailedPayment =
     (order.paymentStatus === "pending" || order.paymentStatus === "failed") &&
-    order.paymentMethod !== "cod";
+    order.paymentMethod !== "cod" &&
+    !isCancelled;
   const isConfirmedNotDelivered =
-    order.status === "confirmed" && !order.deliveredAt;
-  const isDelivered = order.status === "delivered" || order.deliveredAt;
-  const canShowItemActions = order.status === "confirmed" || isDelivered;
+    order.status === "PROCESSING" && !order.deliveredAt && !isCancelled;
+  const isDelivered = order.status === "DELIVERED" || order.deliveredAt;
+  const canShowItemActions =
+    (order.status === "PROCESSING" || isDelivered) && !isCancelled;
+  const canCancelOrder =
+    ["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status) && !isCancelled;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-UG", {
@@ -185,7 +313,6 @@ export function YourOrderCard({ order }: Props) {
       {/* Header */}
       <CardHeader className="bg-gray-50 p-4 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          {/* Left: Order placed date and total */}
           <div className="flex gap-12 items-center">
             <div className="flex flex-col">
               <dt className="text-gray-600 font-medium tracking-wide text-xs">
@@ -195,12 +322,15 @@ export function YourOrderCard({ order }: Props) {
                 {format(new Date(order.orderDate), "d MMMM yyyy")}
               </dd>
             </div>
-            <div className="flex flex-col">
-              <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                TOTAL
-              </dt>
-              <dd className="font-semibold">{formatCurrency(order.total)}</dd>
-            </div>
+            {!isCancelled && (
+              <div className="flex flex-col">
+                <dt className="text-gray-600 font-medium tracking-wide text-xs">
+                  TOTAL
+                </dt>
+                <dd className="font-semibold">{formatCurrency(order.total)}</dd>
+              </div>
+            )}
+            {/* No left status block for cancelled/refund states */}
           </div>
 
           {/* Right: Order number, status, and actions */}
@@ -217,7 +347,7 @@ export function YourOrderCard({ order }: Props) {
             </div>
 
             <div className="flex items-center gap-2 justify-end">
-              {isPendingOrFailedPayment ? (
+              {isCancelled ? null : isPendingOrFailedPayment ? (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -261,27 +391,71 @@ export function YourOrderCard({ order }: Props) {
                   </AlertDialog>
                 </div>
               ) : isConfirmedNotDelivered ? (
-                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="font-semibold hover:underline inline-flex items-center gap-1"
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/your-orders/order-details?orderId=${order.orderId}`}
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    Track Order
-                  </Button>
-                </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Track Order
+                    </Button>
+                  </Link>
+                  {canCancelOrder && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setShowCancelDialog(true)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel Order
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               ) : (
-                <Link href={`/your-orders/order-details?orderId=${order.orderId}`}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="font-semibold hover:underline inline-flex items-center gap-1"
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/your-orders/order-details?orderId=${order.orderId}`}
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    View Order Details
-                  </Button>
-                </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View Order Details
+                    </Button>
+                  </Link>
+                  {canCancelOrder && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setShowCancelDialog(true)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel Order
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -301,6 +475,20 @@ export function YourOrderCard({ order }: Props) {
           ))}
         </ul>
       </CardContent>
+
+      {/* Customer Cancel Dialog */}
+      <CustomerOrderCancelDialog
+        orderId={order.orderId}
+        orderNumber={order.orderNumber}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onOrderCancelled={() => {
+          // Invalidate order queries to refresh the orders list
+          queryClient.invalidateQueries(
+            trpc.orders.getUserOrders.queryOptions({ limit: 20, offset: 0 })
+          );
+        }}
+      />
     </Card>
   );
 }

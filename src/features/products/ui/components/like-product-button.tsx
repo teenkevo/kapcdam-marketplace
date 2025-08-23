@@ -20,6 +20,12 @@ import { Heart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { debouncedToast } from "@/lib/toast-utils";
 import { useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Props = {
   productId: string;
@@ -32,6 +38,16 @@ const LikeProductButton = ({ productId }: Props) => {
   const queryClient = useQueryClient();
 
   const likedProducts = useQuery(trpc.products.getLikedProducts.queryOptions());
+
+  // Check if user is an admin
+  const { data: adminProfile, isLoading: isLoadingAdmin } = useQuery({
+    ...trpc.adminUser.getProfile.queryOptions(),
+    enabled: isSignedIn,
+    retry: false,
+    // If this fails, user is likely not an admin
+  });
+
+  const isAdmin = !!adminProfile && !isLoadingAdmin;
 
   const isLiked =
     likedProducts.data?.some((ref) => ref._ref === productId) || false;
@@ -117,6 +133,29 @@ const LikeProductButton = ({ productId }: Props) => {
     unlikeProductMutation.mutate({ productId });
   };
 
+  // If admin, show disabled button with tooltip
+  if (isAdmin) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className="shrink-0 bg-gray-100 cursor-not-allowed"
+              disabled
+            >
+              <Heart className="w-4 h-4 text-gray-400" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Wishlist is only available to customers</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   if (!isSignedIn) {
     return (
       <AlertDialog>
@@ -127,7 +166,7 @@ const LikeProductButton = ({ productId }: Props) => {
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sign in to like this product</AlertDialogTitle>
+            <AlertDialogTitle>Sign in to add product to wishlist</AlertDialogTitle>
             <AlertDialogDescription>Sign in to continue</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

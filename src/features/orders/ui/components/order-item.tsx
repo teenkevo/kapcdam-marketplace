@@ -29,11 +29,11 @@ export function OrderItem({
 }: Props) {
 
   return (
-    <li className="py-4 md:py-5">
+    <li className="py-4 first:pt-0 last:pb-0">
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
         {/* Thumbnail */}
         <div className="flex items-start gap-3">
-          <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-md border bg-white">
+          <div className="relative shrink-0 overflow-hidden rounded-md border bg-white">
             <Image
               src={
                 item.itemImage
@@ -41,9 +41,9 @@ export function OrderItem({
                   : `/placeholder.svg?height=80&width=96&text=${encodeURIComponent(item.name.substring(0, 10))}`
               }
               alt={item.name}
-              width={96}
-              height={80}
-              className="h-full w-full object-contain p-2"
+              width={60}
+              height={60}
+              className="h-full w-full object-contain"
             />
           </div>
         </div>

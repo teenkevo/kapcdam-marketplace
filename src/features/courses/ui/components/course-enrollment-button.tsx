@@ -30,6 +30,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 
 interface CourseEnrollmentButtonProps {
@@ -44,6 +50,16 @@ export function CourseEnrollmentButton({
   const queryClient = useQueryClient();
   const { addLocalCartItem, isInCart } = useLocalCartStore();
 
+  // Check if user is an admin
+  const { data: adminProfile, isLoading: isLoadingAdmin } = useQuery({
+    ...trpc.adminUser.getProfile.queryOptions(),
+    enabled: isSignedIn,
+    retry: false,
+    // If this fails, user is likely not an admin
+  });
+
+  const isAdmin = !!adminProfile && !isLoadingAdmin;
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [preferredStartDate, setPreferredStartDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,7 +68,7 @@ export function CourseEnrollmentButton({
   // Get user cart if signed in
   const { data: userCart } = useQuery({
     ...trpc.cart.getUserCart.queryOptions(),
-    enabled: isSignedIn,
+    enabled: isSignedIn && !isAdmin,
   });
 
   // Check if course is already in cart
@@ -151,6 +167,28 @@ export function CourseEnrollmentButton({
 
   // Get today's date for min date validation
   const today = new Date().toISOString().split("T")[0];
+
+  // If admin, show disabled button with tooltip
+  if (isAdmin) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className="w-full bg-gray-300 text-gray-500 cursor-not-allowed"
+              disabled
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Admin Access Restricted
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Course enrollment is only available to customers</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

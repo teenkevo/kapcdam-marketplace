@@ -38,7 +38,11 @@ interface FormData {
   phone: string;
 }
 
-export default function DonationForm() {
+interface DonationFormProps {
+  isAdmin: boolean;
+}
+
+export default function DonationForm({ isAdmin }: DonationFormProps) {
   const router = useRouter();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
@@ -156,7 +160,7 @@ export default function DonationForm() {
   const DonateButton = ({ children }: { children: React.ReactNode }) => (
     <Button
       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-medium py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      disabled={!hasValidAmount || isPending}
+      disabled={!hasValidAmount || isPending || isAdmin}
       onClick={() => {
         setReferenceNumber(generateReferenceNumber());
         setIsOpen(true);

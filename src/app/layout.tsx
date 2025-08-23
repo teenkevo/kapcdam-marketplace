@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { Providers } from "./providers";
 import { SanityLive } from "@/sanity/lib/live";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { isAdminUser } from "@/features/auth/lib/roles";
 
 const roboto = Roboto({
   weight: ["100", "300", "400", "700", "900"],
@@ -31,13 +32,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <Providers>
-      <html lang="en" suppressHydrationWarning>
-        <body className={roboto.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={roboto.className}>
+        <Providers>
           <Toaster closeButton position="top-right" />
           <NuqsAdapter>{children}</NuqsAdapter>
-        </body>
-      </html>
-    </Providers>
+        </Providers>
+      </body>
+    </html>
   );
 }

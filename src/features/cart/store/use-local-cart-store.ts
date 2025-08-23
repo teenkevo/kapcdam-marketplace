@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import type { LocalCartItemType } from "@/features/cart/schema";
 
 interface LocalCartState {
-  // State
   items: LocalCartItemType[];
   isCartOpen: boolean;
 
@@ -216,42 +215,3 @@ export const useLocalCartStore = create<LocalCartState>()(
   )
 );
 
-// Simple hook for handling cart sync after login
-export const useCartSync = () => {
-  const { items, clearCart } = useLocalCartStore();
-
-  return {
-    // Check if sync is needed after login
-    hasItemsToSync: items.length > 0,
-
-    // Get items for syncing to server
-    getLocalCartItems: () => items,
-
-    // Handle sync success - clear localStorage
-    handleSyncSuccess: () => {
-      clearCart();
-      toast.success("Cart synced successfully!", {
-        description: "Your items are now saved to your account",
-        classNames: {
-          toast: "bg-[#e8f8e8] border-green-500",
-          icon: "text-[#03a53e]",
-          title: "text-[#03a53e]",
-          description: "text-black",
-        },
-      });
-    },
-
-    // Handle sync failure - keep items in localStorage
-    handleSyncFailure: () => {
-      toast.error("Sync failed", {
-        description: "Items remain in your cart. Try refreshing the page.",
-        classNames: {
-          toast: "bg-[#ffebeb] border-[#ef4444]",
-          icon: "text-[#ef4444]",
-          title: "text-[#ef4444]",
-          description: "text-black",
-        },
-      });
-    },
-  };
-};
