@@ -722,10 +722,7 @@ export const ordersRouter = createTRPCRouter({
                 ...createdOrder,
                 orderItems,
               } as any);
-              const userEmailData = transformUserForEmail({
-                firstName: ctx.auth.session?.user?.firstName || "Customer",
-                email: ctx.auth.session?.user?.emailAddresses?.[0]?.emailAddress || "",
-              } as any);
+              const userEmailData = transformUserForEmail(user as any);
 
               // Send to customer
               await OrderEmailService.sendOrderConfirmationCOD(
