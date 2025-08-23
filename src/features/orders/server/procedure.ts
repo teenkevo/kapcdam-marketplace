@@ -110,7 +110,7 @@ function shouldRestoreStockForOrder(order: any): boolean {
   if (order.paymentMethod === "cod") {
     return true;
   }
-  
+
   // Pesapal orders only had stock reduced if payment was completed
   if (order.paymentMethod === "pesapal") {
     // Only restore stock if payment was actually completed (stock was reduced)
@@ -120,7 +120,7 @@ function shouldRestoreStockForOrder(order: any): boolean {
     // Don't restore stock for not_initiated, pending, failed orders (stock never reduced)
     return false;
   }
-  
+
   // For any other payment methods, assume stock was reduced and should be restored
   return true;
 }
@@ -244,8 +244,6 @@ export const ordersRouter = createTRPCRouter({
             process.env.NEXT_PUBLIC_BASE_URL ||
             "http://localhost:3000";
 
-       
-      
           // Register IPN following donation pattern
           const registerIpn = await fetch(
             `${process.env.PESAPAL_API_URL}/URLSetup/RegisterIPN`,
@@ -486,7 +484,8 @@ export const ordersRouter = createTRPCRouter({
                 // Revert coupon usage
                 if (order.orderLevelDiscount?.couponApplied) {
                   try {
-                    const code = order.orderLevelDiscount.couponApplied.split(" ")[0];
+                    const code =
+                      order.orderLevelDiscount.couponApplied.split(" ")[0];
                     const { couponRouter } = await import(
                       "@/features/coupons/server/procedure"
                     );
@@ -494,10 +493,12 @@ export const ordersRouter = createTRPCRouter({
                       auth: ctx.auth,
                       pesapalToken: ctx.pesapalToken,
                     } as any;
-                    await couponRouter.createCaller(couponCtx).revertCouponUsage({
-                      code,
-                      orderNumber: order.orderNumber,
-                    });
+                    await couponRouter
+                      .createCaller(couponCtx)
+                      .revertCouponUsage({
+                        code,
+                        orderNumber: order.orderNumber,
+                      });
                   } catch (err) {
                     console.error("Failed to revert coupon usage:", err);
                   }
@@ -508,12 +509,19 @@ export const ordersRouter = createTRPCRouter({
                   if (shouldRestoreStockForOrder(order)) {
                     try {
                       await restoreStockForOrder(order.orderItems);
-                      console.log(`✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+                      console.log(
+                        `✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`
+                      );
                     } catch (err) {
-                      console.error("Failed to restore stock for deleted order:", err);
+                      console.error(
+                        "Failed to restore stock for deleted order:",
+                        err
+                      );
                     }
                   } else {
-                    console.log(`ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+                    console.log(
+                      `ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`
+                    );
                   }
                 }
               }
@@ -583,7 +591,8 @@ export const ordersRouter = createTRPCRouter({
             }),
             total: totals.total,
             currency: "UGX",
-            paymentStatus: paymentMethod === "pesapal" ? "not_initiated" : "pending",
+            paymentStatus:
+              paymentMethod === "pesapal" ? "not_initiated" : "pending",
             paymentMethod,
             status: paymentMethod === "cod" ? "PROCESSING" : "PENDING_PAYMENT",
 
@@ -780,7 +789,9 @@ export const ordersRouter = createTRPCRouter({
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
             status,
-            ${status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" ? `paymentMethod,
+            ${
+              status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER"
+                ? `paymentMethod,
             paymentStatus,
             orderItems[] {
               type,
@@ -788,7 +799,9 @@ export const ordersRouter = createTRPCRouter({
               variantSku,
               product->{_id, hasVariants, totalStock},
               course->{_id}
-            }` : ""}
+            }`
+                : ""
+            }
           }`,
           { orderId, clerkUserId: ctx.auth.userId }
         );
@@ -801,17 +814,27 @@ export const ordersRouter = createTRPCRouter({
         }
 
         // Only restore stock for orders that actually had stock reduced
-        if (status === "CANCELLED_BY_ADMIN" || status === "CANCELLED_BY_USER" && order.orderItems?.length > 0) {
+        if (
+          status === "CANCELLED_BY_ADMIN" ||
+          (status === "CANCELLED_BY_USER" && order.orderItems?.length > 0)
+        ) {
           if (shouldRestoreStockForOrder(order)) {
             try {
               await restoreStockForOrder(order.orderItems);
-              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order (was ${order.paymentStatus})`);
+              console.log(
+                `✓ Stock restored for cancelled ${order.paymentMethod} order (was ${order.paymentStatus})`
+              );
             } catch (error) {
-              console.error("Failed to restore stock for cancelled order:", error);
+              console.error(
+                "Failed to restore stock for cancelled order:",
+                error
+              );
               // Don't fail the status update if stock restoration fails
             }
           } else {
-            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order (${order.paymentStatus}) - stock was never reduced`);
+            console.log(
+              `ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order (${order.paymentStatus}) - stock was never reduced`
+            );
           }
         }
 
@@ -850,7 +873,13 @@ export const ordersRouter = createTRPCRouter({
     .input(updatePaymentStatusSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const { orderId, paymentStatus, transactionId, confirmationCode, paidAt } = input;
+        const {
+          orderId,
+          paymentStatus,
+          transactionId,
+          confirmationCode,
+          paidAt,
+        } = input;
 
         // SECURITY: Explicitly prevent any orderItems modifications
         const updateData: any = {
@@ -876,7 +905,10 @@ export const ordersRouter = createTRPCRouter({
         }
 
         // Log all order updates for audit trail
-        console.log(`🔒 Order update protection: Updating order ${orderId} with safe data only:`, updateData);
+        console.log(
+          `🔒 Order update protection: Updating order ${orderId} with safe data only:`,
+          updateData
+        );
 
         const updatedOrder = await client
           .patch(orderId)
@@ -931,7 +963,7 @@ export const ordersRouter = createTRPCRouter({
         // Only update stock if payment is confirmed and stock not already updated
         if (order.paymentStatus !== "paid") {
           throw new TRPCError({
-            code: "BAD_REQUEST", 
+            code: "BAD_REQUEST",
             message: "Cannot update stock - payment not confirmed",
           });
         }
@@ -942,8 +974,10 @@ export const ordersRouter = createTRPCRouter({
         }
 
         // Update stock for each order item
-        console.log(`Updating stock for order ${order.orderNumber} with ${order.orderItems?.length || 0} items`);
-        
+        console.log(
+          `Updating stock for order ${order.orderNumber} with ${order.orderItems?.length || 0} items`
+        );
+
         if (order.orderItems?.length > 0) {
           for (const orderItem of order.orderItems) {
             if (orderItem.type === "product" && orderItem.product) {
@@ -955,11 +989,14 @@ export const ordersRouter = createTRPCRouter({
                 await client
                   .patch(product._id)
                   .dec({
-                    [`variants[sku == "${orderItem.variantSku}"].stock`]: quantity,
+                    [`variants[sku == "${orderItem.variantSku}"].stock`]:
+                      quantity,
                   })
                   .commit();
 
-                console.log(`✓ Updated variant stock: ${orderItem.variantSku} (-${quantity})`);
+                console.log(
+                  `✓ Updated variant stock: ${orderItem.variantSku} (-${quantity})`
+                );
               } else {
                 // Update product total stock
                 await client
@@ -967,26 +1004,24 @@ export const ordersRouter = createTRPCRouter({
                   .dec({ totalStock: quantity })
                   .commit();
 
-                console.log(`✓ Updated product stock: ${product._id} (-${quantity})`);
+                console.log(
+                  `✓ Updated product stock: ${product._id} (-${quantity})`
+                );
               }
             }
           }
         }
 
         // Mark stock as updated
-        await client
-          .patch(orderId)
-          .set({ stockUpdated: true })
-          .commit();
+        await client.patch(orderId).set({ stockUpdated: true }).commit();
 
         console.log(`✅ Stock update completed for order ${order.orderNumber}`);
 
-        return { 
-          success: true, 
+        return {
+          success: true,
           message: "Stock updated successfully",
-          itemsUpdated: order.orderItems?.length || 0
+          itemsUpdated: order.orderItems?.length || 0,
         };
-
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -1027,7 +1062,9 @@ export const ordersRouter = createTRPCRouter({
           { clerkUserId: ctx.auth.userId, orderId }
         );
 
-        console.log(`Found ${existingPendingPesapalOrders.length} old pending Pesapal orders to clean up`);
+        console.log(
+          `Found ${existingPendingPesapalOrders.length} old pending Pesapal orders to clean up`
+        );
 
         if (existingPendingPesapalOrders.length > 0) {
           // Revert coupons and restore stock for orders before deletion (same as original)
@@ -1035,7 +1072,8 @@ export const ordersRouter = createTRPCRouter({
             // Revert coupon usage
             if (order.orderLevelDiscount?.couponApplied) {
               try {
-                const code = order.orderLevelDiscount.couponApplied.split(" ")[0];
+                const code =
+                  order.orderLevelDiscount.couponApplied.split(" ")[0];
                 const { couponRouter } = await import(
                   "@/features/coupons/server/procedure"
                 );
@@ -1058,12 +1096,19 @@ export const ordersRouter = createTRPCRouter({
               if (shouldRestoreStockForOrder(order)) {
                 try {
                   await restoreStockForOrder(order.orderItems);
-                  console.log(`✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+                  console.log(
+                    `✓ Stock restored for deleted ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`
+                  );
                 } catch (err) {
-                  console.error("Failed to restore stock for deleted order:", err);
+                  console.error(
+                    "Failed to restore stock for deleted order:",
+                    err
+                  );
                 }
               } else {
-                console.log(`ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+                console.log(
+                  `ℹ Skipping stock restoration for ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`
+                );
               }
             }
           }
@@ -1075,14 +1120,15 @@ export const ordersRouter = createTRPCRouter({
             )
           );
 
-          console.log(`✅ Cleaned up ${existingPendingPesapalOrders.length} old pending Pesapal orders`);
+          console.log(
+            `✅ Cleaned up ${existingPendingPesapalOrders.length} old pending Pesapal orders`
+          );
         }
 
-        return { 
-          success: true, 
-          cleanedUp: existingPendingPesapalOrders.length 
+        return {
+          success: true,
+          cleanedUp: existingPendingPesapalOrders.length,
         };
-
       } catch (error) {
         if (error instanceof TRPCError) {
           throw error;
@@ -1103,7 +1149,10 @@ export const ordersRouter = createTRPCRouter({
       z.object({
         limit: z.number().min(1).max(50).default(10),
         offset: z.number().min(0).default(0),
-        timeRange: z.enum(["30days", "3months"]).or(z.string().regex(/^\d{4}$/)).optional(),
+        timeRange: z
+          .enum(["30days", "3months"])
+          .or(z.string().regex(/^\d{4}$/))
+          .default("30days"),
         searchQuery: z.string().optional(),
       })
     )
@@ -1112,14 +1161,18 @@ export const ordersRouter = createTRPCRouter({
         // Build dynamic filter conditions
         let dateFilter = "";
         let searchFilter = "";
-        
+
         if (input.timeRange) {
           const now = new Date();
           if (input.timeRange === "30days") {
-            const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30)).toISOString();
+            const thirtyDaysAgo = new Date(
+              now.setDate(now.getDate() - 30)
+            ).toISOString();
             dateFilter = ` && orderDate >= "${thirtyDaysAgo}"`;
           } else if (input.timeRange === "3months") {
-            const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3)).toISOString();
+            const threeMonthsAgo = new Date(
+              now.setMonth(now.getMonth() - 3)
+            ).toISOString();
             dateFilter = ` && orderDate >= "${threeMonthsAgo}"`;
           } else if (/^\d{4}$/.test(input.timeRange)) {
             // Year filter
@@ -1127,7 +1180,7 @@ export const ordersRouter = createTRPCRouter({
             dateFilter = ` && dateTime(orderDate) >= dateTime("${year}-01-01T00:00:00Z") && dateTime(orderDate) < dateTime("${parseInt(year) + 1}-01-01T00:00:00Z")`;
           }
         }
-        
+
         if (input.searchQuery) {
           const searchTerm = input.searchQuery.toLowerCase();
           searchFilter = ` && (lower(orderNumber) match "*${searchTerm}*" || orderItems[lower(name) match "*${searchTerm}*"])`;
@@ -1335,13 +1388,20 @@ export const ordersRouter = createTRPCRouter({
           if (shouldRestoreStockForOrder(order)) {
             try {
               await restoreStockForOrder(order.orderItems);
-              console.log(`✓ Stock restored for cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+              console.log(
+                `✓ Stock restored for cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`
+              );
             } catch (error) {
-              console.error("Failed to restore stock for cancelled order:", error);
+              console.error(
+                "Failed to restore stock for cancelled order:",
+                error
+              );
               // Don't fail the cancellation if stock restoration fails
             }
           } else {
-            console.log(`ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+            console.log(
+              `ℹ Skipping stock restoration for cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`
+            );
           }
         }
 
@@ -1454,7 +1514,7 @@ export const ordersRouter = createTRPCRouter({
       try {
         const { orderId, reason, notes } = input;
 
-        // Verify order ownership and fetch order details
+        // Verify order ownership and fetch order details with customer info
         const order = await client.fetch(
           groq`*[_type == "order" && _id == $orderId && customer->clerkUserId == $clerkUserId][0]{
             _id,
@@ -1462,11 +1522,21 @@ export const ordersRouter = createTRPCRouter({
             orderNumber,
             paymentMethod,
             paymentStatus,
+            total,
             orderHistory,
+            customer->{
+              _id,
+              firstName,
+              lastName,
+              email
+            },
             orderItems[] {
               type,
               quantity,
               variantSku,
+              name,
+              unitPrice,
+              lineTotal,
               product->{_id, hasVariants, totalStock},
               course->{_id}
             }
@@ -1485,11 +1555,15 @@ export const ordersRouter = createTRPCRouter({
         if (!["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Order cannot be cancelled at this stage. Only processing or ready for delivery orders can be cancelled.",
+            message:
+              "Order cannot be cancelled at this stage. Only processing or ready for delivery orders can be cancelled.",
           });
         }
 
-        if (order.status === "CANCELLED_BY_ADMIN" || order.status === "CANCELLED_BY_USER") {
+        if (
+          order.status === "CANCELLED_BY_ADMIN" ||
+          order.status === "CANCELLED_BY_USER"
+        ) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Order is already cancelled",
@@ -1501,13 +1575,20 @@ export const ordersRouter = createTRPCRouter({
           if (shouldRestoreStockForOrder(order)) {
             try {
               await restoreStockForOrder(order.orderItems);
-              console.log(`✓ Stock restored for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`);
+              console.log(
+                `✓ Stock restored for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (was ${order.paymentStatus})`
+              );
             } catch (error) {
-              console.error("Failed to restore stock for customer-cancelled order:", error);
+              console.error(
+                "Failed to restore stock for customer-cancelled order:",
+                error
+              );
               // Don't fail the cancellation if stock restoration fails
             }
           } else {
-            console.log(`ℹ Skipping stock restoration for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`);
+            console.log(
+              `ℹ Skipping stock restoration for customer-cancelled ${order.paymentMethod} order ${order.orderNumber} (${order.paymentStatus}) - stock was never reduced`
+            );
           }
         }
 
@@ -1517,14 +1598,16 @@ export const ordersRouter = createTRPCRouter({
           status: "CANCELLED_BY_USER",
           timestamp: new Date().toISOString(),
           adminId: null, // Customer cancellation
-          notes: notes ? `Customer cancellation - ${reason}: ${notes}` : `Customer cancellation - ${reason}`,
+          notes: notes
+            ? `Customer cancellation - ${reason}: ${notes}`
+            : `Customer cancellation - ${reason}`,
         };
 
         // Update order to cancelled with customer notes and history
-        const customerNotes = notes 
-          ? `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}] ${notes}`
-          : `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, ' ')}]`;
-        
+        const customerNotes = notes
+          ? `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, " ")}] ${notes}`
+          : `[CUSTOMER CANCELLATION - ${reason.toUpperCase().replace(/_/g, " ")}]`;
+
         const currentHistory = order.orderHistory || [];
 
         const updatedOrder = await client
@@ -1536,6 +1619,34 @@ export const ordersRouter = createTRPCRouter({
             orderHistory: [...currentHistory, historyEntry],
           })
           .commit();
+
+        // Send cancellation email to customer
+        try {
+          const { sendOrderCancellationEmail } = await import(
+            "../lib/email-utils"
+          );
+
+          const emailResult = await sendOrderCancellationEmail(
+            updatedOrder,
+            order.customer,
+            process.env.ADMIN_EMAIL,
+            reason,
+            notes || undefined
+          );
+
+          if (emailResult.success) {
+            console.log(
+              `✓ Order cancellation email sent for order ${order.orderNumber}`
+            );
+          } else {
+            console.warn(
+              `⚠ Failed to send order cancellation email for order ${order.orderNumber}`
+            );
+          }
+        } catch (emailError) {
+          console.error("Error sending order cancellation email:", emailError);
+          // Don't fail the cancellation if email fails
+        }
 
         return {
           success: true,
