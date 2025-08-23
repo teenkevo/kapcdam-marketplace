@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProductVariant } from "../../schemas";
 import { AddToCartButton } from "@/features/cart/ui/components/add-to-cart-btn";
 import { useCartSyncContext } from "@/features/cart/hooks/cart-sync-context";
+import { useIsAdmin } from "@/features/auth/lib/use-is-admin";
 import ResponsiveDialog from "@/components/shared/responsive-dialog";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ export default function VariantSelector({
   const [preferredSku, setPreferredSku] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const { isSyncing } = useCartSyncContext();
+  const { isAdmin } = useIsAdmin();
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -63,7 +65,7 @@ export default function VariantSelector({
     <>
       <Button
         className="bg-[#C5F82A] text-black hover:bg-[#B4E729] w-full"
-        disabled={isSyncing}
+        disabled={isSyncing || isAdmin}
         onClick={() => setIsOpen(true)}
       >
         {isSyncing ? (

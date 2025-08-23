@@ -68,7 +68,7 @@ export function CourseEnrollmentButton({
   // Get user cart if signed in
   const { data: userCart } = useQuery({
     ...trpc.cart.getUserCart.queryOptions(),
-    enabled: isSignedIn,
+    enabled: isSignedIn && !isAdmin,
   });
 
   // Check if course is already in cart

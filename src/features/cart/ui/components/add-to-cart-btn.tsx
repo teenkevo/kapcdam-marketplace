@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
+import { useIsAdmin } from "@/features/auth/lib/use-is-admin";
 import { useEffect, useState } from "react";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ export const AddToLocalCartButton = ({
   const { addLocalCartItem, isInCart, items } = useLocalCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const { isSyncing } = useCartSyncContext();
+  const { isAdmin } = useIsAdmin();
 
   // Get current quantity in local cart
   const currentCartQuantity =
@@ -103,6 +105,7 @@ export const AddToLocalCartButton = ({
         disabled={
           isLoading ||
           isSyncing ||
+          isAdmin ||
           (availableStock !== undefined && availableStock === 0) ||
           (availableStock !== undefined &&
             availableStock > 0 &&
@@ -147,8 +150,12 @@ export const AddToServerCartButton = ({
   const [currentCartQuantity, setCurrentCartQuantity] = useState(0);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { isAdmin } = useIsAdmin();
 
-  const cart = useQuery(trpc.cart.getUserCart.queryOptions());
+  const cart = useQuery({
+    ...trpc.cart.getUserCart.queryOptions(),
+    enabled: !isAdmin,
+  });
 
   useEffect(() => {
     if (cart.data?.cartItems) {
@@ -260,6 +267,7 @@ export const AddToServerCartButton = ({
         onClick={handleAddToCart}
         disabled={
           addItemToCart.isPending ||
+          isAdmin ||
           (availableStock !== undefined && availableStock === 0) ||
           (availableStock !== undefined &&
             availableStock > 0 &&

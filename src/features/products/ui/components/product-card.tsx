@@ -15,12 +15,14 @@ import LikeProductButton from "./like-product-button";
 import VariantSelector from "./variant-selector";
 import { StockStatus } from "./stock-status";
 import { SanityAsset } from "@sanity/image-url/lib/types/types";
+import { useIsAdmin } from "@/features/auth/lib/use-is-admin";
 
 type ProductCardProps = {
   product: ProductListItem;
 };
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { isAdmin } = useIsAdmin();
 
   const defaultVariant = product.hasVariants
     ? product.variantOptions.find((v) => v.isDefault) ||
@@ -126,6 +128,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         <div className="flex items-end gap-2 flex-grow">
+          {/* Disable wishlist for admins via internal guard (component handles it) */}
           <LikeProductButton productId={product._id} />
           {product.hasVariants ? (
             <VariantSelector
