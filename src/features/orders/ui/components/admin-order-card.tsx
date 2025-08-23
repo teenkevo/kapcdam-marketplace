@@ -306,6 +306,62 @@ function ItemAvailabilitySelect({
   );
 }
 
+function MobileItemActions({
+  productId,
+  variantSku,
+  disabled,
+}: {
+  productId: string | null;
+  variantSku: string | null;
+  disabled?: boolean;
+}) {
+  const trpc = useTRPC();
+  const updateAvailability = useMutation(
+    trpc.adminOrders.updateProductAvailability.mutationOptions({
+      onSuccess: () => {
+        toast.success("Product availability updated");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update availability");
+      },
+    })
+  );
+
+  if (!productId) return null;
+
+  const setAvailable = (value: boolean) => {
+    if (disabled || updateAvailability.isPending) return;
+    updateAvailability.mutate({
+      productId,
+      variantSku: variantSku || undefined,
+      available: value,
+    });
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="md:hidden"
+          disabled={disabled || updateAvailability.isPending}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setAvailable(true)} disabled={disabled}>
+          Mark available
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setAvailable(false)} disabled={disabled}>
+          Mark unavailable
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AdminOrderCard({
   order,
   onOrderUpdated,
@@ -343,74 +399,88 @@ export function AdminOrderCard({
       <AccordionItem value={order.orderId}>
         <Card className="overflow-hidden border rounded-xl relative">
           {/* Header */}
-          <CardHeader className=" p-4 md:p-6 ">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              {/* Left: Order details */}
-              <div className="flex gap-8 items-center">
+          <CardHeader className=" p-3 sm:p-4 md:p-6 ">
+            {/* Mobile: single column; Desktop: original two-row flex */}
+            <div className="flex flex-col gap-4 md:gap-6">
+              {/* Single column details */}
+              <div className="space-y-2 md:hidden">
                 <div className="flex flex-col">
-                  <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                    ORDER
-                  </dt>
-                  <dd className="font-medium text-sm">{order.orderNumber}</dd>
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">ORDER</dt>
+                  <dd className="font-medium text-sm break-all">{order.orderNumber}</dd>
                 </div>
                 <div className="flex flex-col">
-                  <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                    ORDER PLACED
-                  </dt>
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">ORDER PLACED</dt>
+                  <dd className="font-medium text-sm">{format(new Date(order.orderDate), "d MMMM yyyy")}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">Payment Method</dt>
+                  <dd className="font-medium text-sm">{order.paymentMethod === "cod" ? "Cash on Delivery" : "PesaPal"}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">Payment</dt>
                   <dd className="font-medium text-sm">
-                    {format(new Date(order.orderDate), "d MMMM yyyy")}
-                  </dd>
-                </div>
-
-                <div className="flex flex-col">
-                  <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                    Payment Method
-                  </dt>
-                  <dd className="font-medium text-sm flex items-center gap-1">
-                    {order.paymentMethod === "cod"
-                      ? "Cash on Delivery"
-                      : "PesaPal"}
-                  </dd>
-                </div>
-                <div className="flex flex-col">
-                  <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                    Payment
-                  </dt>
-                  <dd className="font-medium text-sm flex items-center gap-1">
-                    <Badge
-                      className={`${paymentStatusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}
-                    >
+                    <Badge className={`${paymentStatusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}>
                       {paymentStatusConfig.label}
                     </Badge>
                   </dd>
                 </div>
                 <div className="flex flex-col">
-                  <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                    Status
-                  </dt>
-                  <dd className="font-medium text-sm flex items-center gap-1">
-                    <Badge
-                      className={`${statusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}
-                    >
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">Status</dt>
+                  <dd className="font-medium text-sm">
+                    <Badge className={`${statusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}>
                       {statusConfig.label}
                     </Badge>
                   </dd>
                 </div>
+                <div className="flex flex-col">
+                  <dt className="text-gray-600 font-medium tracking-wide text-xs">TOTAL</dt>
+                  <dd className="font-semibold">{formatCurrency(order.total)}</dd>
+                </div>
               </div>
-              {/* Right: Order status and actions */}
-              <div className="flex flex-row gap-8">
-                <div className="flex items-center justify-start sm:justify-end gap-2">
+
+              {/* Desktop header layout (original design) */}
+              <div className="hidden md:flex md:items-start md:justify-between">
+                <div className="flex gap-8 items-center">
                   <div className="flex flex-col">
-                    <dt className="text-gray-600 font-medium tracking-wide text-xs">
-                      TOTAL
-                    </dt>
-                    <dd className="font-semibold">
-                      {formatCurrency(order.total)}
+                    <dt className="text-gray-600 font-medium tracking-wide text-xs">ORDER</dt>
+                    <dd className="font-medium text-sm">{order.orderNumber}</dd>
+                  </div>
+                  <div className="flex flex-col">
+                    <dt className="text-gray-600 font-medium tracking-wide text-xs">ORDER PLACED</dt>
+                    <dd className="font-medium text-sm">{format(new Date(order.orderDate), "d MMMM yyyy")}</dd>
+                  </div>
+                  <div className="flex flex-col">
+                    <dt className="text-gray-600 font-medium tracking-wide text-xs">Payment Method</dt>
+                    <dd className="font-medium text-sm flex items-center gap-1">{order.paymentMethod === "cod" ? "Cash on Delivery" : "PesaPal"}</dd>
+                  </div>
+                  <div className="flex flex-col">
+                    <dt className="text-gray-600 font-medium tracking-wide text-xs">Payment</dt>
+                    <dd className="font-medium text-sm flex items-center gap-1">
+                      <Badge className={`${paymentStatusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}>
+                        {paymentStatusConfig.label}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div className="flex flex-col">
+                    <dt className="text-gray-600 font-medium tracking-wide text-xs">Status</dt>
+                    <dd className="font-medium text-sm flex items-center gap-1">
+                      <Badge className={`${statusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm text-black shadow-none`}>
+                        {statusConfig.label}
+                      </Badge>
                     </dd>
                   </div>
                 </div>
+                <div className="flex items-center gap-8">
+                  <div className="flex items-center justify-start sm:justify-end gap-2">
+                    <div className="flex flex-col">
+                      <dt className="text-gray-600 font-medium tracking-wide text-xs">TOTAL</dt>
+                      <dd className="font-semibold">{formatCurrency(order.total)}</dd>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                <div className="flex items-center gap-2 justify-end">
+              <div className="flex items-center gap-2 justify-end">
                   {/* Action buttons based on order status */}
                   {isActive ? (
                     <>
@@ -544,7 +614,8 @@ export function AdminOrderCard({
                   )}
                 </div>
               </div>
-            </div>
+        
+
           </CardHeader>
 
           {/* Body */}
@@ -552,30 +623,30 @@ export function AdminOrderCard({
             <CardContent className="p-2 ">
               <div className="space-y-2 bg-[#F5F5F5] rounded-lg p-1">
                 {/* Table Header */}
-                <div className="grid grid-cols-8 gap-4 px-4 py-3 text-sm font-medium text-gray-600 rounded-md">
-                  <div className="text-center">#</div>
+                <div className="hidden md:grid grid-cols-5 gap-4 px-4 py-3 text-sm font-medium text-gray-600 rounded-md">
                   <div className="col-span-3">Product</div>
                   <div className="text-center">Quantity</div>
-                  <div className="text-center">Agreed Price</div>
-                  <div className="text-center">Subtotal</div>
                   <div className="text-center">Actions</div>
                 </div>
 
                 {/* Order Items */}
                 {order.orderItems.map((item, index) => (
-                  <div
-                    key={item._key}
-                    className="grid grid-cols-8 place-items-center gap-4 px-4 py-3 text-sm bg-white rounded-md border"
-                  >
-                    {/* Index */}
-                    <div className="text-center font-medium text-gray-900">
-                      {index + 1}
+                  <div key={item._key} className="px-4 py-3 text-sm bg-white rounded-md border">
+                    {/* Mobile one-line: [qty] [name] [:dots] */}
+                    <div className="md:hidden flex items-start gap-3">
+                      <div className="w-6 text-center font-semibold text-gray-900 flex-shrink-0">{item.quantity}</div>
+                      <div className="flex-1 font-medium text-gray-900" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {item.name}
+                      </div>
+                      <MobileItemActions productId={item.productId} variantSku={item.variantSku} />
                     </div>
 
-                    {/* Product (Image + Title) */}
-                    <div className="flex items-center w-full col-span-3 space-x-3">
+                    {/* Desktop grid */}
+                    <div className="hidden md:grid grid-cols-5 md:place-items-center gap-4">
+                      {/* Product (Image + Title) */}
+                      <div className="flex items-center w-full md:col-span-3 gap-3">
                       {item.itemImage && (
-                        <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                        <div className="hidden md:block w-12 h-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                           <Image
                             src={
                               urlFor(item.itemImage)
@@ -602,28 +673,17 @@ export function AdminOrderCard({
                       </div>
                     </div>
 
-                    {/* Quantity */}
-                    <div className="text-center font-medium text-gray-900">
-                      {item.quantity}
-                    </div>
+                      {/* Quantity */}
+                      <div className="text-center font-medium text-gray-900">{item.quantity}</div>
 
-                    {/* Agreed Price */}
-                    <div className="text-center font-medium text-gray-900">
-                      {formatCurrency(item.unitPrice)}
-                    </div>
-
-                    {/* Subtotal */}
-                    <div className="text-center font-medium text-gray-900">
-                      {formatCurrency(item.quantity * item.unitPrice)}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="text-center">
-                      <ItemAvailabilitySelect
-                        productId={item.productId}
-                        variantSku={item.variantSku}
-                        itemName={item.name}
-                      />
+                      {/* Actions */}
+                      <div className="text-center">
+                        <ItemAvailabilitySelect
+                          productId={item.productId}
+                          variantSku={item.variantSku}
+                          itemName={item.name}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}

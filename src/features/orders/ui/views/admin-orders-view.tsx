@@ -270,27 +270,35 @@ export function AdminOrdersView() {
       {/* Order Tabs */}
       <div className="bg-white rounded-lg border">
         {/* Tab Headers */}
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-4" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
-                  activeTab === tab.id
-                    ? "border-[#C5F82A] text-gray-900"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                )}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
-          </nav>
+        <div className="border-b border-gray-200 sticky top-0 z-20 bg-white rounded-t-lg">
+          <div className="overflow-x-auto">
+            <nav className="flex w-max gap-3 sm:gap-6 px-4 py-2" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "whitespace-nowrap rounded-full px-3 py-2 text-sm transition-colors",
+                    activeTab === tab.id
+                      ? "bg-[#C5F82A] text-black"
+                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                  )}
+                >
+                  {tab.label}
+                  <span className={cn(
+                    "ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-xs",
+                    activeTab === tab.id ? "bg-black/10" : "bg-gray-200 text-gray-700"
+                  )}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
 
         {/* Search Section */}
-        <div className="p-4">
+        <div className="p-4 pt-3">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
