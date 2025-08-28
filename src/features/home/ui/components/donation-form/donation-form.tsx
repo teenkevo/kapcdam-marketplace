@@ -197,7 +197,6 @@ export default function DonationForm({ isAdmin }: DonationFormProps) {
             </DrawerTrigger>
             <DrawerContent
               className="max-h-[100vh]"
-              hideClose={isPending}
               onInteractOutside={(e) => e.preventDefault()}
               onEscapeKeyDown={(e) => e.preventDefault()}
             >

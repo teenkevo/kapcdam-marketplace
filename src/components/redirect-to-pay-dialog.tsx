@@ -48,7 +48,7 @@ export default function RedirectToPayDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="max-w-xs border-0 bg-white p-6 shadow-lg"
-          hideClose
+          showCloseButton={false}
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogTitle asChild>
