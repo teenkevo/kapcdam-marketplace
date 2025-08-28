@@ -11,7 +11,11 @@ const barlowCondensed = Barlow_Condensed({
   weight: "600",
 });
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  isAdmin: boolean;
+}
+
+export default function HeroSection({ isAdmin }: HeroSectionProps) {
   return (
     <section className="relative min-h-[550px] bg-gradient-to-r from-teal-500 to-blue-500 overflow-hidden">
       {/* Background Image with Zoom Animation */}
@@ -84,7 +88,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1, delay: 0.7, ease: "easeOut" }}
           >
-            <DonationForm />
+            <DonationForm isAdmin={isAdmin} />
           </motion.div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import HeroSection from "@/features/home/ui/components/hero-section";
+import HeroSectionWrapper from "@/features/home/ui/components/hero-section-wrapper";
 import AboutUsSummary from "../components/about-us-summary";
 import MarketPlaceTeaser from "@/features/home/ui/components/market-place-teaser";
 import { ProductList } from "@/features/products/ui/components/product-list";
@@ -8,7 +8,7 @@ export default async function HomeView() {
   return (
     <div className="min-h-screen">
       <main>
-        <HeroSection />
+        <HeroSectionWrapper />
         <ProductList />
         <AboutUsSummary />
         <CoursesSection />

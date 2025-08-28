@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
   protectedProcedure,
+  customerProcedure,
   baseProcedure,
 } from "@/trpc/init";
 import { z } from "zod";
@@ -143,7 +144,7 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
-  getProfile: protectedProcedure.query(async ({ ctx }) => {
+  getProfile: customerProcedure.query(async ({ ctx }) => {
     const { auth } = ctx;
     try {
       const user = await client.fetch(
@@ -167,7 +168,7 @@ export const userRouter = createTRPCRouter({
     }
   }),
 
-  updateProfile: protectedProcedure
+  updateProfile: customerProcedure
     .input(userProfileSchema)
     .mutation(async ({ input, ctx }) => {
       const { auth } = ctx;
@@ -303,6 +304,75 @@ export const userRouter = createTRPCRouter({
       });
     }
   }),
+
+  findByClerkId: baseProcedure
+    .input(z.object({ clerkUserId: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const user = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: input.clerkUserId }
+        );
+        return user || null;
+      } catch (error) {
+        console.error("Failed to find user by Clerk ID:", error);
+        return null;
+      }
+    }),
+
+  deleteUser: baseProcedure
+    .input(z.object({ clerkUserId: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const user = await client.fetch(
+          groq`*[_type == "user" && clerkUserId == $clerkUserId][0]`,
+          { clerkUserId: input.clerkUserId }
+        );
+
+        if (!user) {
+          return { deleted: false, message: "User not found" };
+        }
+
+        // Find and delete the user's cart first
+        const userCart = await client.fetch(
+          groq`*[_type == "cart" && user._ref == $userId][0]`,
+          { userId: user._id }
+        );
+
+        let cartDeleted = false;
+        if (userCart) {
+          await client.delete(userCart._id);
+          cartDeleted = true;
+          console.log(`Deleted cart ${userCart._id} for user ${input.clerkUserId}`);
+        }
+
+        // Delete all user addresses
+        const userAddresses = await client.fetch(
+          groq`*[_type == "address" && user._ref == $userId]`,
+          { userId: user._id }
+        );
+
+        for (const address of userAddresses) {
+          await client.delete(address._id);
+        }
+
+        // Finally delete the user
+        await client.delete(user._id);
+
+        return {
+          deleted: true,
+          deletedUserId: user._id,
+          cartDeleted,
+          addressesDeleted: userAddresses.length,
+        };
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete user",
+        });
+      }
+    }),
 
   deactivateUserWebhook: baseProcedure
     .input(

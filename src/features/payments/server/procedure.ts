@@ -85,6 +85,38 @@ export const paymentsRouter = createTRPCRouter({
     .input(getTransactionStatusSchema)
     .query(async ({ input, ctx }) => {
       try {
+        // Check if demo mode is enabled
+        const isDemoMode = process.env.DEMO_PAYMENTS_ENABLED === "true";
+        
+        if (isDemoMode) {
+          console.log("🎭 DEMO MODE: Getting transaction status", { orderTrackingId: input.order_tracking_id });
+          
+          // Use our demo payment API instead of real Pesapal
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL_PROD || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+          const response = await fetch(
+            `${baseUrl}/api/demo-payments?orderTrackingId=${input.order_tracking_id}`,
+            {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            console.error("🎭 DEMO MODE: Failed to get transaction status");
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Failed to get demo transaction status",
+            });
+          }
+
+          const result = await response.json();
+          console.log("🎭 DEMO MODE: Transaction status result", result);
+          return result;
+        }
+
+        // Original Pesapal API call for production
         const response = await fetch(
           `${process.env.PESAPAL_API_URL}/Transactions/GetTransactionStatus?orderTrackingId=${input.order_tracking_id}`,
           {

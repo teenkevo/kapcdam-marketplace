@@ -1,22 +1,39 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { format } from "date-fns";
-import { Loader2, CheckCircle, Clock, Package, Truck, MapPin } from "lucide-react";
+import { Loader2, CheckCircle, Clock, Package, Truck, MapPin, MoreHorizontal, X } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { OrderItem } from "../components/order-item";
 import { OrderDetailsViewSkeleton } from "../components/order-details-view-skeleton";
 import { RelatedProductsSection } from "@/features/products/ui/components/related-products-section";
+import { CustomerOrderCancelDialog } from "../components/customer-order-cancel-dialog";
 
 type Props = {
   orderId: string;
 };
 
 function getStatusConfig(status: string, paymentStatus: string) {
+  // Check for cancelled status FIRST - regardless of payment status
+  if (status === "CANCELLED_BY_USER" || status === "CANCELLED_BY_ADMIN") {
+    return {
+      color: "bg-red-100 text-red-800",
+      label: status === "CANCELLED_BY_USER" ? "Cancelled" : "Cancelled by Store",
+    };
+  }
+
   if (paymentStatus === "pending" || paymentStatus === "failed") {
     return {
       color:
@@ -28,40 +45,45 @@ function getStatusConfig(status: string, paymentStatus: string) {
   }
 
   switch (status) {
-    case "pending":
+    case "PENDING_PAYMENT":
       return {
         color: "bg-orange-100 text-orange-800",
-        label: "Pending",
+        label: "Waiting for Payment",
       };
-    case "confirmed":
+    case "FAILED_PAYMENT":
+      return {
+        color: "bg-red-100 text-red-800",
+        label: "Payment Failed",
+      };
+    case "PROCESSING":
       return {
         color: "bg-blue-100 text-blue-800",
-        label: "Confirmed",
+        label: "Order Confirmed",
       };
-    case "processing":
-      return {
-        color: "bg-blue-100 text-blue-800",
-        label: "Processing",
-      };
-    case "ready":
+    case "READY_FOR_DELIVERY":
       return {
         color: "bg-purple-100 text-purple-800",
-        label: "Ready",
+        label: "Ready for Pickup",
       };
-    case "shipped":
+    case "OUT_FOR_DELIVERY":
       return {
         color: "bg-indigo-100 text-indigo-800",
-        label: "Shipped",
+        label: "Out for Delivery",
       };
-    case "delivered":
+    case "DELIVERED":
       return {
         color: "bg-green-100 text-green-800",
         label: "Delivered",
       };
-    case "cancelled":
+    case "REFUND_PENDING":
       return {
-        color: "bg-red-100 text-red-800",
-        label: "Cancelled",
+        color: "bg-yellow-100 text-yellow-800",
+        label: "Refund Processing",
+      };
+    case "REFUNDED":
+      return {
+        color: "bg-green-100 text-green-800",
+        label: "Refunded",
       };
     default:
       return {
@@ -128,12 +150,26 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
     ];
   }
 
-  if (orderStatus === "cancelled") {
+  if (orderStatus === "CANCELLED_BY_USER" || orderStatus === "CANCELLED_BY_ADMIN") {
+    return null
+  }
+
+  if (orderStatus === "REFUND_PENDING") {
     return [
       {
         icon: Clock,
-        label: "Cancelled",
+        label: "Refund Processing",
         status: "current",
+      },
+    ];
+  }
+
+  if (orderStatus === "REFUNDED") {
+    return [
+      {
+        icon: CheckCircle,
+        label: "Refunded",
+        status: "completed",
       },
     ];
   }
@@ -145,25 +181,25 @@ function getTrackingSteps(paymentStatus: string, orderStatus: string, paymentMet
     }
 
     if (step.step === "preparing") {
-      if (["pending", "confirmed"].includes(orderStatus)) {
+      if (["PROCESSING"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
       } else if (
-        ["processing", "ready", "shipped", "delivered"].includes(orderStatus)
+        ["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)
       ) {
         return { ...step, status: "completed" as const };
       }
     }
 
     if (step.step === "shipped") {
-      if (["processing", "ready"].includes(orderStatus)) {
+      if (["READY_FOR_DELIVERY"].includes(orderStatus)) {
         return { ...step, status: "current" as const };
-      } else if (["shipped", "delivered"].includes(orderStatus)) {
+      } else if (["OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) {
         return { ...step, status: "completed" as const };
       }
     }
 
     if (step.step === "delivered") {
-      if (orderStatus === "delivered") {
+      if (orderStatus === "DELIVERED") {
         return { ...step, status: "completed" as const };
       }
     }
@@ -204,26 +240,26 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
 
     switch (step.step) {
       case "confirmed":
-        // For newly created COD orders, show "Order received" as CURRENT (not completed)
-        if (orderStatus === "confirmed") status = "current";
-        else if (["processing", "ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        // For PROCESSING orders, show "Order received" as COMPLETED so only preparing is current
+        if (orderStatus === "PROCESSING") status = "completed";
+        else if (["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) status = "completed";
         else status = "pending";
         break;
       case "preparing":
-        if (orderStatus === "processing") status = "current"; // Changed from "confirmed"
-        else if (["ready", "shipped", "delivered"].includes(orderStatus)) status = "completed";
+        if (orderStatus === "PROCESSING") status = "current";
+        else if (["READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(orderStatus)) status = "completed";
         else status = "pending";
         break;
       case "ready": // for pickup
-        if (orderStatus === "processing") status = "current";
-        else if (["ready", "delivered"].includes(orderStatus)) status = "completed";
+        if (orderStatus === "READY_FOR_DELIVERY") status = "current";
+        else if (["DELIVERED"].includes(orderStatus)) status = "completed";
         break;
       case "shipped": // for delivery
-        if (["processing", "ready"].includes(orderStatus)) status = "current";
-        else if (["shipped", "delivered"].includes(orderStatus)) status = "completed";
+        if (["OUT_FOR_DELIVERY"].includes(orderStatus)) status = "current";
+        else if (["DELIVERED"].includes(orderStatus)) status = "completed";
         break;
       case "delivered":
-        status = orderStatus === "delivered" ? "completed" : "pending";
+        status = orderStatus === "DELIVERED" ? "completed" : "pending";
         break;
     }
 
@@ -233,6 +269,8 @@ function getCODTrackingSteps(orderStatus: string, deliveryMethod: string) {
 
 export function OrderDetailsView({ orderId }: Props) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const {
     data: order,
@@ -262,8 +300,8 @@ export function OrderDetailsView({ orderId }: Props) {
   const trackingSteps = getTrackingSteps(order.paymentStatus, order.status, order.paymentMethod, order.deliveryMethod);
 
   // Order item action logic - match YourOrderCard exactly
-  const isDelivered = order.status === "delivered";
-  const canShowItemActions = order.status === "confirmed" || isDelivered;
+  const isDelivered = order.status === "DELIVERED";
+  const canShowItemActions = order.status === "PROCESSING" || isDelivered;
 
   // Extract product IDs for related products
   const productIds = order.orderItems
@@ -298,8 +336,38 @@ export function OrderDetailsView({ orderId }: Props) {
                 {format(new Date(order.orderDate), "d MMMM yyyy")}
               </span>
             </h1>
+            {/* Status Badge */}
+            <div className="mt-2">
+              <Badge
+                className={`${statusConfig.color} hover:bg-inherit pointer-events-none font-medium text-sm shadow-none`}
+              >
+                {statusConfig.label}
+              </Badge>
+            </div>
           </div>
         </div>
+        
+        {/* Order Actions Dropdown */}
+        {["PROCESSING", "READY_FOR_DELIVERY"].includes(order.status) && (
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setShowCancelDialog(true)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel Order
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
       <Card className="overflow-hidden border rounded-xl">
@@ -380,7 +448,7 @@ export function OrderDetailsView({ orderId }: Props) {
           </div>
 
           {/* Tracking Steps */}
-          {trackingSteps.length > 0 && (
+          {trackingSteps && trackingSteps.length > 0 && (
             <div className="mt-6 pt-4 border-t">
               <div className="flex items-center gap-6 flex-wrap">
                 {trackingSteps.map((step, index) => {
@@ -441,6 +509,20 @@ export function OrderDetailsView({ orderId }: Props) {
         }
         limit={4}
         className="px-0 pt-8"
+      />
+
+      {/* Customer Cancel Dialog */}
+      <CustomerOrderCancelDialog
+        orderId={order.orderId}
+        orderNumber={order.orderNumber}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onOrderCancelled={() => {
+          // Refresh the order data without a full reload
+          queryClient.invalidateQueries(
+            trpc.orders.getOrderById.queryOptions({ orderId })
+          );
+        }}
       />
     </div>
   );
